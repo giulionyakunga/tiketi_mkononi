@@ -10,10 +10,12 @@
         input, button { width: 100%; padding: 10px; margin-top: 5px; }
         button { background: #4285F4; color: white; border: none; cursor: pointer; }
         .hidden { display: none; }
+        #error { color: red; }
     </style>
 </head>
 <body>
-    <h1>Delete Your Tiketi Mkononi Account</h1>
+    <h1>Delete Your Account Tiketi Mkononi Account</h1>
+    <div id="error"></div>
     
     <!-- Step 1: Email Submission -->
     <div id="step1">
@@ -41,34 +43,54 @@
     </div>
 
     <script>
-        // Store email for verification
+        const BACKEND_URL = "http://telabs.co.tz:8085/send_delete_account_code"; // Replace with your endpoint
         let userEmail = "";
 
-        // Simulate sending a code (replace with Firebase/backend)
-        function sendVerificationCode() {
+        async function sendVerificationCode() {
             userEmail = document.getElementById("email").value;
-            
-            // TODO: Replace with actual email sending logic (Firebase/SendGrid/etc.)
-            console.log("Sending code to:", userEmail);
-            alert("A 6-digit code has been sent to your email."); 
+            document.getElementById("error").textContent = "";
 
-            // Show next step
-            document.getElementById("step1").classList.add("hidden");
-            document.getElementById("step2").classList.remove("hidden");
+            try {
+                const response = await fetch(BACKEND_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email: userEmail }),
+                });
+
+                if (!response.ok) {
+                    throw new Error("Failed to send code.");
+                }
+
+                // Show next step if email was sent successfully
+                document.getElementById("step1").classList.add("hidden");
+                document.getElementById("step2").classList.remove("hidden");
+            } catch (error) {
+                document.getElementById("error").textContent = "Error: " + error.message;
+            }
         }
 
-        // Simulate code verification
-        function verifyCode() {
+        async function verifyCode() {
             const code = document.getElementById("code").value;
             
-            // TODO: Replace with real verification (Firebase/backend check)
-            console.log("Verifying code:", code);
-            
-            // On success:
-            document.getElementById("step2").classList.add("hidden");
-            document.getElementById("success").classList.remove("hidden");
+            try {
+                const response = await fetch("http://telabs.co.tz:8085/verify_account_delete_code", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email: userEmail, code: code }),
+                });
 
-            // TODO: Trigger actual account deletion in your database
+                if (!response.ok) {
+                    throw new Error("Invalid code.");
+                }
+
+                // On successful verification, show confirmation
+                document.getElementById("step2").classList.add("hidden");
+                document.getElementById("success").classList.remove("hidden");
+
+                // TODO: Trigger actual account deletion in your backend
+            } catch (error) {
+                document.getElementById("error").textContent = "Error: " + error.message;
+            }
         }
     </script>
 </body>
