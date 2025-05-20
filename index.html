@@ -14,7 +14,7 @@
     </style>
 </head>
 <body>
-    <h1>Delete Your Account Tiketi Mkononi Account</h1>
+    <h1>Delete Your Tiketi Mkononi Account</h1>
     <div id="error"></div>
     
     <!-- Step 1: Email Submission -->
@@ -43,7 +43,7 @@
     </div>
 
     <script>
-        const BACKEND_URL = "http://telabs.co.tz:8085/send_delete_account_code"; // Replace with your endpoint
+        const BACKEND_URL = "http://telabs.co.tz:8085/api/login"; // Replace with your endpoint
         let userEmail = "";
 
         async function sendVerificationCode() {
@@ -59,12 +59,15 @@
 
                 if (!response.ok) {
                     throw new Error("Failed to send code.");
+                }else {
+                    console.log("not Okay");
                 }
 
                 // Show next step if email was sent successfully
                 document.getElementById("step1").classList.add("hidden");
                 document.getElementById("step2").classList.remove("hidden");
             } catch (error) {
+                console.log("An error occured")
                 document.getElementById("error").textContent = "Error: " + error.message;
             }
         }
