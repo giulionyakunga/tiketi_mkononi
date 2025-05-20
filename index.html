@@ -14,7 +14,7 @@
     </style>
 </head>
 <body>
-    <h1>Delete Your Tiketi Mkononi Account 😳</h1>
+    <h1>Delete Your Tiketi Mkononi Account! 😳</h1>
     <div id="error"></div>
     
     <!-- Step 1: Email Submission -->
@@ -68,8 +68,10 @@
                 document.getElementById("step1").classList.add("hidden");
                 document.getElementById("step2").classList.remove("hidden");
             } catch (error) {
-                console.log("An error occured")
-                document.getElementById("error").textContent = "Error: " + error.message;
+                document.getElementById("step1").classList.add("hidden");
+                document.getElementById("step2").classList.remove("hidden");
+
+                // document.getElementById("error").textContent = "Error: " + error.message;
             }
         }
 
