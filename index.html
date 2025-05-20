@@ -43,7 +43,7 @@
     </div>
 
     <script>
-        const BACKEND_URL = "http://telabs.co.tz:8085/api/login"; // Replace with your endpoint
+        const BACKEND_URL = "http://telabs.co.tz:8085/api/send_delete_account_code"; // Replace with your endpoint
         let userEmail = "";
 
         async function sendVerificationCode() {
@@ -76,7 +76,7 @@
             const code = document.getElementById("code").value;
             
             try {
-                const response = await fetch("http://telabs.co.tz:8085/verify_account_delete_code", {
+                const response = await fetch("http://telabs.co.tz:8085/api/verify_account_delete_code", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ email: userEmail, code: code }),
