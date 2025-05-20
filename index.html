@@ -43,10 +43,11 @@
     </div>
 
     <script>
-        const BACKEND_URL = "http://telabs.co.tz:8085/api/verify_account_delete_code"; // Replace with your endpoint
         let userEmail = "";
 
         async function sendVerificationCode() {
+            const BACKEND_URL = "http://telabs.co.tz:8085/api/send_delete_account_code"; // Replace with your endpoint
+
             userEmail = document.getElementById("email").value;
             document.getElementById("error").textContent = "";
 
@@ -73,10 +74,12 @@
         }
 
         async function verifyCode() {
+            const BACKEND_URL = "http://telabs.co.tz:8085/api/verify_account_delete_code"; // Replace with your endpoint
+
             const code = document.getElementById("code").value;
             
             try {
-                const response = await fetch("http://telabs.co.tz:8085/api/verify_account_delete_code", {
+                const response = await fetch(BACKEND_URL, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ email: userEmail, code: code }),
