@@ -1,0 +1,29 @@
+<Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="onNavigatingTo" class="page">
+    <ActionBar title="Home" class="action-bar" />
+    <ScrollView>
+        <StackLayout class="p-4">
+            <!-- Search Bar -->
+            <SearchBar hint="Search events..." class="mb-4" />
+            
+            <!-- Featured Events -->
+            <Label text="Featured Events" class="text-xl font-bold mb-2" />
+            <ListView items="{{ featuredEvents }}" height="200" class="mb-4">
+                <ListView.itemTemplate>
+                    <StackLayout class="card">
+                        <Label text="{{ name }}" class="text-lg font-semibold" />
+                        <Label text="{{ date }}" class="text-gray-600" />
+                        <Label text="{{ price }}" class="text-blue-500 font-bold" />
+                    </StackLayout>
+                </ListView.itemTemplate>
+            </ListView>
+
+            <!-- Categories -->
+            <Label text="Categories" class="text-xl font-bold mb-2" />
+            <WrapLayout>
+                <StackLayout tap="{{ onCategoryTap }}" class="card w-[45%]" repeat="category in categories">
+                    <Label text="{{ category.name }}" class="text-center" />
+                </StackLayout>
+            </WrapLayout>
+        </StackLayout>
+    </ScrollView>
+</Page>

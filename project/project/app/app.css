@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.tab-item {
+  @apply text-center;
+}
+
+.active-tab {
+  @apply text-blue-500;
+}
+
+.page {
+  @apply bg-gray-100;
+}
+
+.action-bar {
+  @apply bg-white border-b border-gray-200;
+}
+
+.card {
+  @apply bg-white rounded-lg shadow-md p-4 m-2;
+}

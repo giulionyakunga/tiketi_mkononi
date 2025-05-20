@@ -1,0 +1,79 @@
+{
+    "appTitle": "Programu ya Tiketi",
+    "@appTitle": {
+        "description": "The title of the application"
+    },
+    "home": "Nyumbani",
+    "@home": {
+        "description": "Home tab title"
+    },
+    "events": "Matukio",
+    "@events": {
+        "description": "Events tab title"
+    },
+    "myTickets": "Tiketi Zangu",
+    "@myTickets": {
+        "description": "My Tickets tab title"
+    },
+    "profile": "Wasifu",
+    "@profile": {
+        "description": "Profile tab title"
+    },
+    "searchEvents": "Tafuta matukio...",
+    "@searchEvents": {
+        "description": "Search bar hint text"
+    },
+    "featuredEvents": "Matukio Maalum",
+    "@featuredEvents": {
+        "description": "Featured events section title"
+    },
+    "categories": "Kategoria",
+    "@categories": {
+        "description": "Categories section title"
+    },
+    "buyTickets": "Nunua Tiketi",
+    "@buyTickets": {
+        "description": "Buy tickets button text"
+    },
+    "ticketsSold": "Tiketi {count} zimeuzwa",
+    "@ticketsSold": {
+        "description": "Number of tickets sold",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "eventDetails": "Maelezo ya Tukio",
+    "@eventDetails": {
+        "description": "Event details section title"
+    },
+    "language": "Lugha",
+    "@language": {
+        "description": "Language settings title"
+    },
+    "editProfile": "Hariri Wasifu",
+    "@editProfile": {
+        "description": "Edit profile button text"
+    },
+    "logout": "Toka",
+    "@logout": {
+        "description": "Logout button text"
+    },
+    "settings": "Mipangilio",
+    "@settings": {
+        "description": "Settings title"
+    },
+    "qrScanner": "Skana Msimbo wa QR",
+    "@qrScanner": {
+        "description": "QR Scanner title"
+    },
+    "scanQrCode": "Skana Msimbo wa QR",
+    "@scanQrCode": {
+        "description": "Scan QR code instruction"
+    },
+    "alignQrCode": "Weka msimbo wa QR ndani ya fremu",
+    "@alignQrCode": {
+        "description": "QR code alignment instruction"
+    }
+}

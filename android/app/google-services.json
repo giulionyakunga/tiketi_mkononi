@@ -1,0 +1,57 @@
+{
+  "project_info": {
+    "project_number": "156826140312",
+    "project_id": "tiketi-mkononi",
+    "storage_bucket": "tiketi-mkononi.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:156826140312:android:a8f27d0b2ddcedb6235aed",
+        "android_client_info": {
+          "package_name": "com.example.tiketi_mkononi"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "156826140312-hsoqc5n87h7aaqvh2841qlddebipics1.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.tiketi_mkononi",
+            "certificate_hash": "3cd89c2419ea6541b284f5d452654701adbb76c5"
+          }
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC2hS_HCam8dRSCKIVDsUvwSR1ovyxTY0I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:156826140312:android:9dfc4e402e975486235aed",
+        "android_client_info": {
+          "package_name": "com.telabs.tiketi_mkononi"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC2hS_HCam8dRSCKIVDsUvwSR1ovyxTY0I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

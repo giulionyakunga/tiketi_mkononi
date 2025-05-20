@@ -1,0 +1,14 @@
+<TabView androidTabsPosition="bottom">
+    <TabViewItem title="Home" iconSource="res://home">
+        <Frame defaultPage="pages/home/home-page" />
+    </TabViewItem>
+    <TabViewItem title="Events" iconSource="res://events">
+        <Frame defaultPage="pages/events/events-page" />
+    </TabViewItem>
+    <TabViewItem title="My Tickets" iconSource="res://ticket">
+        <Frame defaultPage="pages/tickets/tickets-page" />
+    </TabViewItem>
+    <TabViewItem title="Profile" iconSource="res://profile">
+        <Frame defaultPage="pages/profile/profile-page" />
+    </TabViewItem>
+</TabView>

@@ -1,0 +1,79 @@
+{
+    "appTitle": "Ticket App",
+    "@appTitle": {
+        "description": "The title of the application"
+    },
+    "home": "Home",
+    "@home": {
+        "description": "Home tab title"
+    },
+    "events": "Events",
+    "@events": {
+        "description": "Events tab title"
+    },
+    "myTickets": "My Tickets",
+    "@myTickets": {
+        "description": "My Tickets tab title"
+    },
+    "profile": "Profile",
+    "@profile": {
+        "description": "Profile tab title"
+    },
+    "searchEvents": "Search events...",
+    "@searchEvents": {
+        "description": "Search bar hint text"
+    },
+    "featuredEvents": "Featured Events",
+    "@featuredEvents": {
+        "description": "Featured events section title"
+    },
+    "categories": "Categories",
+    "@categories": {
+        "description": "Categories section title"
+    },
+    "buyTickets": "Buy Tickets",
+    "@buyTickets": {
+        "description": "Buy tickets button text"
+    },
+    "ticketsSold": "{count} tickets sold",
+    "@ticketsSold": {
+        "description": "Number of tickets sold",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "eventDetails": "Event Details",
+    "@eventDetails": {
+        "description": "Event details section title"
+    },
+    "language": "Language",
+    "@language": {
+        "description": "Language settings title"
+    },
+    "editProfile": "Edit Profile",
+    "@editProfile": {
+        "description": "Edit profile button text"
+    },
+    "logout": "Logout",
+    "@logout": {
+        "description": "Logout button text"
+    },
+    "settings": "Settings",
+    "@settings": {
+        "description": "Settings title"
+    },
+    "qrScanner": "QR Code Scanner",
+    "@qrScanner": {
+        "description": "QR Scanner title"
+    },
+    "scanQrCode": "Scan QR Code",
+    "@scanQrCode": {
+        "description": "Scan QR code instruction"
+    },
+    "alignQrCode": "Align QR code within the frame",
+    "@alignQrCode": {
+        "description": "QR code alignment instruction"
+    }
+}

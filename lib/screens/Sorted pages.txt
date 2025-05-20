@@ -1,0 +1,18 @@
+Sorted pages:
+
+home_page.dart
+events_page.dart
+ApplyToBeOrganizerPage
+category_events_page
+checkout_page
+confirm_page
+edit_event_page
+event_details_page
+event_tickets_page
+help_support_page
+language_settings_page
+OnboardingScreen
+organizer_requests_page
+post_event_page
+profile_page
+qr_scanner_page
