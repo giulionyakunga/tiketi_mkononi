@@ -15,7 +15,6 @@ class TicketType2 {
   String name;
   double price;
   int numberOfTickets;
-  String ticketInformation;
   int soldTickets;
   bool isCustom;
 
@@ -24,7 +23,6 @@ class TicketType2 {
     required this.name,
     required this.price,
     required this.numberOfTickets,
-    required this.ticketInformation,
     required this.soldTickets,
     required this.isCustom,
   });
@@ -116,7 +114,6 @@ class _EditEventPageState extends State<EditEventPage> {
         name: 'Regular',
         price: 0,
         numberOfTickets: 0,
-        ticketInformation: "",
         soldTickets: 0,
         isCustom: false,
       ));
@@ -131,7 +128,6 @@ class _EditEventPageState extends State<EditEventPage> {
           name: ticketType.name,
           price: ticketType.price,
           numberOfTickets: ticketType.numberOfTickets,
-          ticketInformation: ticketType.ticketInformation,
           soldTickets: ticketType.soldTickets,
           isCustom: ticketType.isCustom,
         ));
@@ -420,7 +416,6 @@ class _EditEventPageState extends State<EditEventPage> {
                 'name': ticket.name,
                 'price': ticket.price,
                 'number_of_tickets': ticket.numberOfTickets,
-                'ticket_information': ticket.ticketInformation,
                 'is_custom': ticket.isCustom,
               })
           .toList(),
@@ -598,8 +593,7 @@ class _EditEventPageState extends State<EditEventPage> {
               builder: (context, constraints) {
                 if (constraints.maxWidth < 600) {
                   // Mobile layout
-                  return 
-                  Column(
+                  return Column(
                     children: [
                       _ticketTypes[index].isCustom
                           ? TextFormField(
@@ -649,313 +643,181 @@ class _EditEventPageState extends State<EditEventPage> {
                               },
                             ),
                       const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            flex: 1, // Gives more space to the price field
-                            child: TextFormField(
-                              initialValue: _isPaidEvent
-                                  ? _ticketTypes[index].price.toString()
-                                  : "0",
-                              decoration: InputDecoration(
-                                labelText: 'Price',
-                                prefixText: 'TSH ',
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                filled: true,
-                                fillColor: Colors.grey[200],
-                                contentPadding: const EdgeInsets.symmetric(
-                                  vertical: 8,
-                                  horizontal: 8,
-                                ),
-                              ),
-                              keyboardType: TextInputType.number,
-                              style: const TextStyle(fontSize: 14.0),
-                              enabled: _isPaidEvent,
-                              onChanged: (value) {
-                                setState(() {
-                                  _ticketTypes[index].price =
-                                      double.tryParse(value) ?? 0;
-                                });
-                              },
-                            ),
+                      TextFormField(
+                        initialValue: _isPaidEvent
+                            ? _ticketTypes[index].price.toString()
+                            : "0",
+                        decoration: InputDecoration(
+                          labelText: 'Price',
+                          prefixText: 'TSH ',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                          const SizedBox(width: 8), // Add some spacing between the fields
-                          Expanded(
-                            flex: 1, // Gives less space to the number field
-                            child: TextFormField(
-                              initialValue:
-                                  _ticketTypes[index].numberOfTickets.toString(),
-                              decoration: InputDecoration(
-                                labelText: 'Number',
-                                border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10)),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide(
-                                      color: Colors.orange[800]!, width: 2),
-                                ),
-                                filled: true,
-                                fillColor: Colors.grey[200],
-                                contentPadding: const EdgeInsets.symmetric(
-                                    vertical: 8, horizontal: 8),
-                              ),
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                              style: const TextStyle(fontSize: 14.0),
-                              onChanged: (value) {
-                                setState(() {
-                                  _ticketTypes[index].numberOfTickets =
-                                      int.tryParse(value) ?? 0;
-                                });
-                              },
-                            ),
+                          filled: true,
+                          fillColor: Colors.grey[200],
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 8,
+                            horizontal: 8,
                           ),
-                        ],
+                        ),
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(fontSize: 14.0),
+                        enabled: _isPaidEvent,
+                        onChanged: (value) {
+                          setState(() {
+                            _ticketTypes[index].price =
+                                double.tryParse(value) ?? 0;
+                          });
+                        },
                       ),
                       const SizedBox(height: 8),
                       TextFormField(
-                        initialValue: _ticketTypes[index].ticketInformation,
-                        maxLength: 250, // Added max length limit
+                        initialValue:
+                            _ticketTypes[index].numberOfTickets.toString(),
                         decoration: InputDecoration(
-                          labelText: 'Ticket Information',
-                          labelStyle: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 14,
-                          ),
-                          hintText: 'Enter icket information...', // Optional hint text
-                          hintStyle: TextStyle(
-                            color: Colors.grey[500], // Lighter color for hint text
-                          ),
+                          labelText: 'Number',
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8), // Rounded corners
-                            borderSide: BorderSide(
-                              color: Colors.grey[400]!, // Light border color
-                              width: 1.5,
-                            ),
-                          ),
+                              borderRadius: BorderRadius.circular(10)),
                           focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(10),
                             borderSide: BorderSide(
-                              color: Colors.orange[800]!, // Border color on focus
-                              width: 2,
-                            ),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(
-                              color: Colors.grey[400]!, // Default border color
-                              width: 1.5,
-                            ),
+                                color: Colors.orange[800]!, width: 2),
                           ),
                           filled: true,
-                          fillColor: Colors.grey[200], // Light background color
-                          contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12), // Padding for the content
+                          fillColor: Colors.grey[200],
+                          contentPadding: const EdgeInsets.symmetric(
+                              vertical: 8, horizontal: 8),
                         ),
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        style: const TextStyle(fontSize: 14.0),
                         onChanged: (value) {
                           setState(() {
-                            _ticketTypes[index].ticketInformation = value;
+                            _ticketTypes[index].numberOfTickets =
+                                int.tryParse(value) ?? 0;
                           });
-                        },
-                        maxLines: 3,
-                        style: const TextStyle(
-                          fontSize: 16, // Input text font size
-                          color: Colors.black, // Input text color
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Please enter ticket information';
-                          }
-                          if (value.length > 250) {
-                            return 'Ticket information must be 250 characters or less';
-                          }
-                          return null;
                         },
                       ),
                     ],
                   );
                 } else {
                   // Tablet/Desktop layout
-                  return Column(
+                  return Row(
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: _ticketTypes[index].isCustom
-                                ? TextFormField(
-                                    initialValue: _ticketTypes[index].name,
-                                    decoration: InputDecoration(
-                                      labelText: 'Custom Ticket Type',
-                                      border: const OutlineInputBorder(),
-                                      filled: true,
-                                      fillColor: Colors.grey[200],
-                                    ),
-                                    style: const TextStyle(fontSize: 14.0),
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _ticketTypes[index].name = value;
-                                      });
-                                    },
-                                  )
-                                : DropdownButtonFormField<String>(
-                                    value: _ticketTypes[index].name,
-                                    decoration: InputDecoration(
-                                      labelText: 'Ticket Type',
-                                      border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(10)),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                        borderSide: BorderSide(
-                                            color: Colors.orange[800]!, width: 2),
-                                      ),
-                                      filled: true,
-                                      fillColor: Colors.grey[200],
-                                      contentPadding: const EdgeInsets.symmetric(
-                                          vertical: 8, horizontal: 8),
-                                    ),
-                                    items: _predefinedTicketTypes
-                                        .map((type) => DropdownMenuItem(
-                                              value: type,
-                                              child: Text(
-                                                type,
-                                                style:
-                                                    const TextStyle(fontSize: 14.0),
-                                              ),
-                                            ))
-                                        .toList(),
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _ticketTypes[index].name = value!;
-                                      });
-                                    },
+                      Expanded(
+                        flex: 2,
+                        child: _ticketTypes[index].isCustom
+                            ? TextFormField(
+                                initialValue: _ticketTypes[index].name,
+                                decoration: InputDecoration(
+                                  labelText: 'Custom Ticket Type',
+                                  border: const OutlineInputBorder(),
+                                  filled: true,
+                                  fillColor: Colors.grey[200],
+                                ),
+                                style: const TextStyle(fontSize: 14.0),
+                                onChanged: (value) {
+                                  setState(() {
+                                    _ticketTypes[index].name = value;
+                                  });
+                                },
+                              )
+                            : DropdownButtonFormField<String>(
+                                value: _ticketTypes[index].name,
+                                decoration: InputDecoration(
+                                  labelText: 'Ticket Type',
+                                  border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10)),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: BorderSide(
+                                        color: Colors.orange[800]!, width: 2),
                                   ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: TextFormField(
-                              initialValue: _isPaidEvent
-                                  ? _ticketTypes[index].price.toString()
-                                  : "0",
-                              decoration: InputDecoration(
-                                labelText: 'Price',
-                                prefixText: 'TSH ',
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                                  filled: true,
+                                  fillColor: Colors.grey[200],
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      vertical: 8, horizontal: 8),
                                 ),
-                                filled: true,
-                                fillColor: Colors.grey[200],
-                                contentPadding: const EdgeInsets.symmetric(
-                                  vertical: 8,
-                                  horizontal: 8,
-                                ),
+                                items: _predefinedTicketTypes
+                                    .map((type) => DropdownMenuItem(
+                                          value: type,
+                                          child: Text(
+                                            type,
+                                            style:
+                                                const TextStyle(fontSize: 14.0),
+                                          ),
+                                        ))
+                                    .toList(),
+                                onChanged: (value) {
+                                  setState(() {
+                                    _ticketTypes[index].name = value!;
+                                  });
+                                },
                               ),
-                              keyboardType: TextInputType.number,
-                              style: const TextStyle(fontSize: 14.0),
-                              enabled: _isPaidEvent,
-                              onChanged: (value) {
-                                setState(() {
-                                  _ticketTypes[index].price =
-                                      double.tryParse(value) ?? 0;
-                                });
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: TextFormField(
-                              initialValue:
-                                  _ticketTypes[index].numberOfTickets.toString(),
-                              decoration: InputDecoration(
-                                labelText: 'Number',
-                                border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10)),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide(
-                                      color: Colors.orange[800]!, width: 2),
-                                ),
-                                filled: true,
-                                fillColor: Colors.grey[200],
-                                contentPadding: const EdgeInsets.symmetric(
-                                    vertical: 8, horizontal: 8),
-                              ),
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly
-                              ],
-                              style: const TextStyle(fontSize: 14.0),
-                              onChanged: (value) {
-                                setState(() {
-                                  _ticketTypes[index].numberOfTickets =
-                                      int.tryParse(value) ?? 0;
-                                });
-                              },
-                            ),
-                          ),
-                        ],
                       ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        initialValue: _ticketTypes[index].ticketInformation,
-                        maxLength: 250, // Added max length limit
-                        decoration: InputDecoration(
-                          labelText: 'Ticket Information',
-                          labelStyle: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 14,
-                          ),
-                          hintText: 'Enter icket information...', // Optional hint text
-                          hintStyle: TextStyle(
-                            color: Colors.grey[500], // Lighter color for hint text
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8), // Rounded corners
-                            borderSide: BorderSide(
-                              color: Colors.grey[400]!, // Light border color
-                              width: 1.5,
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextFormField(
+                          initialValue: _isPaidEvent
+                              ? _ticketTypes[index].price.toString()
+                              : "0",
+                          decoration: InputDecoration(
+                            labelText: 'Price',
+                            prefixText: 'TSH ',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[200],
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 8,
+                              horizontal: 8,
                             ),
                           ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(
-                              color: Colors.orange[800]!, // Border color on focus
-                              width: 2,
-                            ),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(
-                              color: Colors.grey[400]!, // Default border color
-                              width: 1.5,
-                            ),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey[200], // Light background color
-                          contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12), // Padding for the content
+                          keyboardType: TextInputType.number,
+                          style: const TextStyle(fontSize: 14.0),
+                          enabled: _isPaidEvent,
+                          onChanged: (value) {
+                            setState(() {
+                              _ticketTypes[index].price =
+                                  double.tryParse(value) ?? 0;
+                            });
+                          },
                         ),
-                        onChanged: (value) {
-                          setState(() {
-                            _ticketTypes[index].ticketInformation = value;
-                          });
-                        },
-                        maxLines: 3,
-                        style: const TextStyle(
-                          fontSize: 16, // Input text font size
-                          color: Colors.black, // Input text color
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Please enter ticket information';
-                          }
-                          if (value.length > 250) {
-                            return 'Ticket information must be 250 characters or less';
-                          }
-                          return null;
-                        },
                       ),
-                    ]
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextFormField(
+                          initialValue:
+                              _ticketTypes[index].numberOfTickets.toString(),
+                          decoration: InputDecoration(
+                            labelText: 'Number',
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(
+                                  color: Colors.orange[800]!, width: 2),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[200],
+                            contentPadding: const EdgeInsets.symmetric(
+                                vertical: 8, horizontal: 8),
+                          ),
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly
+                          ],
+                          style: const TextStyle(fontSize: 14.0),
+                          onChanged: (value) {
+                            setState(() {
+                              _ticketTypes[index].numberOfTickets =
+                                  int.tryParse(value) ?? 0;
+                            });
+                          },
+                        ),
+                      ),
+                    ],
                   );
                 }
               },
@@ -1523,7 +1385,7 @@ class _EditEventPageState extends State<EditEventPage> {
                   fillColor: Colors.grey[200], // Light background color
                   contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12), // Padding for the content
                 ),
-                maxLines: 4,
+                maxLines: 3,
                 style: const TextStyle(
                   fontSize: 16, // Input text font size
                   color: Colors.black, // Input text color
@@ -1533,7 +1395,7 @@ class _EditEventPageState extends State<EditEventPage> {
                     return 'Please enter description';
                   }
                   if (value.length > 1000) {
-                    return 'Description must be 1000 characters or less';
+                    return 'Description must be 500 characters or less';
                   }
                   return null;
                 },

@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tiketi_mkononi/screens/app_info_updates_page.dart';
 import 'package:tiketi_mkononi/screens/apply_to_be_organizer_page.dart';
 import 'package:tiketi_mkononi/screens/edit_profile_page.dart';
 import 'package:tiketi_mkononi/screens/help_support_page.dart';
 import 'package:tiketi_mkononi/screens/language_settings_page.dart';
+import 'package:tiketi_mkononi/screens/notifications_page.dart';
 import 'package:tiketi_mkononi/screens/organizer_requests_page.dart';
+import 'package:tiketi_mkononi/screens/privacy_security_page.dart';
 import 'package:tiketi_mkononi/screens/qr_scanner_page.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
 
@@ -132,25 +135,27 @@ class _ProfilePageState extends State<ProfilePage> {
           : Column(
               children: [
                 _buildProfileAvatar(),
-                const SizedBox(height: 16),
+                const SizedBox(height: 6),
                 Text(
                   '${_firstNameController.text} ${_lastNameController.text}',
                   style: const TextStyle(
-                    fontSize: 20,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
+                  textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
-                  _emailController.text,
+                  '${_emailController.text}',
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.white.withOpacity(0.9),
                   ),
+                  textAlign: TextAlign.center,
                 ),
                 if (role.isNotEmpty) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 4),
                   Chip(
                     label: Text(
                       role.toUpperCase(),
@@ -236,8 +241,13 @@ class _ProfilePageState extends State<ProfilePage> {
         icon: Icons.notifications,
         iconColor: Colors.purple,
         title: 'Notifications',
-        onTap: () {
-          // TODO: Implement notifications
+        onTap: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const NotificationsPage(),
+            ),
+          );
         },
       ),
       _buildActionTile(
@@ -245,8 +255,13 @@ class _ProfilePageState extends State<ProfilePage> {
         icon: Icons.security,
         iconColor: Colors.teal,
         title: 'Privacy & Security',
-        onTap: () {
-          // TODO: Implement privacy
+        onTap: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const PrivacySecurityPage(),
+            ),
+          );
         },
       ),
       _buildActionTile(
@@ -262,6 +277,20 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           );
           _loadUserProfile();
+        },
+      ),
+      _buildActionTile(
+        context,
+        icon: Icons.update,
+        iconColor: Colors.blue,
+        title: 'App Info & Updates',
+        onTap: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const AppInfoUpdatesPage(),
+            ),
+          );
         },
       ),
     ];
@@ -395,7 +424,7 @@ class _ProfilePageState extends State<ProfilePage> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => QRScannerPage(userId: userId),
+                builder: (context) => QRScannerPage(userId: userId, eventId: 0),
               ),
             );
           },

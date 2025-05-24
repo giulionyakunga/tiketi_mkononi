@@ -15,17 +15,13 @@ class EventsPage extends StatefulWidget {
 
   @override
   State<EventsPage> createState() => _EventsPageState();
+
 }
 
 class _EventsPageState extends State<EventsPage> {
   String? _selectedCategory;
   int userId = 0;
-  int numberOfActiveEvents = 0;
   String userRole = "";
-  String _searchQuery = '';
-  final TextEditingController _searchController = TextEditingController();
-  List<Event> fetchedEvents = [];
-  bool _isSearchBarVisible = false;
 
   final List<String> _categories = [
     'All',
@@ -49,19 +45,14 @@ class _EventsPageState extends State<EventsPage> {
   @override
   void initState() {
     super.initState();
-    _init();
-  }
-
-  void _onSearchChanged() {
-    setState(() {
-      _searchQuery = _searchController.text;
-    });
-    _pagingController.itemList = _filterEvents(fetchedEvents);
+    _init(); // Call the async method
   }
 
   Future<void> _init() async {
     await _initializeServices();
     await _loadCachedEvents();
+
+    // Add the listener only after everything is ready
     _pagingController.addPageRequestListener((pageKey) {
       _fetchPage(pageKey);
     });
@@ -88,6 +79,9 @@ class _EventsPageState extends State<EventsPage> {
     if (!mounted) return;
 
     try {
+      // Get fresh first page data
+      // final url = Uri.parse('${backend_url}api/events/$userId?page=$pageKey&limit=$_pageSize');
+
       final url = Uri.parse('${backend_url}api/events/$userId?page=1&limit=$_pageSize');
       final response = await http.get(url);
 
@@ -95,14 +89,21 @@ class _EventsPageState extends State<EventsPage> {
         final List<dynamic> jsonList = jsonDecode(response.body);
         final newItems = jsonList.map((json) => Event.fromJson(json)).toList();
         List<Event> filteredItems = _filterEvents(newItems);
-        setState(() {
-          fetchedEvents = newItems;
-        });
 
+        // Update current list silently
         _pagingController.itemList = filteredItems;
 
+        // Cache the latest first page
         SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setString('cached_events', jsonEncode(jsonList));
+
+        // Show snackbar optionally
+        // ScaffoldMessenger.of(context).showSnackBar(
+        //   const SnackBar(
+        //     content: Text('New event(s) available!'),
+        //     duration: Duration(seconds: 2),
+        //   ),
+        // );
       } else {
         debugPrint('Failed to load events silently');
       }
@@ -124,10 +125,11 @@ class _EventsPageState extends State<EventsPage> {
         userId = profile.id;
         userRole = profile.role;
       });
-      _pagingController.refresh();
+      _pagingController.refresh(); // trigger load
     }
   }
 
+  /// Load stored events from SharedPreferences
   Future<void> _loadCachedEvents() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? cachedData = prefs.getString('cached_events');
@@ -135,17 +137,21 @@ class _EventsPageState extends State<EventsPage> {
     if (cachedData != null) {
       final List<dynamic> jsonList = jsonDecode(cachedData);
       final cachedEvents = jsonList.map((json) => Event.fromJson(json)).toList();
+
+      // Apply filter to cached events
       List<Event> filteredCached = _filterEvents(cachedEvents);
-      setState(() {
-        fetchedEvents = cachedEvents;
-      });
 
       final isLastPage = filteredCached.length < _pageSize;
       if (isLastPage) {
         _pagingController.appendLastPage(filteredCached);
       } else {
         final firstPage = filteredCached.take(_pageSize).toList();
+        // final remaining = filteredCached.skip(_pageSize).toList();
+
         _pagingController.appendPage(firstPage, 2);
+
+        // Optionally preload remaining items in memory
+        // You could store them in a list to use in subsequent pages
       }
     }
   }
@@ -159,12 +165,12 @@ class _EventsPageState extends State<EventsPage> {
         final List<dynamic> jsonList = jsonDecode(response.body);
         final newItems = jsonList.map((json) => Event.fromJson(json)).toList();
         List<Event> filteredItems = _filterEvents(newItems);
-        setState(() {
-          fetchedEvents = newItems;
-        });
 
         if (pageKey == 1) {
+          // 👇 Clear old cached data before adding fresh page 1
           _pagingController.itemList = [];
+
+          // Cache the latest first page
           SharedPreferences prefs = await SharedPreferences.getInstance();
           await prefs.setString('cached_events', jsonEncode(jsonList));
         }
@@ -185,127 +191,36 @@ class _EventsPageState extends State<EventsPage> {
   }
 
   List<Event> _filterEvents(List<Event> events) {
-    List<Event> filtered = events;
-    
-    // Apply category filter
-    if (_selectedCategory != null && _selectedCategory != 'All') {
-      filtered = _selectedCategory == 'My Events'
-          ? filtered.where((event) => event.userId == userId).toList()
-          : filtered.where((event) => event.category == _selectedCategory).toList();
+    if (_selectedCategory == null || _selectedCategory == 'All') {
+      return events;
+    } else if (_selectedCategory == 'My Events') {
+      return events.where((event) => event.userId == userId).toList();
+    } else {
+      return events.where((event) => event.category == _selectedCategory).toList();
     }
-    
-    // Apply search filter
-    if (_searchQuery.isNotEmpty) {
-      filtered = filtered.where((event) => 
-          event.name.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
-    }
-    
-    setState(() {
-      numberOfActiveEvents = filtered.where((event) => event.status == "active").length;
-    });
-    return filtered;
   }
 
   @override
   void dispose() {
     _webSocketService.disconnect();
     _pagingController.dispose();
-    _searchController.dispose();
     super.dispose();
-  }
-
-  Widget _buildSearchBar(bool isDarkMode) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(15),
-        color: isDarkMode
-            ? Colors.black.withOpacity(0.3)
-            : Colors.white.withOpacity(0.8),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            spreadRadius: 2,
-          ),
-        ],
-        border: Border.all(
-          color: isDarkMode
-              ? Colors.white.withOpacity(0.2)
-              : Colors.grey.withOpacity(0.3),
-        ),
-      ),
-      child: SearchBar(
-        controller: _searchController,
-        hintText: 'Search events...',
-        hintStyle: MaterialStateTextStyle.resolveWith(
-          (states) => TextStyle(
-            color: isDarkMode ? Colors.white70 : Colors.grey[600],
-          ),
-        ),
-        backgroundColor: MaterialStateProperty.all(
-          isDarkMode ? Colors.transparent : Colors.white.withOpacity(0.7),
-        ),
-        elevation: MaterialStateProperty.all(0),
-        side: MaterialStateProperty.all(BorderSide.none),
-        shape: MaterialStateProperty.all(
-          RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
-          ),
-        ),
-        padding: MaterialStateProperty.all(
-          const EdgeInsets.symmetric(horizontal: 16),
-        ),
-        leading: Icon(
-          Icons.search,
-          color: isDarkMode ? Colors.white70 : Colors.orange[800],
-        ),
-        trailing: [
-          if (_searchQuery.isNotEmpty)
-            IconButton(
-              icon: Icon(
-                Icons.close,
-                color: isDarkMode ? Colors.white70 : Colors.orange[800],
-              ),
-              onPressed: () {
-                _searchController.clear();
-                _onSearchChanged();
-              },
-            ),
-        ],
-        onChanged: (value) => _onSearchChanged(),
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    
     return Scaffold(
       appBar: AppBar(
-        title: Text('Events($numberOfActiveEvents)'),
+        title: const Text('Events'),
         backgroundColor: const Color.fromARGB(255, 240, 244, 247),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            color: isDarkMode ? Colors.white70 : Colors.orange[800],
-            onPressed: () {
-              setState(() {
-                _isSearchBarVisible = !_isSearchBarVisible;
-                _searchController.clear();
-                _onSearchChanged();
-              });
-            },
-          ),
-
           PopupMenuButton<String>(
-            icon: Icon(Icons.filter_list, color: Colors.orange[800]),
+            icon: Icon(Icons.filter_list, color: Colors.orange[800],),
             onSelected: (String category) {
               setState(() {
                 _selectedCategory = category == 'All' ? null : category;
               });
-              _pagingController.itemList = _filterEvents(fetchedEvents);
+              _pagingController.refresh();
             },
             itemBuilder: (BuildContext context) {
               return _categories.map((String category) {
@@ -326,48 +241,35 @@ class _EventsPageState extends State<EventsPage> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: _isSearchBarVisible ? _buildSearchBar(isDarkMode) : Text(""),
-          ),
-          Expanded(
-            child: PagedListView<int, Event>(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              pagingController: _pagingController,
-              builderDelegate: PagedChildBuilderDelegate<Event>(
-                itemBuilder: (context, event, index) {
-                  return EventCard(
-                    event: event, 
-                    userId: userId, 
-                    refreshMethod: _handleWebSocketUpdate
-                  );
+      body: PagedListView<int, Event>(
+        padding: const EdgeInsets.all(16.0),
+        pagingController: _pagingController,
+        builderDelegate: PagedChildBuilderDelegate<Event>(
+          itemBuilder: (context, event, index) {
+            return EventCard(event: event, userId: userId, refreshMethod: _handleWebSocketUpdate);
+          },
+          noItemsFoundIndicatorBuilder: (_) =>
+              const Center(child: Text('No events found')),
+          firstPageErrorIndicatorBuilder: (_) => Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text('Error loading events'),
+              ElevatedButton(
+                // onPressed: () => _pagingController.refresh(),
+                onPressed: () => {
+                  _fetchPage(1),
+                  _pagingController.refresh()
                 },
-                noItemsFoundIndicatorBuilder: (_) =>
-                    const Center(child: Text('No events found')),
-                firstPageErrorIndicatorBuilder: (_) => Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text('Error loading events'),
-                    ElevatedButton(
-                      onPressed: () {
-                        _fetchPage(1);
-                        _pagingController.refresh();
-                      },
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
-                newPageErrorIndicatorBuilder: (_) => const Center(
-                  child: Text('Error loading more events'),
-                ),
+                child: const Text('Retry'),
               ),
-            ),
+            ],
           ),
-        ],
+          newPageErrorIndicatorBuilder: (_) => const Center(
+            child: Text('Error loading more events'),
+          ),
+        ),
       ),
-      floatingActionButton: ((userRole == "admin") || (userRole == "organizer"))
+      floatingActionButton: ((userRole == "admin") || (userRole == "organiser"))
           ? FloatingActionButton(
               onPressed: () {
                 Navigator.push(
@@ -378,12 +280,14 @@ class _EventsPageState extends State<EventsPage> {
                 );
               },
               backgroundColor: Colors.orange[800],
-              child: const Icon(Icons.add, color: Colors.white),
+              child: const Icon(Icons.add, color: Colors.white,),
             )
           : null,
     );
   }
 }
+
+
 
 class WebSocketService {
   static final WebSocketService _instance = WebSocketService._internal();

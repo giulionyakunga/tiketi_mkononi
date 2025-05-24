@@ -9,7 +9,8 @@ import 'package:tiketi_mkononi/services/storage_service.dart';
 import 'package:tiketi_mkononi/widgets/ticket_card.dart';
 
 class TicketsPage extends StatefulWidget {
-  const TicketsPage({super.key});
+  final int eventId;
+  const TicketsPage({super.key, required this.eventId});
 
   @override
   State<TicketsPage> createState() => _TicketsPageState();
@@ -76,7 +77,7 @@ class _TicketsPageState extends State<TicketsPage> with WidgetsBindingObserver {
         pastTicketsList = getPastTickets(dataList.map((json) => Ticket.fromJson(json)).toList());
       });
     }
-  }
+  } 
 
   /// Fetch tickets from backend and cache them
   Future<void> fetchTickets() async {
@@ -110,6 +111,14 @@ class _TicketsPageState extends State<TicketsPage> with WidgetsBindingObserver {
 
   List<Ticket> getActiveTickets(List<Ticket> allTickets) {
     final now = DateTime.now();
+
+    if(widget.eventId != 0){
+      return allTickets.where((ticket) {
+        final eventDateTime = ticket.combinedDateTime;
+        final eventId = ticket.eventId;
+        return ((eventDateTime.isAfter(now)) && (eventId == widget.eventId));
+      }).toList();
+    }
     
     return allTickets.where((ticket) {
       final eventDateTime = ticket.combinedDateTime;
@@ -119,6 +128,14 @@ class _TicketsPageState extends State<TicketsPage> with WidgetsBindingObserver {
 
   List<Ticket> getPastTickets(List<Ticket> allTickets) {
     final now = DateTime.now();
+
+    if(widget.eventId != 0){
+      return allTickets.where((ticket) {
+        final eventDateTime = ticket.combinedDateTime;
+        final eventId = ticket.eventId;
+        return ((eventDateTime.isBefore(now)) && (eventId == widget.eventId));
+      }).toList();
+    }
     
     return allTickets.where((ticket) {
       final eventDateTime = ticket.combinedDateTime;

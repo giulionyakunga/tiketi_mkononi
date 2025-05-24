@@ -9,7 +9,10 @@ import 'package:tiketi_mkononi/screens/confirm_page.dart';
 import 'package:tiketi_mkononi/screens/edit_event_page.dart';
 import 'package:http/http.dart' as http;
 import 'package:tiketi_mkononi/screens/event_tickets_page.dart';
+import 'package:tiketi_mkononi/screens/qr_scanner_page.dart';
+import 'package:tiketi_mkononi/screens/tickets_page.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class EventDetailsPage extends StatefulWidget {
   final Event event;
@@ -31,10 +34,11 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
   Event? event2;
   double? _imageHeight;
   double? _imageWidth;
-  double? _earnings;
   final double _defaultExpandedHeight = 360;
   final WebSocketService _webSocketService = WebSocketService();
   bool _isWebSocketConnected = false;
+  String organiser_name = "";
+  String organiser_phone_number = "";
 
   @override
   void initState() {
@@ -89,6 +93,8 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
 
         setState(() {
           event2 = Event.fromJson(jsonResponse);
+          organiser_name = jsonResponse['user']['first_name'] + " " + jsonResponse['user']['last_name'];
+          organiser_phone_number = jsonResponse['user']['phone_number'];
         });
       } else {
         debugPrint('Failed to load event');
@@ -103,6 +109,18 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
     final DateTime dateTime = inputFormat.parse(date);
     final DateFormat outputFormat = DateFormat('EEEE, MMMM d, yyyy');
     return outputFormat.format(dateTime);
+  }
+
+  String formatNumber(int num) {
+    if (num >= 1000 && num < 1000000) {
+      double result = num / 1000;
+      return '${result.toStringAsFixed(result.truncateToDouble() == result ? 0 : 1)}k';
+    } else if (num >= 1000000) {
+      double result = num / 1000000;
+      return '${result.toStringAsFixed(result.truncateToDouble() == result ? 0 : 1)}M';
+    } else {
+      return num.toString();
+    }
   }
 
   void _loadImageDimensions() {
@@ -137,11 +155,6 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
     return screenWidth / aspectRatio;
   }
 
-  double _calculateEarnings(Event event) {
-    return event.ticketTypes.fold(
-        0, (sum, ticket) => sum + (ticket.price * ticket.soldTickets));
-  }
-
   Widget _buildCategoryChip(String category) {
     final Map<String, Color> categoryColors = {
       'CONCERTS': Colors.orange[800]!,
@@ -168,8 +181,24 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
     );
   }
 
+  Future<void> _launchPhoneCall(String phoneNumber) async {
+    final Uri launchUri = Uri(
+      scheme: 'tel',
+      path: phoneNumber,
+    );
+    if (await canLaunchUrl(launchUri)) {
+      await launchUrl(launchUri);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not launch phone app')),
+      );
+    }
+  }
+
+
   Widget _buildEventDetailsCard(Event event, BuildContext context) {
-    return Card(
+    return 
+    Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
@@ -190,7 +219,49 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
             ),
             const SizedBox(height: 8),
             Text(event.description),
+            const SizedBox(height: 6),
+            // Ticket Information Column
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start, // Align all items to the start
+              children: [
+                ...event.ticketTypes.map((ticketType) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8), // Add spacing between items
+                  child: TextButton(
+                    onPressed: null,
+                    style: TextButton.styleFrom(
+                      alignment: Alignment.centerLeft,
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: RichText(
+                      text: TextSpan(
+                        children: [
+                          TextSpan(
+                            text: '${ticketType.name}: ',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              color: Colors.black,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          TextSpan(
+                            text: ticketType.ticketInformation,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              color: Colors.black,
+                              fontWeight: FontWeight.normal,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                )).toList(), // Don't forget to convert the map to a list
+              ],
+            ),
             const SizedBox(height: 8),
+            // Event Status Row
             Row(
               children: [
                 const Text(
@@ -208,11 +279,176 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                 ),
               ],
             ),
+            
+            // Uniform spacing between all elements
+            const SizedBox(height: 4),  // Reduced from default 8 to 4
+            // Organizer Name
+            if(organiser_name != "")
+            RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'Organized By: ',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold
+                    ),
+                  ),
+                  TextSpan(
+                    text: organiser_name,
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: Colors.black,
+                      fontWeight: FontWeight.normal
+                    ),
+                  ),
+                ]
+              )
+            ),
+            
+            // Uniform spacing between all elements
+            const SizedBox(height: 4),  // Consistent spacing
+            
+            // Organizer Contact
+            if(organiser_phone_number != "")
+            TextButton(
+              onPressed: () => _launchPhoneCall(organiser_phone_number),
+              style: TextButton.styleFrom(
+                alignment: Alignment.centerLeft,
+                padding: EdgeInsets.zero,  // Removed vertical padding
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: RichText(
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: 'Organizer Contact: ',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold
+                      ),
+                    ),
+                    TextSpan(
+                      text: organiser_phone_number,
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: Colors.blue,
+                        fontWeight: FontWeight.normal
+                      ),
+                    ),
+                  ]
+                )
+              ),
+            ),
           ],
         ),
       ),
     );
   }
+
+  // Widget _buildEventDetailsCard(Event event, BuildContext context) {
+  //   return Card(
+  //     elevation: 2,
+  //     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+  //     child: Padding(
+  //       padding: const EdgeInsets.all(16),
+  //       child: Column(
+  //         crossAxisAlignment: CrossAxisAlignment.start,
+  //         children: [
+  //           Text('📅 ${_formatDate(event.date)}'),
+  //           Text('⏰ ${event.time}'),
+  //           Text('📍 ${event.venue}'),
+  //           const SizedBox(height: 16),
+  //           const Text(
+  //             'Event Details',
+  //             style: TextStyle(
+  //               fontSize: 16,
+  //               fontWeight: FontWeight.bold,
+  //             ),
+  //           ),
+  //           const SizedBox(height: 8),
+  //           Text(event.description),
+  //           const SizedBox(height: 8),
+  //           Row(
+  //             children: [
+  //               const Text(
+  //                 'Event Status: ',
+  //                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+  //               ),
+  //               const SizedBox(width: 8),
+  //               Text(
+  //                 '${event.status[0].toUpperCase()}${event.status.substring(1)}',
+  //                 style: TextStyle(
+  //                   fontSize: 14,
+  //                   fontWeight: FontWeight.normal,
+  //                   color: (event.status == 'active') ? Colors.green : Colors.red,
+  //                 ),
+  //               ),
+  //             ],
+  //           ),
+  //           if(organiser_name != "")
+  //           RichText(
+  //             text: TextSpan(
+  //               children: [
+  //                 TextSpan(
+  //                   text: 'Organized By: ',
+  //                   style: const TextStyle(
+  //                     fontSize: 18,
+  //                     color: Colors.black,
+  //                     fontWeight: FontWeight.bold
+  //                   ),
+  //                 ),
+  //                 TextSpan(
+  //                   text: organiser_name,
+  //                   style: TextStyle(
+  //                     fontSize: 18,
+  //                     color: Colors.black,
+  //                     fontWeight: FontWeight.normal
+  //                   ),
+  //                 ),
+  //               ]
+  //             )
+  //           ),
+  //           const SizedBox(height: 1),
+  //           if(organiser_phone_number != "")
+  //           TextButton(
+  //             onPressed: () => _launchPhoneCall(organiser_phone_number),
+  //             style: TextButton.styleFrom(
+  //               alignment: Alignment.centerLeft, // Force left alignment
+  //               padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 1),
+  //             ),
+  //             child: 
+  //               RichText(
+  //                 text: TextSpan(
+  //                   children: [
+  //                     TextSpan(
+  //                       text: 'Organizer Contact: ',
+  //                       style: const TextStyle(
+  //                         fontSize: 18,
+  //                         color: Colors.black,
+  //                         fontWeight: FontWeight.bold
+  //                       ),
+  //                     ),
+  //                     TextSpan(
+  //                       text: '$organiser_phone_number',
+  //                       style: TextStyle(
+  //                         fontSize: 18,
+  //                         color: Colors.blue,
+  //                         fontWeight: FontWeight.normal
+  //                       ),
+  //                     ),
+  //                   ]
+  //                 )
+  //               ),
+  //           ),
+  //         ],
+  //       ),
+  //     ),
+  //   );
+  // }
 
   Widget _buildTicketsCard(Event event) {
     return Card(
@@ -295,7 +531,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                       ),
                       Text(
                         (event.type == 'paid')
-                            ? 'TSH${ticketType.price.toInt()}'
+                            ? 'TSH${NumberFormat('#,##0').format(ticketType.price.toInt())}'
                             : 'Free',
                         style: TextStyle(
                           fontSize: 14,
@@ -324,9 +560,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: event.hasTicket
-                    ? null
-                    : () {
+                onPressed: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -360,9 +594,9 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: event.hasTicket
-                    ? null
-                    : () {
+                onPressed: 
+                // event.hasTicket ? null :
+                 () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -483,35 +717,54 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                               children: [
                                 _buildCategoryChip(event.category),
                                 const Spacer(),
-                                if ((widget.userId == event.userId) &&
-                                    (event.type == "paid"))
-                                  Card(
-                                    elevation: 2,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    color: Colors.green[50],
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 6, vertical: 3),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(Icons.monetization_on,
-                                              size: 16, color: Colors.green),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            'TSH $_earnings',
-                                            style: const TextStyle(
-                                              fontSize: 11,
-                                              color: Colors.green,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
+                                if(event.hasTicket)
+                                TextButton(
+                                  child: Text(
+                                    "View Ticket",
+                                    style: TextStyle(
+                                      fontSize: 11, 
+                                      color: Colors.green
                                     ),
                                   ),
-                                const SizedBox(width: 8),
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => TicketsPage(eventId: event.id),
+                                      ),
+                                    );
+                                  },
+                                ),
+                                const SizedBox(width: 2),
+                                if (widget.userId == event.userId)
+                                Text(
+                                  'ID : ${event.id}',
+                                  style: TextStyle(
+                                    fontSize: 11, 
+                                    color: Colors.black,
+                                  ),
+                                ),
+                                const SizedBox(width: 1),
+
+                                if (widget.userId == event.userId)
+                                TextButton(
+                                  onPressed: (widget.userId == event.userId)
+                                    ? () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => QRScannerPage(userId: widget.userId, eventId: event.id),
+                                          ),
+                                        );
+                                      }
+                                    : null,
+                                  child: const Icon(
+                                    Icons.qr_code_scanner,
+                                    size: 16,
+                                    color: Colors.green
+                                  ),
+                                ),
+                                const SizedBox(width: 2),
                                 TextButton(
                                   onPressed: (widget.userId == event.userId)
                                       ? () {
@@ -528,8 +781,8 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                       : null,
                                   child: Text(
                                     event.type == 'free'
-                                        ? '🎟️ ${event.soldTickets} Confirmed'
-                                        : '🎟️ ${event.soldTickets} Sold',
+                                        ? '🎟️ ${formatNumber(event.soldTickets)} Confirmed'
+                                        : '🎟️ ${formatNumber(event.soldTickets)} Sold',
                                     style: TextStyle(
                                         fontSize: 11,
                                         color: Colors.orange[800]),
@@ -606,35 +859,63 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                     children: [
                       _buildCategoryChip(event.category),
                       const Spacer(),
-                      if ((widget.userId == event.userId) &&
-                          (event.type == "paid"))
-                        Card(
-                          elevation: 2,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
+                      if(event.hasTicket)
+                      TextButton(
+                        child: 
+                        (event.tickets.length > 1) ?
+                        Text(
+                          "View Tickets",
+                          style: TextStyle(
+                            fontSize: 11, 
+                            color: Colors.green
                           ),
-                          color: Colors.green[50],
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 3),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.monetization_on,
-                                    size: 16, color: Colors.green),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'TSH $_earnings',
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.green,
-                                  ),
-                                ),
-                              ],
-                            ),
+                        ) : 
+                        Text(
+                          "View Ticket",
+                          style: TextStyle(
+                            fontSize: 11, 
+                            color: Colors.green
                           ),
                         ),
-                      const SizedBox(width: 8),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => TicketsPage(eventId: event.id),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 2),
+                      if (widget.userId == event.userId)
+                      Text(
+                        'ID : ${event.id}',
+                        style: TextStyle(
+                          fontSize: 11, 
+                          color: Colors.black
+                        ),
+                      ),
+                      const SizedBox(width: 1),
+
+                      if (widget.userId == event.userId)
+                      TextButton(
+                        onPressed: (widget.userId == event.userId)
+                          ? () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => QRScannerPage(userId: widget.userId, eventId: event.id),
+                                ),
+                              );
+                            }
+                          : null,
+                        child: const Icon(
+                          Icons.qr_code_scanner,
+                          size: 16,
+                          color: Colors.green
+                        ),
+                      ),
+                      const SizedBox(width: 2),
                       TextButton(
                         onPressed: (widget.userId == event.userId)
                             ? () {
@@ -650,10 +931,13 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                             : null,
                         child: Text(
                           event.type == 'free'
-                              ? '🎟️ ${event.soldTickets} Confirmed'
-                              : '🎟️ ${event.soldTickets} Sold',
+                              ? '🎟️ ${formatNumber(event.soldTickets)} Confirmed'
+                              : '🎟️ ${formatNumber(event.soldTickets)} Sold',
                           style: TextStyle(
-                              fontSize: 11, color: Colors.orange[800]),
+                              fontSize: 11, 
+                              color: Colors.orange[800],
+                              overflow: TextOverflow.ellipsis
+                            ),
                         ),
                       ),
                     ],
@@ -678,9 +962,6 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
     var newEvent = widget.event;
     if (event2 != null) {
       newEvent = event2 as Event;
-      _earnings = _calculateEarnings(event2!);
-    } else {
-      _earnings = _calculateEarnings(newEvent);
     }
 
     final isDesktop = MediaQuery.of(context).size.width >= 768;

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -133,14 +134,16 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
   @override
   void initState() {
     super.initState();
-    _webSocketService = ref.read(websocketServiceProvider);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _webSocketService.connect(
-        widget.userId,
-        widget.ticketId,
-        widget.scanStatus,
-      );
-    });
+    if(widget.scanStatus != 1) {
+      _webSocketService = ref.read(websocketServiceProvider);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _webSocketService.connect(
+          widget.userId,
+          widget.ticketId,
+          widget.scanStatus,
+        );
+      });
+    }
   }
 
   @override
@@ -201,7 +204,12 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
             textAlign: TextAlign.center,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
+        Text(
+            (widget.price > 0.0) ? 'TSH${NumberFormat('#,##0').format(widget.price.toInt())}' : 'Free',
+            style: TextStyle(fontSize: isLargeScreen ? 20 : 18),
+        ),
+        const SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -230,14 +238,18 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.location_on, size: isLargeScreen ? 24 : 20),
-            const SizedBox(width: 8),
-            Text(
-              widget.venue,
-              style: TextStyle(fontSize: isLargeScreen ? 20 : 18),
+            Flexible(
+              child: Text(
+                widget.venue,
+                style: TextStyle(fontSize: isLargeScreen ? 20 : 18),
+                textAlign: TextAlign.center,
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis, // Optional: handles overflow with ellipsis
+              ),
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         Text(
           'Present this QR code at the venue',
           style: TextStyle(
@@ -253,7 +265,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
     if (widget.scanStatus == 1) {
       return Column(
         children: [
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           Icon(
             Icons.check_circle,
             size: 80,
@@ -273,7 +285,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
 
     return Column(
       children: [
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
         StreamBuilder<bool>(
           stream: _webSocketService.connectionStatusStream,
           builder: (context, snapshot) {
@@ -288,7 +300,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
             );
           },
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
         StreamBuilder<Ticket>(
           stream: _webSocketService.ticketStream,
           builder: (context, snapshot) {
@@ -367,12 +379,12 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
                               child: Column(
                                 children: [
                                   _buildQRCodeSection(isLargeScreen),
-                                  const SizedBox(height: 24),
+                                  const SizedBox(height: 20),
                                   _buildStatusSection(),
                                 ],
                               ),
                             ),
-                            const SizedBox(width: 32),
+                            const SizedBox(width: 30),
                             Expanded(
                               child: _buildEventInfoSection(isLargeScreen),
                             ),
@@ -381,7 +393,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
                       : Column(
                           children: [
                             _buildQRCodeSection(isLargeScreen),
-                            const SizedBox(height: 24),
+                            const SizedBox(height: 20),
                             _buildEventInfoSection(isLargeScreen),
                             _buildStatusSection(),
                           ],

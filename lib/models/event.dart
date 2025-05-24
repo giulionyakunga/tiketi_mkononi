@@ -5,6 +5,7 @@ class TicketType {
   final String name;
   final double price;
   final int numberOfTickets;
+  final String ticketInformation;
   final int soldTickets;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -18,6 +19,7 @@ class TicketType {
     required this.name,
     required this.price,
     required this.numberOfTickets,
+    required this.ticketInformation,
     required this.isCustom,
     required this.soldTickets,
     required this.createdAt,
@@ -33,6 +35,7 @@ class TicketType {
       name: json['name'] ?? '',
       price: (json['price'] ?? 0).toDouble(),
       numberOfTickets: (json['number_of_tickets'] ?? 0).toInt(),
+      ticketInformation: json['ticket_information'] ?? '',
       soldTickets: (json['sold_tickets'] ?? 0).toInt(),
       isCustom: json['is_custom'],
       createdAt: DateTime.parse(json['createdAt']),
@@ -57,6 +60,7 @@ class Event {
   final DateTime createdAt;
   final DateTime updatedAt;
   final List<TicketType> ticketTypes;
+  final List<dynamic> tickets;
   final bool hasTicket;
 
   Event({
@@ -75,6 +79,7 @@ class Event {
     required this.createdAt,
     required this.updatedAt,
     required this.ticketTypes,
+    required this.tickets,
     required this.hasTicket,
   });
 
@@ -99,6 +104,7 @@ class Event {
               ?.map((ticket) => TicketType.fromJson(ticket))
               .toList() ??
           [], // Handle case when ticket_types is null
+      tickets: (json['tickets'] as List<dynamic>?) ?? [], 
       hasTicket: json['has_ticket'] ?? '',
     );
   }

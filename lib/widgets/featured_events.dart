@@ -25,6 +25,18 @@ class FeaturedEvents extends StatelessWidget {
     return outputFormat.format(dateTime);
   }
 
+  String formatNumber(int num) {
+    if (num >= 1000 && num < 1000000) {
+      double result = num / 1000;
+      return '${result.toStringAsFixed(result.truncateToDouble() == result ? 0 : 1)}k';
+    } else if (num >= 1000000) {
+      double result = num / 1000000;
+      return '${result.toStringAsFixed(result.truncateToDouble() == result ? 0 : 1)}M';
+    } else {
+      return num.toString();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
@@ -102,7 +114,8 @@ class FeaturedEvents extends StatelessWidget {
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
                                         Text(
-                                          'TSH${_getLowestPrice(event).toInt()}',
+                                            
+                                          (event.type == 'paid') ? 'TSH${NumberFormat('#,##0').format(_getLowestPrice(event).toInt())}' : 'Free',
                                           style: const TextStyle(
                                             color: Colors.white,
                                             fontSize: 13,
@@ -127,7 +140,7 @@ class FeaturedEvents extends StatelessWidget {
                                               ),
                                               const SizedBox(width: 4),
                                               Text(
-                                                (event.type == 'paid') ? '${event.soldTickets} sold' : '${event.soldTickets} confirmed',
+                                                (event.type == 'paid') ? '${formatNumber(event.soldTickets)} sold' : '${formatNumber(event.soldTickets)} confirmed',
                                                 style: const TextStyle(
                                                   color: Colors.white,
                                                   fontSize: 10,

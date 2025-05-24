@@ -26,6 +26,18 @@ class EventCard extends StatelessWidget {
       (ticketType.numberOfTickets - ticketType.soldTickets) > 0);
   }
 
+  String formatNumber(int num) {
+    if (num >= 1000 && num < 1000000) {
+      double result = num / 1000;
+      return '${result.toStringAsFixed(result.truncateToDouble() == result ? 0 : 1)}k';
+    } else if (num >= 1000000) {
+      double result = num / 1000000;
+      return '${result.toStringAsFixed(result.truncateToDouble() == result ? 0 : 1)}M';
+    } else {
+      return num.toString();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
 
@@ -198,10 +210,31 @@ class EventCard extends StatelessWidget {
                       ),
 
                       const Spacer(),
-                      Row(
+
+                      (event.hasTicket) ?
+                      (event.tickets.length > 1) ?
+                      Text(
+                        "${event.tickets.length} Tickets",
+                        style: TextStyle(
+                          fontSize: 11, 
+                          color: Colors.green
+                        ),
+                      ) :
+                      Text(
+                        "${event.tickets.length} Ticket",
+                        style: TextStyle(
+                          fontSize: 11, 
+                          color: Colors.green
+                        ),
+                      )
+                      : Text("") ,
+                        
+                      const SizedBox(width: 12),
+
+                      Row( 
                         children: [
                           Text(
-                            (event.type == 'paid') ? '🎟️ ${event.soldTickets} Sold' : '🎟️ ${event.soldTickets} Confirmed',
+                            (event.type == 'paid') ? '🎟️ ${formatNumber(event.soldTickets)} Sold' : '🎟️ ${formatNumber(event.soldTickets)} Confirmed',
                             style: TextStyle(fontSize: 12, color: Colors.orange[800]),
                           ),
                         ],
@@ -236,7 +269,7 @@ class EventCard extends StatelessWidget {
                                           style: const TextStyle(fontSize: 18, color: Colors.black),
                                         ),
                                         TextSpan(
-                                          text: (event.type == 'paid') ? 'TSH${ticketType.price.toInt()} ' : 'Free ',
+                                          text: (event.type == 'paid') ? 'TSH${NumberFormat('#,##0').format(ticketType.price.toInt())} ' : 'Free ',
                                           style: TextStyle(
                                             fontSize: 18, 
                                             fontWeight: FontWeight.bold,                               

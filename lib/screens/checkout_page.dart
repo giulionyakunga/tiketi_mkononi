@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:tiketi_mkononi/models/event.dart';
 import 'package:http/http.dart' as http;
+import 'package:tiketi_mkononi/screens/tickets_page.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
 
 class CheckoutPage extends StatefulWidget {
@@ -24,7 +26,7 @@ class CheckoutPage extends StatefulWidget {
 
 class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver {
   int userId = 0;
-  int trials = 30;
+  int trials = 15;
   late final StorageService _storageService;
   int eventId = 0;
   int quantity = 1;
@@ -160,7 +162,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
 
     if(trials <= 0){
       setState(() {
-        trials = 30;
+        trials = 15;
         __processing_payment = false;
       });
     }
@@ -180,7 +182,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
           if(__processing_payment) {
             _showSnackBar("Transaction denied: Hauna salio la kutosha, Pia unaweza kuweka namba yenye salio hapo juu");
             setState(() {
-              trials = 30;
+              trials = 15;
               __processing_payment = false;
             });
           }
@@ -189,7 +191,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
           if(__processing_payment) {
             _showSnackBar("Transaction denied: Mfumo hauruhusu malipo kwa M-Pesa");
             setState(() {
-              trials = 30;
+              trials = 15;
               __processing_payment = false;
             });
           }
@@ -198,7 +200,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
           if(__processing_payment) {
             _showSnackBar("Transaction denied: PIN uliyoingiza sio sahihi");
             setState(() {
-              trials = 30;
+              trials = 15;
               __processing_payment = false;
             });
           }
@@ -330,7 +332,12 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
               style: TextStyle(fontSize: 14, color: Colors.green),
             ) : Text(""),
             onPressed: _payed ? () {
-              Navigator.pushReplacementNamed(context, '/tickets');
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => TicketsPage(eventId: widget.event.id),
+                ),
+              );
             } : null,
           ),
         ],
@@ -358,7 +365,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
                 const SizedBox(height: 20),
                 _buildPhoneNumberInput(),
                 const SizedBox(height: 20),
-                _buildSummaryCard(),
+                _buildSummaryCard(isVeryLargeScreen),
                 const SizedBox(height: 20),
                 _buildCheckoutButton(),
                 const SizedBox(height: 10),
@@ -438,7 +445,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
                 if (ticketType.soldTickets < ticketType.numberOfTickets) {
                   return RadioListTile<double>(
                     title: Text(
-                      '${ticketType.name} - TSH ${ticketType.price.toInt()}',
+                      '${ticketType.name} - TSH${NumberFormat('#,##0').format(ticketType.price.toInt())}',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                     value: ticketType.price,
@@ -602,27 +609,55 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
     );
   }
 
-  Widget _buildSummaryCard() {
+  Widget _buildSummaryCard(final isLargeScreen) {
     return Card(
       elevation: 3,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        padding: EdgeInsets.all(isLargeScreen ? 24 : 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              '💰 Total',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'Ticket Type: ',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: Colors.grey
+                    ),
+                  ),
+                  TextSpan(
+                    text: '$ticketTypeName (x$quantity)',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ]
+              )
             ),
-            Text(
-              'TSH ${totalPrice.toInt()}',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.orange[800],
-              ),
-            ),
+            const SizedBox(height: 12), // Add some spacing
+            // Total price row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  '💰 Total',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                Text(              
+                  'TSH${NumberFormat('#,##0').format(totalPrice.toInt())}',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.orange[800],
+                  ),
+                ),
+              ],
+            )
           ],
         ),
       ),
@@ -633,7 +668,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
     return SizedBox(
       width: double.infinity,
       height: 50,
-      child: (_payed || widget.event.hasTicket || soldOut) ?
+      child: (_payed || soldOut) ?
       ElevatedButton(
         onPressed: null,
         style: ElevatedButton.styleFrom(

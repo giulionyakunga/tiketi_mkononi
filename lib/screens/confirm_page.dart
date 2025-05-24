@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:tiketi_mkononi/models/event.dart';
 import 'package:http/http.dart' as http;
+import 'package:tiketi_mkononi/screens/tickets_page.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
 
 class ConfirmPage extends StatefulWidget {
@@ -77,55 +78,66 @@ class _ConfirmPageState extends State<ConfirmPage> with WidgetsBindingObserver {
     return true;
   }
 
+  bool checkNumberTickets() {
+    if(quantity > 5){
+        setState(() {
+          quantity = 1;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('You can only book a maximum of 5 tickets at once')),
+        );
+        return false;
+    }
+    return true;
+  }
+
   Future<void> _handleConfirming() async {
     if (checkTicketAvailability()){
-      try {
-        setState(() => _isLoading = true);
+      if (checkNumberTickets()){
+        try {
+          setState(() => _isLoading = true);
 
-        String url = '${backend_url}api/confirm';
-        final response = await http.post(
-          Uri.parse(url),
-          headers: {'Content-Type': 'application/json; charset=UTF-8'},
-          body: '{"user_id": "$userId", "event_id": "$eventId", "quantity": "$quantity", "ticket_price": $ticketPrice, "ticket_type": "$ticketTypeName"}',
-        );
-
-        if (response.statusCode == 200) {
-          if ((response.body == "Confirmation failed, Plz check your account!") || 
-              response.body.contains("We currently have only")) {
-            _showSnackBar(response.body);
-          } else if (response.body == "Confirmed!" || 
-                     response.body == "You have already confirmed for this event!") {
-            _showSnackBar(response.body);
-            setState(() {
-              _confirmed = true;
-              _processing_confirmation = false;
-            });
-            widget.refreshMethod();
-            fetchTickets();
-          }
-        } else {
-          _showSnackBar('Request failed: ${response.statusCode}');
-        }
-      } on SocketException catch (e) {
-        if (e.osError?.errorCode == 7 || e.osError?.errorCode == 111) {
-          showDialog(
-            context: context,
-            builder: (context) => const AlertDialog(
-              title: Text('Connection Error'),
-              content: Text('Could not connect to the server. Please check your internet connection.'),
-            ),
+          String url = '${backend_url}api/confirm';
+          final response = await http.post(
+            Uri.parse(url),
+            headers: {'Content-Type': 'application/json; charset=UTF-8'},
+            body: '{"user_id": "$userId", "event_id": "$eventId", "quantity": "$quantity", "ticket_price": $ticketPrice, "ticket_type": "$ticketTypeName"}',
           );
-        } else {
-          _showSnackBar('Connection Error occurred: ${e.message}');
+
+          if (response.statusCode == 200) {
+            if ((response.body == "Confirmation failed, Plz check your account!") || 
+                response.body.contains("We currently have only")) {
+              _showSnackBar(response.body);
+            } else if (response.body == "Confirmed!" || 
+                      response.body == "You have already confirmed for this event!") {
+              _showSnackBar(response.body);
+              setState(() {
+                _confirmed = true;
+                _processing_confirmation = false;
+              });
+              widget.refreshMethod();
+              fetchTickets();
+            }
+          } else {
+            _showSnackBar('Request failed: ${response.statusCode}');
+          }
+        } on SocketException catch (e) {
+          if (e.osError?.errorCode == 7 || e.osError?.errorCode == 111) {
+            showDialog(
+              context: context,
+              builder: (context) => const AlertDialog(
+                title: Text('Connection Error'),
+                content: Text('Could not connect to the server. Please check your internet connection.'),
+              ),
+            );
+          } else {
+            _showSnackBar('Connection Error occurred: ${e.message}');
+          }
+        } catch (e) {
+          _showSnackBar('An error occurred: $e');
+        } finally {
+          setState(() => _isLoading = false);
         }
-      } catch (e) {
-        _showSnackBar('An error occurred: $e');
-      } finally {
-        setState(() => _isLoading = false);
-      }
-    } else {
-      if(!checkTicketAvailability()){
-        _showSnackBar("Not enough tickets available");
       }
     }
   }
@@ -235,7 +247,12 @@ class _ConfirmPageState extends State<ConfirmPage> with WidgetsBindingObserver {
               style: TextStyle(fontSize: 14, color: Colors.green),
             ) : Text(""),
             onPressed: _confirmed ? () {
-              Navigator.pushReplacementNamed(context, '/tickets');
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => TicketsPage(eventId: widget.event.id),
+                ),
+              );
             } : null,
           ),
         ],
@@ -259,7 +276,7 @@ class _ConfirmPageState extends State<ConfirmPage> with WidgetsBindingObserver {
                 const SizedBox(height: 20),
                 _buildQuantitySelector(),
                 const SizedBox(height: 20),
-                _buildSummaryCard(),
+                _buildSummaryCard(isLargeScreen),
                 const SizedBox(height: 20),
                 _buildCheckoutButton(),
                 const SizedBox(height: 10),
@@ -397,27 +414,37 @@ class _ConfirmPageState extends State<ConfirmPage> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildSummaryCard() {
+  Widget _buildSummaryCard(final isLargeScreen) {
     return Card(
       elevation: 3,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        padding: EdgeInsets.all(isLargeScreen ? 24 : 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              '💰 Total',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'Ticket Type: ',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: Colors.grey
+                    ),
+                  ),
+                  TextSpan(
+                    text: '$ticketTypeName (x$quantity)',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ]
+              )
             ),
-            Text(
-              'TSH ${totalPrice.toInt()}',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.orange[800],
-              ),
-            ),
+            const SizedBox(height: 12), // Add some spacing
           ],
         ),
       ),

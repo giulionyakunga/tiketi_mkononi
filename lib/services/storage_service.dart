@@ -10,6 +10,7 @@ class StorageService {
 
   Future<void> saveUserProfile(UserProfile profile) async {
     await _prefs.setString(_userProfileKey, jsonEncode(profile.toJson()));
+    await _prefs.setBool('first_launch', false);
   }
 
   UserProfile? getUserProfile() {

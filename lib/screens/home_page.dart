@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
@@ -9,6 +10,8 @@ import 'package:tiketi_mkononi/widgets/featured_events.dart';
 import 'package:tiketi_mkononi/widgets/category_grid.dart';
 import 'package:tiketi_mkononi/models/event.dart';
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -23,6 +26,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   late final StorageService _storageService;
   Timer? _timer;
   bool _isAppActive = true;
+  bool _isNewVerionAvailable = false;
   int userId = 0;
   final TextEditingController _searchController = TextEditingController();
 
@@ -33,6 +37,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _initializeServices();
     _loadCachedEvents();
     _startFetchingEvents();
+    checkForUpdates(context);
   }
 
   Future<void> _initializeServices() async {
@@ -118,6 +123,47 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             .toList();
   }
 
+
+  Future<void> checkForUpdates(BuildContext context) async {
+    // Get current app version
+    final packageInfo = await PackageInfo.fromPlatform();
+    final installedVersion = packageInfo.version;
+
+    // Replace with your logic (e.g., API call, Firebase Remote Config)
+    String latestVersion = ""; // Hardcoded for example
+
+    try {
+      final response = await http.get(Uri.parse('${backend_url}api/application_information/$userId/${installedVersion}'));
+      if (response.statusCode == 200) {
+        final applicationInformation = jsonDecode(response.body);
+        if (applicationInformation['app_version'] != "") {
+          latestVersion = applicationInformation['app_version'];
+          SharedPreferences prefs = await SharedPreferences.getInstance();
+          await prefs.setString('application_information', response.body);
+        }
+      }
+    } catch (e) {}
+
+    if (installedVersion.compareTo(latestVersion) < 0) {
+      setState(() {
+        _isNewVerionAvailable = true;
+      });
+    }
+  }
+
+Future<void> _launchStore() async {
+  const appStoreUrl = "https://apps.apple.com/app/idYOUR_APP_ID"; // iOS
+  const playStoreUrl = "https://play.google.com/store/apps/details?id=com.telabs.tiketi_mkononi"; // Android
+
+  final Uri storeUrl = Uri.parse(
+    Platform.isAndroid ? playStoreUrl : appStoreUrl,
+  );
+
+  if (!await launchUrl(storeUrl, mode: LaunchMode.externalApplication)) {
+    throw Exception("Could not launch $storeUrl");
+  }
+}
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -152,6 +198,36 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   ),
                 ),
               ),
+              actions: [
+                _isNewVerionAvailable ?
+                IconButton(
+                  icon: const Icon(Icons.system_update_rounded),
+                  color: Colors.red,
+                  onPressed: () => 
+                  // New update available
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text("Update Available"),
+                      content: const Text("A new version of the app is available. Please update to enjoy the latest features."),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text("Later"),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _launchStore();
+                          },
+                          child: const Text("Update Now"),
+                        ),
+                      ],
+                    ),
+                  ),
+                ) : 
+                Text("")
+              ],
             ),
       body: RefreshIndicator(
         onRefresh: fetchEvents,

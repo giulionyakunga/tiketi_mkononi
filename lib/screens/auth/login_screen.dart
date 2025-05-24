@@ -93,7 +93,6 @@ class _LoginScreenState extends State<LoginScreen> {
       } on SocketException catch (e) {
         _handleSocketException(e);
       } catch (e) {
-        debugPrint('URL: ${backend_url}api/login');
         debugPrint('An error occurred: $e');
         _showSnackBar('An error occurred: $e');
       } finally {

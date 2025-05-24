@@ -2,11 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:tiketi_mkononi/models/event.dart';
 import 'package:tiketi_mkononi/models/ticket.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class EventTicketsPage extends StatefulWidget {
   final Event event;
@@ -83,7 +85,10 @@ class _EventTicketsPageState extends State<EventTicketsPage>
 
       if (response.statusCode == 200) {
         List<dynamic> dataList = jsonDecode(response.body)['tickets'];
+        debugPrint(" >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> dataList : $dataList");
         List<Ticket> tickets = dataList.map((json) => Ticket.fromJson(json)).toList();
+
+        debugPrint(" >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> tickets : $tickets");
 
         List<dynamic> dataList2 = jsonDecode(response.body)['ticket_types'];
         List<TicketType> ticketTypes = 
@@ -150,10 +155,10 @@ class _EventTicketsPageState extends State<EventTicketsPage>
                               return ListTile(
                                 title: Text(ticket.userName),
                                 subtitle: Text(ticket.ticketType),
-                                trailing: Text(
-                                  'TSH ${ticket.price.toStringAsFixed(2)}',
+                                trailing: (widget.event.type == 'paid') ? Text(
+                                  'TSH${NumberFormat('#,##0').format(ticket.price.toInt())}',
                                   style: const TextStyle(fontWeight: FontWeight.bold),
-                                ),
+                                ) : Text(""),
                               );
                             },
                           ),
@@ -185,8 +190,8 @@ class _EventTicketsPageState extends State<EventTicketsPage>
                     flex: 2,
                     child: Column(
                       children: [
-                        const Text(
-                          'Ticket Sales',
+                         Text(
+                          'Ticket Sales for ${widget.event.name}',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -235,10 +240,10 @@ class _EventTicketsPageState extends State<EventTicketsPage>
                                 child: ListTile(
                                   title: Text(ticket.userName),
                                   subtitle: Text(ticket.ticketType),
-                                  trailing: Text(
-                                    'TSH ${ticket.price.toStringAsFixed(2)}',
+                                  trailing: (widget.event.type == 'paid') ? Text(
+                                    'TSH${NumberFormat('#,##0').format(ticket.price.toInt())}',
                                     style: const TextStyle(fontWeight: FontWeight.bold),
-                                  ),
+                                  ) : Text("Free"),
                                 ),
                               );
                             },
@@ -266,7 +271,7 @@ class _EventTicketsPageState extends State<EventTicketsPage>
             ),
             const SizedBox(height: 8),
             Text(
-              '${getTotalCollection().toStringAsFixed(2)} TZS',
+              'TSH ${getTotalCollection().toStringAsFixed(2)}',
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: Colors.green,
@@ -317,11 +322,48 @@ class TicketCard extends StatelessWidget {
     required this.ticket,
     required this.isMobile,
   });
+  
+  Future<void> _launchPhoneCall(BuildContext context, String phoneNumber) async {
+    final Uri launchUri = Uri(
+      scheme: 'tel',
+      path: phoneNumber,
+    );
+    if (await canLaunchUrl(launchUri)) {
+      await launchUrl(launchUri);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not launch phone app')),
+      );
+    }
+  }
+
+  Future<void> _launchEmailApp(BuildContext context, { required String recipient, String? subject, String? body}) async {
+    final Uri launchUri = Uri(
+      scheme: 'mailto',
+      path: recipient,
+      queryParameters: {
+        if (subject != null) 'subject': subject,
+        if (body != null) 'body': body,
+      },
+    );
+
+    try {
+      await launchUrl(
+        launchUri,
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to launch email: $e')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     if (isMobile) {
-      return Card(
+      return 
+      Card(
         margin: const EdgeInsets.only(bottom: 16),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -338,7 +380,9 @@ class TicketCard extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '${ticket.price.toStringAsFixed(2)} TZS',
+                    (ticket.price > 0.0) 
+                        ? 'TSH${NumberFormat('#,##0').format(ticket.price.toInt())}' 
+                        : "Free",
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: Colors.green,
                       fontWeight: FontWeight.bold,
@@ -346,10 +390,80 @@ class TicketCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4), // Reduced from 8 to 4
               Text(
                 'Type: ${ticket.ticketType}',
                 style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 4), // Uniform spacing
+              TextButton(
+                onPressed: () => _launchPhoneCall(context, ticket.userPhoneNumber),
+                style: TextButton.styleFrom(
+                  alignment: Alignment.centerLeft,
+                  padding: EdgeInsets.zero,
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(
+                        text: 'Phone number: ',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          color: Colors.black,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      TextSpan(
+                        text: ticket.userPhoneNumber,
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: Colors.blue,
+                          fontWeight: FontWeight.normal,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4), // Uniform spacing
+              TextButton(
+                onPressed: () => _launchEmailApp(
+                  context,
+                  recipient: ticket.userEmail,
+                  subject: 'Tiketi_Mkononi',
+                  body: '',
+                ),
+                style: TextButton.styleFrom(
+                  alignment: Alignment.centerLeft,
+                  padding: EdgeInsets.zero,
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(
+                        text: 'Email: ',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          color: Colors.black,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      TextSpan(
+                        text: ticket.userEmail,
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: Colors.blue,
+                          fontWeight: FontWeight.normal,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
@@ -375,7 +489,7 @@ class TicketCard extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '${ticket.price.toStringAsFixed(2)} TZS',
+                    (ticket.price > 0.0) ? 'TSH${NumberFormat('#,##0').format(ticket.price.toInt())}' : "Free",
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       color: Colors.green,
                       fontWeight: FontWeight.bold,

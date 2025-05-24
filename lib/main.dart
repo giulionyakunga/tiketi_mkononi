@@ -54,7 +54,7 @@ class TiketiMkononiApp extends StatelessWidget {
         '/forgot-password': (context) => const ForgotPasswordScreen(),
         '/home': (context) => const MainScreen(),
         '/events': (context) => const EventsPage(),
-        '/tickets': (context) => const TicketsPage(),
+        '/tickets': (context) => const TicketsPage(eventId: 0),
       },
     );
   }
@@ -96,7 +96,7 @@ class _MainScreenState extends State<MainScreen> {
   final List<Widget> _screens = [
     const HomePage(),
     const EventsPage(),
-    const TicketsPage(),
+    const TicketsPage(eventId: 0,),
     const ProfilePage(),
   ];
 

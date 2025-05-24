@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/services/api_service.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class HelpSupportPage extends StatefulWidget {
   const HelpSupportPage({super.key});
@@ -116,6 +117,43 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
     _messageController.dispose();
     super.dispose();
   }
+
+  Future<void> _launchPhoneCall(String phoneNumber) async {
+    final Uri launchUri = Uri(
+      scheme: 'tel',
+      path: phoneNumber,
+    );
+    if (await canLaunchUrl(launchUri)) {
+      await launchUrl(launchUri);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not launch phone app')),
+      );
+    }
+  }
+
+  Future<void> _launchEmailApp({ required String recipient, String? subject, String? body}) async {
+    final Uri launchUri = Uri(
+      scheme: 'mailto',
+      path: recipient,
+      queryParameters: {
+        if (subject != null) 'subject': subject,
+        if (body != null) 'body': body,
+      },
+    );
+
+    try {
+      await launchUrl(
+        launchUri,
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to launch email: $e')),
+      );
+    }
+  }
+
 
   // Helper method to determine if the screen is considered "large"
   bool _isLargeScreen(BuildContext context) {
@@ -408,21 +446,24 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
         ),
         const SizedBox(height: 16),
         _buildContactInfoItem(
-          icon: Icons.email,
-          title: 'Email Us',
-          subtitle: 'tiketimkononi@telabs.co.tz',
+          icon: Icons.location_on,
+          title: 'Call Us',
+          subtitle: '+255 766 032 160',
+          contactType: "phone number",
         ),
         const SizedBox(height: 12),
         _buildContactInfoItem(
-          icon: Icons.phone,
-          title: 'Call Us',
-          subtitle: '+255 766 032 160',
+          icon: Icons.email,
+          title: 'Email Us',
+          subtitle: 'tiketimkononi@telabs.co.tz',
+          contactType: "email",
         ),
         const SizedBox(height: 12),
         _buildContactInfoItem(
           icon: Icons.location_on,
           title: 'Visit Us',
           subtitle: 'Uganda Street, Dar es Salaam, Tanzania',
+          contactType: "",
         ),
       ],
     );
@@ -432,6 +473,7 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
     required IconData icon,
     required String title,
     required String subtitle,
+    required String contactType,
   }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -442,26 +484,65 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
           size: 24,
         ),
         const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
+        Flexible(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
+              if(contactType == "phone number")
+              TextButton(
+                onPressed: () => _launchPhoneCall(subtitle),               
+                child: Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
-          ],
-        ),
+
+              if(contactType == "email")
+              TextButton(
+                onPressed: () => _launchEmailApp(
+                  recipient: subtitle,
+                  subject: 'App Feedback',
+                  body: 'Hello, I would like to share some feedback about your app...',
+                ),               
+                child: Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+
+              if (contactType == "")
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        )
       ],
     );
   }

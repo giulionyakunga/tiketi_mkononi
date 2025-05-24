@@ -74,13 +74,22 @@ class TicketCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 4),
+              
+
               Row(
                 children: [
-                  const Icon(Icons.location_on, size: 16),
+                  Icon(Icons.location_on, size: 16),
                   const SizedBox(width: 4),
-                  Text(ticket.venue),
+                  Flexible(
+                    child: Text(
+                      ticket.venue,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis, // Optional: handles overflow with ellipsis
+                    ),
+                  ),
                 ],
               ),
+
               if (!isPast) ...[
                 const SizedBox(height: 16),
                 Row(

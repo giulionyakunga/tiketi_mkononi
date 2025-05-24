@@ -1,5 +1,5 @@
-import 'dart:convert';
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:tiketi_mkononi/env.dart';
@@ -7,8 +7,7 @@ import 'package:http/http.dart' as http;
 
 class QRScannerPage extends StatefulWidget {
   final int userId;
-  final int eventId;
-  const QRScannerPage({super.key, required this.userId, required this.eventId});
+  const QRScannerPage({super.key, required this.userId});
 
   @override
   State<QRScannerPage> createState() => _QRScannerPageState();
@@ -18,20 +17,10 @@ class _QRScannerPageState extends State<QRScannerPage> {
   MobileScannerController cameraController = MobileScannerController();
   bool _isScanning = true;
   bool _isLoading = false;
-  final TextEditingController _eventIdController = TextEditingController();
-  final FocusNode _eventIdFocusNode = FocusNode();
-
-  @override
-  void initState() {
-    super.initState();
-    if(widget.eventId != 0) _eventIdController.text = '${widget.eventId}';
-  }
 
   @override
   void dispose() {
     cameraController.dispose();
-    _eventIdController.dispose();
-    _eventIdFocusNode.dispose();
     super.dispose();
   }
 
@@ -49,26 +38,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
       });
       
       try {
-        String url = '${backend_url}api/check_ticket/${widget.userId}';
-        // Include event ID if provided
-        if (_eventIdController.text.isNotEmpty) {
-          url += '?event_id=${_eventIdController.text}';
-        }else {
-          _showErrorSnackbar(context, 
-            'Please enter event ID'
-          );
-          return;
-        }
-
-        String eventId = _eventIdController.text;
-        int event_id = jsonDecode(barcode.rawValue!)['event_id'];
-        debugPrint("barcode.rawValue : event_id : $event_id >> eventId : $eventId, >>>>>>>> ${barcode.rawValue}");
-        
-        if (int.tryParse(eventId) != event_id) {
-          _showCustomDialog(context, "Invalid Ticket!");
-          return;
-        }
-
+        final url = '${backend_url}api/check_ticket/${widget.userId}';
         final response = await http.post(
           Uri.parse(url),
           headers: {'Content-Type': 'application/json'},
@@ -84,21 +54,30 @@ class _QRScannerPageState extends State<QRScannerPage> {
               : 'Request failed with status: ${response.statusCode}'
           );
         }
-      } on SocketException catch (e) {
-        if (e.osError?.errorCode == 7 || e.osError?.errorCode == 111) {
-          showDialog(
-            context: context,
-            builder: (context) => const AlertDialog(
-              title: Text('Connection Error'),
-              content: Text('Could not connect to the server. Please check your internet connection.'),
-            ),
-          );
-        } else {
-          _showSnackBar('Connection Error occurred: ${e.message}');
-        }
-      } catch (e) {
-        _showCustomDialog(context, "Invalid Ticket!");
-        // _showErrorSnackbar(context, 'An error occurred: ${e.toString()}');
+    } on SocketException catch (e) {
+      if (e.osError?.errorCode == 7) {  // Connection refused
+        // Show user-friendly message
+        showDialog(
+          context: context,
+          builder: (context) => const AlertDialog(
+            title: Text('Connection Error'),
+            content: Text('Could not connect to the server. Please check your internet connection.'),
+          ),
+        );
+      } else if (e.osError?.errorCode == 111) {  // Connection refused
+        // Show user-friendly message
+        showDialog(
+          context: context,
+          builder: (context) => const AlertDialog(
+            title: Text('Connection Error'),
+            content: Text('Could not connect to the server. Please try again later.'),
+          ),
+        );
+      } else {
+        _showSnackBar('Connection Error occurred: ${e.message}');
+      }
+    } catch (e) {
+        _showErrorSnackbar(context, 'An error occurred: ${e.toString()}');
       } finally {
         setState(() => _isLoading = false);
         Future.delayed(const Duration(seconds: 3), () {
@@ -244,9 +223,6 @@ class _QRScannerPageState extends State<QRScannerPage> {
             controller: cameraController,
             onDetect: _onDetect,
           ),
-          
-          
-
           Positioned.fill(
             child: Container(
               decoration: ShapeDecoration(
@@ -263,14 +239,12 @@ class _QRScannerPageState extends State<QRScannerPage> {
               ),
             ),
           ),
-
           if (_isLoading)
             const Center(
               child: CircularProgressIndicator(
                 valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
               ),
             ),
-
           Positioned(
             bottom: 50,
             left: 0,
@@ -302,52 +276,11 @@ class _QRScannerPageState extends State<QRScannerPage> {
               ],
             ),
           ),
-
-          // Event ID input field at top center
-          Positioned(
-            top: 20,
-            left: 20,
-            right: 20,
-            child: Center(
-              child: Container(
-                width: MediaQuery.of(context).size.width * 0.5,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.4),
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                child: TextField(
-                  controller: _eventIdController,
-                  focusNode: _eventIdFocusNode,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    hintText: 'Event ID',
-                    hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                    prefixIcon: Icon(Icons.event, color: Colors.white.withOpacity(0.7)),
-                    suffixIcon: _eventIdController.text.isNotEmpty
-                        ? IconButton(
-                            icon: Icon(Icons.clear, color: Colors.white.withOpacity(0.7)),
-                            onPressed: () {
-                              _eventIdController.clear();
-                              setState(() {});
-                            },
-                          )
-                        : null,
-                  ),
-                  keyboardType: TextInputType.number,
-                  onChanged: (value) => setState(() {}),
-                ),
-              ),
-            ),
-          ),
         ],
       ),
     );
   }
 }
-
 
 class QrScannerOverlayShape extends ShapeBorder {
   final Color borderColor;

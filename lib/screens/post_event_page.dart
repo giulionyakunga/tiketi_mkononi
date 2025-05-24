@@ -14,12 +14,14 @@ class TicketType {
   String name;
   double price;
   int numberOfTickets;
+  String ticketInformation;
   bool isCustom;
 
   TicketType({
     required this.name,
     required this.price,
     required this.numberOfTickets,
+    required this.ticketInformation,
     required this.isCustom,
   });
 }
@@ -92,7 +94,8 @@ class _PostEventPageState extends State<PostEventPage> {
       _ticketTypes.add(TicketType(
         name: 'Regular', 
         price: 0, 
-        numberOfTickets: 0, 
+        numberOfTickets: 0,
+        ticketInformation: "",
         isCustom: false
       ));
     });
@@ -286,6 +289,7 @@ class _PostEventPageState extends State<PostEventPage> {
         'name': ticket.name.trim(),
         'price': ticket.price,
         'number_of_tickets': ticket.numberOfTickets,
+        'ticket_information': ticket.ticketInformation,
         'is_custom': ticket.isCustom,
       }).toList(),
       'file_type': fileType,
@@ -349,21 +353,83 @@ class _PostEventPageState extends State<PostEventPage> {
   }
 
   Widget _buildDesktopTicketFields(int index) {
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          flex: 2,
-          child: _buildTicketTypeDropdown(index),
+        Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: _buildTicketTypeDropdown(index),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildPriceField(index),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildQuantityField(index),
+            ),
+          ],
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildPriceField(index),
+        const SizedBox(height: 8),
+        TextFormField(
+          maxLength: 1000, // Added max length limit
+          decoration: InputDecoration(
+            labelText: 'Ticket Information',
+            labelStyle: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 14,
+            ),
+            hintText: 'Enter icket information...', // Optional hint text
+            hintStyle: TextStyle(
+              color: Colors.grey[500], // Lighter color for hint text
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8), // Rounded corners
+              borderSide: BorderSide(
+                color: Colors.grey[400]!, // Light border color
+                width: 1.5,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(
+                color: Colors.orange[800]!, // Border color on focus
+                width: 2,
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(
+                color: Colors.grey[400]!, // Default border color
+                width: 1.5,
+              ),
+            ),
+            filled: true,
+            fillColor: Colors.grey[200], // Light background color
+            contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12), // Padding for the content
+          ),
+          onChanged: (value) {
+            setState(() {
+              _ticketTypes[index].ticketInformation = value;
+            });
+          },
+          maxLines: 3,
+          style: const TextStyle(
+            fontSize: 16, // Input text font size
+            color: Colors.black, // Input text color
+          ),
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) {
+              return 'Please enter ticket information';
+            }
+            if (value.length > 250) {
+              return 'Ticket information must be 250 characters or less';
+            }
+            return null;
+          },
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildQuantityField(index),
-        ),
-      ],
+      ]
     );
   }
 
@@ -382,6 +448,64 @@ class _PostEventPageState extends State<PostEventPage> {
               child: _buildQuantityField(index),
             ),
           ],
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          maxLength: 1000, // Added max length limit
+          decoration: InputDecoration(
+            labelText: 'Ticket Information',
+            labelStyle: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 14,
+            ),
+            hintText: 'Enter icket information...', // Optional hint text
+            hintStyle: TextStyle(
+              color: Colors.grey[500], // Lighter color for hint text
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8), // Rounded corners
+              borderSide: BorderSide(
+                color: Colors.grey[400]!, // Light border color
+                width: 1.5,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(
+                color: Colors.orange[800]!, // Border color on focus
+                width: 2,
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(
+                color: Colors.grey[400]!, // Default border color
+                width: 1.5,
+              ),
+            ),
+            filled: true,
+            fillColor: Colors.grey[200], // Light background color
+            contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12), // Padding for the content
+          ),
+          onChanged: (value) {
+            setState(() {
+              _ticketTypes[index].ticketInformation = value;
+            });
+          },
+          maxLines: 3,
+          style: const TextStyle(
+            fontSize: 16, // Input text font size
+            color: Colors.black, // Input text color
+          ),
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) {
+              return 'Please enter ticket information';
+            }
+            if (value.length > 250) {
+              return 'Ticket information must be 250 characters or less';
+            }
+            return null;
+          },
         ),
       ],
     );
@@ -710,7 +834,7 @@ class _PostEventPageState extends State<PostEventPage> {
                     controller: _descriptionController,
                     maxLength: 1000,
                     decoration: _buildInputDecoration('Description'),
-                    maxLines: 5,
+                    maxLines: 4,
                     style: const TextStyle(fontSize: 16),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) return 'Please enter description';

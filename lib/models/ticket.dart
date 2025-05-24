@@ -2,6 +2,8 @@ class Ticket {
   final int id;
   final int userId;
   final String userName;
+  final String userEmail;
+  final String userPhoneNumber;
   final int eventId;
   final String eventName;
   final String date;
@@ -20,6 +22,8 @@ class Ticket {
     required this.id,
     required this.userId,
     required this.userName,
+    required this.userEmail,
+    required this.userPhoneNumber,
     required this.eventId,
     required this.eventName,
     required this.date,
@@ -40,7 +44,9 @@ class Ticket {
     return Ticket(
       id: json['id'] ?? 0,
       userId: json['user_id'] ?? 0,
-      userName: json['user_name'] ?? 0,
+      userName: json['user_name'] ?? "N/A",
+      userEmail: json['user_email'] ?? "N/A",
+      userPhoneNumber: json['user_phone_number'] ?? "N/A",
       eventId: json['event_id'] ?? 0,
       eventName: json['event_name'] ?? '',
       date: json['date'] ?? '',
