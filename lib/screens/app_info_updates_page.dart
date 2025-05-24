@@ -20,7 +20,7 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
   int userId = 0;
   String token = "";
   String role = "";
-  String currentVersion = "";
+  String installedVersion = "";
   String latestVersion = "";
   String lastUpdate = "";
   bool _isNewVerionAvailable = false;
@@ -82,14 +82,18 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
     
     // Get current app version
     final packageInfo = await PackageInfo.fromPlatform();
+    String installedVersion2 = packageInfo.version;
     setState(() {
-      currentVersion = packageInfo.version;
+      installedVersion = packageInfo.version;
     });
 
+    // Get current app version
+
     String _latestVersion = "";
+    String operatingSystem = Platform.operatingSystem; // Hardcoded for example
 
     try {
-      final response = await http.get(Uri.parse('${backend_url}api/application_information'));
+      final response = await http.get(Uri.parse('${backend_url}api/application_information/$userId/$installedVersion2/$operatingSystem'));
       if (response.statusCode == 200) {
         final applicationInformation = jsonDecode(response.body);
         if (applicationInformation['app_version'] != "") {
@@ -110,7 +114,7 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
       });
     }
 
-    if (currentVersion.compareTo(_latestVersion) < 0) {
+    if (installedVersion.compareTo(_latestVersion) < 0) {
       // New update available
       setState(() {
         _isNewVerionAvailable = true;
@@ -242,7 +246,7 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
       _AppInfoItem(
         icon: Icons.verified_rounded,
         title: 'Installed Version',
-        value: currentVersion,
+        value: installedVersion,
         color: Colors.blue,
       ),
       _AppInfoItem(

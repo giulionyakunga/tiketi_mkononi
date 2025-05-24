@@ -127,13 +127,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> checkForUpdates(BuildContext context) async {
     // Get current app version
     final packageInfo = await PackageInfo.fromPlatform();
-    final installedVersion = packageInfo.version;
+    String installedVersion = packageInfo.version;
 
     // Replace with your logic (e.g., API call, Firebase Remote Config)
-    String latestVersion = ""; // Hardcoded for example
+    String latestVersion = "";
+    String operatingSystem = Platform.operatingSystem; // Hardcoded for example
 
     try {
-      final response = await http.get(Uri.parse('${backend_url}api/application_information/$userId/${installedVersion}'));
+      final response = await http.get(Uri.parse('${backend_url}api/application_information/$userId/$installedVersion/$operatingSystem'));
       if (response.statusCode == 200) {
         final applicationInformation = jsonDecode(response.body);
         if (applicationInformation['app_version'] != "") {
