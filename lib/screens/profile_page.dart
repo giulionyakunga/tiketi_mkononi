@@ -252,7 +252,7 @@ class _ProfilePageState extends State<ProfilePage> {
           await Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => const NotificationsPage(),
+              builder: (context) => NotificationsPage(userId: userId,),
             ),
           );
         },

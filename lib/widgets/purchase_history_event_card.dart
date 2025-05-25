@@ -49,7 +49,7 @@ class PurchaseHistoryEventCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 1),
                   RichText(
                     text: TextSpan(
                       children: [
@@ -96,7 +96,6 @@ class PurchaseHistoryEventCard extends StatelessWidget {
                     )
                   ),
 
-                  (totalPrice != 0) ?
                   RichText(
                     text: TextSpan(
                       children: [
@@ -109,7 +108,7 @@ class PurchaseHistoryEventCard extends StatelessWidget {
                           ),
                         ),
                         TextSpan(
-                          text: '${totalPrice}',
+                          text: (totalPrice != 0) ? '${totalPrice}' : "Free",
                           style: TextStyle(
                             fontSize: 18,
                             color: Colors.black,
@@ -118,21 +117,7 @@ class PurchaseHistoryEventCard extends StatelessWidget {
                         ),
                       ]
                     )
-                  ) :
-                  RichText(
-                    text: TextSpan(
-                      children: [
-                        TextSpan(
-                          text: 'Free',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            color: Colors.black,
-                            fontWeight: FontWeight.bold
-                          ),
-                        ),
-                      ]
-                    )
-                  ),
+                  )
                 ],
               ),
             ),

@@ -8,7 +8,9 @@ import 'package:tiketi_mkononi/env.dart';
 import 'package:http/http.dart' as http;
 
 class NotificationsPage extends StatefulWidget {
-  const NotificationsPage({super.key});
+  final int userId;
+  
+  const NotificationsPage({super.key, required this.userId});
 
   @override
   State<NotificationsPage> createState() => _NotificationsPageState();
@@ -30,6 +32,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
   void initState() {
     super.initState();
     loadData();
+    getNotificationPreferences();
   }
 
   Future<void> loadData() async {
@@ -40,7 +43,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
       // Convert JSON string back to List<String>
       List<dynamic> decodedList = json.decode(encodedList);
       decodedList.forEach((item) {
-        print("Item : $item"); // Prints each item one by one
         setState(() {
           _selectedEventCategories.add(item);
         });
@@ -98,6 +100,40 @@ class _NotificationsPageState extends State<NotificationsPage> {
     });
   }
 
+  
+  Future<void> getNotificationPreferences() async {
+    setState(() {
+      _isLoading = true;
+    });
+    
+
+    try {
+      final response = await http.get(Uri.parse('${backend_url}api/get_notification_preferences/${widget.userId}'));
+    
+      if (response.statusCode == 200) {
+        final notificationPreferences = jsonDecode(response.body);
+
+        notificationPreferences.forEach((notificationPreference) {
+          if (!_selectedEventCategories.contains(notificationPreference['event_category_name'])) {
+            setState(() {
+              _selectedEventCategories.add(notificationPreference['event_category_name']);
+            });
+          }
+        });        
+
+      }
+    } catch (e) {
+      debugPrint('Error getting notification preferences: $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+
+
+
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedEventCategories.isEmpty) return;
@@ -116,13 +152,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
       String encodedList = json.encode(_selectedEventCategories.toList()); 
       await prefs.setString('selected_event_categories', encodedList);
 
-
-
       try {
         setState(() => _isLoading = true);
         
         final response = await http.post(
-          Uri.parse('${backend_url}api/save_notification_preferences'),
+          Uri.parse('${backend_url}api/save_notification_preferences/${widget.userId}'),
           headers: {'Content-Type': 'application/json; charset=UTF-8'},
           body: encodedList,
         );

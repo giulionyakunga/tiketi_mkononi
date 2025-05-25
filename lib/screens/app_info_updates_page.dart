@@ -24,9 +24,12 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
   String latestVersion = "";
   String lastUpdate = "";
   bool _isNewVerionAvailable = false;
-  
+
+  final _formKey = GlobalKey<FormState>();
+  final _appVersionController = TextEditingController();
   late final StorageService _storageService;
   bool _isLoading = false;
+  
   bool _sent = false;
 
   @override
@@ -47,15 +50,179 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
     if (profile != null) {
       setState(() {
         userId = profile.id;      
-        token = profile.token;
         role = profile.role;
       });
     }
   }
 
-  @override
+   @override
   void dispose() {
+    _appVersionController.dispose();
     super.dispose();
+  }
+
+  bool _isLargeScreen(BuildContext context) {
+    return MediaQuery.of(context).size.width > 768;
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleAddApplicationInformation() async {
+    if (_formKey.currentState!.validate()) {
+      try {
+        setState(() => _isLoading = true);
+        
+        final response = await http.post(
+          Uri.parse('${backend_url}api/add_application_information'),
+          headers: {'Content-Type': 'application/json; charset=UTF-8'},
+          body: jsonEncode({
+            "user_id": userId,
+            "app_version": _appVersionController.text,
+          }),
+        );
+
+        if (response.statusCode == 200) {
+          _showSnackBar(response.body);
+          checkForUpdates();
+        } else {
+          _showSnackBar('Request failed: ${response.statusCode}');
+        }
+      } on SocketException catch (e) {
+        _handleSocketException(e);
+      } catch (e) {
+        debugPrint('An error occurred: $e');
+        _showSnackBar('An error occurred: $e');
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _handleSocketException(SocketException e) {
+    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 111) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Connection Error'),
+          content: const Text('Could not connect to the server. Please check your internet connection.'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      );
+    } else {
+      _showSnackBar('Connection Error: ${e.message}');
+    }
+  }
+
+  Widget _buildAppInformationForm(bool isLargeScreen) {
+    return Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(height: 16),
+          Text(
+            'Update App version',
+            style: TextStyle(
+              fontSize: isLargeScreen ? 22 : 18,
+              color: Colors.grey[700],
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0.5,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 4),
+          TextFormField(
+            controller: _appVersionController,
+            decoration: _buildInputDecoration(
+              label: 'App version',
+              icon: Icons.verified,
+              isLargeScreen: isLargeScreen,
+            ),
+            style: TextStyle(fontSize: isLargeScreen ? 18 : 16),
+            validator: (value) {
+              if (value == null || value.isEmpty) return 'Please enter app version';
+              if (value.length > 10) return 'App version cannot exceed 10 characters';
+              return null;
+            },
+          ),
+          SizedBox(height: isLargeScreen ? 24 : 12),
+          ElevatedButton(
+            onPressed: _isLoading ? null : _handleAddApplicationInformation,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange[800],
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              padding: EdgeInsets.symmetric(vertical: isLargeScreen ? 20 : 16),
+              elevation: 4,
+            ),
+            child: _isLoading
+                ? const CircularProgressIndicator()
+                : Text(
+                    'Update',
+                    style: TextStyle(
+                      fontSize: isLargeScreen ? 18 : 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  
+  InputDecoration _buildInputDecoration({
+    required String label,
+    required IconData icon,
+    bool isLargeScreen = false,
+    bool isPasswordField = false,
+    VoidCallback? onVisibilityPressed,
+  }) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: TextStyle(
+        color: Colors.grey[600],
+        fontSize: isLargeScreen ? 18 : 16,
+      ),
+      prefixIcon: Icon(
+        icon,
+        color: Colors.grey[600],
+        size: isLargeScreen ? 24 : 20,
+      ),
+      suffixIcon: null,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: Colors.grey[400]!),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: Colors.grey[400]!),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: Colors.orange[800]!, width: 2.0),
+      ),
+      filled: true,
+      fillColor: Colors.grey[200],
+      contentPadding: EdgeInsets.symmetric(
+        vertical: isLargeScreen ? 20 : 16,
+        horizontal: isLargeScreen ? 20 : 16,
+      ),
+    );
   }
 
   Future<void> addApplicationInformation(String app_version) async {
@@ -65,7 +232,7 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
         headers: {'Content-Type': 'application/json; charset=UTF-8'},
         body: jsonEncode({
           "app_version": app_version,
-          "user_dd": userId
+          "user_id": userId
         }),
       );
 
@@ -86,8 +253,6 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
     setState(() {
       installedVersion = packageInfo.version;
     });
-
-    // Get current app version
 
     String _latestVersion = "";
     String operatingSystem = Platform.operatingSystem; // Hardcoded for example
@@ -141,13 +306,6 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
           ),
         );
       }
-    } else {
-      // No update needed (optional: show a message)
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("You're using the latest version")),
-        );
-      }
     }
   }
 
@@ -196,6 +354,9 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
                   const SizedBox(height: 24),
                   _buildUpdateButton(context),
                 ],
+                SizedBox(height: isLargeScreen ? 40 : 24),
+                if(role == "admin")
+                _buildAppInformationForm(isLargeScreen),
               ],
             ),
           ),

@@ -595,7 +595,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: 
-                // event.hasTicket ? null :
+                event.hasTicket ? null :
                  () {
                         Navigator.push(
                           context,

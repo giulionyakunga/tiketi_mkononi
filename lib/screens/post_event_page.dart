@@ -373,7 +373,7 @@ class _PostEventPageState extends State<PostEventPage> {
         ),
         const SizedBox(height: 8),
         TextFormField(
-          maxLength: 1000, // Added max length limit
+          maxLength: 250, // Added max length limit
           decoration: InputDecoration(
             labelText: 'Ticket Information',
             labelStyle: TextStyle(
@@ -451,7 +451,7 @@ class _PostEventPageState extends State<PostEventPage> {
         ),
         const SizedBox(height: 8),
         TextFormField(
-          maxLength: 1000, // Added max length limit
+          maxLength: 250, // Added max length limit
           decoration: InputDecoration(
             labelText: 'Ticket Information',
             labelStyle: TextStyle(
@@ -834,7 +834,7 @@ class _PostEventPageState extends State<PostEventPage> {
                     controller: _descriptionController,
                     maxLength: 1000,
                     decoration: _buildInputDecoration('Description'),
-                    maxLines: 4,
+                    maxLines: 6,
                     style: const TextStyle(fontSize: 16),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) return 'Please enter description';
@@ -872,7 +872,10 @@ class _PostEventPageState extends State<PostEventPage> {
                           ? const CircularProgressIndicator()
                           : const Text(
                               'Post Event',
-                              style: TextStyle(fontSize: 18),
+                              style: TextStyle(
+                                fontSize: 18,
+                                color: Colors.white,
+                              ),
                             ),
                     ),
                   ),

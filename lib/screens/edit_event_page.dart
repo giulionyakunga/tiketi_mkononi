@@ -1523,7 +1523,7 @@ class _EditEventPageState extends State<EditEventPage> {
                   fillColor: Colors.grey[200], // Light background color
                   contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12), // Padding for the content
                 ),
-                maxLines: 4,
+                maxLines: 6, 
                 style: const TextStyle(
                   fontSize: 16, // Input text font size
                   color: Colors.black, // Input text color
