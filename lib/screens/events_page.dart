@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
@@ -26,6 +27,7 @@ class _EventsPageState extends State<EventsPage> {
   final TextEditingController _searchController = TextEditingController();
   List<Event> fetchedEvents = [];
   bool _isSearchBarVisible = false;
+  bool _isFirstTime = true;
 
   final List<String> _categories = [
     'All',
@@ -179,6 +181,14 @@ class _EventsPageState extends State<EventsPage> {
       } else {
         _pagingController.error = 'Failed to load events';
       }
+    } on SocketException catch (e) {
+        if(_isFirstTime){
+          setState(() {
+            _isFirstTime = false;
+          });
+        } else {
+          _handleSocketException(e);
+        }
     } catch (error) {
       _pagingController.error = error;
     }
@@ -204,6 +214,21 @@ class _EventsPageState extends State<EventsPage> {
       numberOfActiveEvents = filtered.where((event) => event.status == "active").length;
     });
     return filtered;
+  }
+
+  void _handleSocketException(SocketException e) {
+    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 111) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Connection Error'),
+          content: const Text('Could not connect to the server. Please check your internet connection.'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      );
+    }
   }
 
   @override
@@ -355,7 +380,7 @@ class _EventsPageState extends State<EventsPage> {
                         _fetchPage(1);
                         _pagingController.refresh();
                       },
-                      child: const Text('Retry'),
+                      child: const Text('Reload'),
                     ),
                   ],
                 ),

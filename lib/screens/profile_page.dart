@@ -8,6 +8,7 @@ import 'package:tiketi_mkononi/screens/language_settings_page.dart';
 import 'package:tiketi_mkononi/screens/notifications_page.dart';
 import 'package:tiketi_mkononi/screens/organizer_requests_page.dart';
 import 'package:tiketi_mkononi/screens/privacy_security_page.dart';
+import 'package:tiketi_mkononi/screens/purchase_history_page.dart';
 import 'package:tiketi_mkononi/screens/qr_scanner_page.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
 
@@ -220,8 +221,14 @@ class _ProfilePageState extends State<ProfilePage> {
         icon: Icons.history,
         iconColor: Colors.orange,
         title: 'Purchase History',
-        onTap: () {
-          // TODO: Implement purchase history
+        onTap: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const PurchasePistoryPage(),
+            ),
+          );
+          _loadUserProfile();
         },
       ),
       _buildActionTile(

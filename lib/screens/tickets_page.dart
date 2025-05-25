@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -23,7 +24,7 @@ class _TicketsPageState extends State<TicketsPage> with WidgetsBindingObserver {
   List<Ticket> activeTicketsList = [];
   List<Ticket> pastTicketsList = [];
   bool _isAppActive = true;
-
+  bool _isFirstTime = true;
   
   @override
   void initState() {
@@ -104,8 +105,17 @@ class _TicketsPageState extends State<TicketsPage> with WidgetsBindingObserver {
       } else {
         throw Exception('Failed to load tickets');
       }
+    } on SocketException catch (e) {
+        if(_isFirstTime){
+          setState(() {
+            _isFirstTime = false;
+          });
+        } else {
+          _handleSocketException(e);
+        }
     } catch (e) {
-      debugPrint('Error fetching tickets: $e');
+      debugPrint('An error occurred: $e');
+      _showSnackBar('An error occurred: $e');
     }
   }
 
@@ -124,6 +134,33 @@ class _TicketsPageState extends State<TicketsPage> with WidgetsBindingObserver {
       final eventDateTime = ticket.combinedDateTime;
       return eventDateTime.isAfter(now);
     }).toList();
+  }
+
+  void _handleSocketException(SocketException e) {
+    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 111) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Connection Error'),
+          content: const Text('Could not connect to the server. Please check your internet connection.'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      );
+    }
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
   }
 
   List<Ticket> getPastTickets(List<Ticket> allTickets) {
@@ -159,10 +196,30 @@ class _TicketsPageState extends State<TicketsPage> with WidgetsBindingObserver {
           ),
         ),
         body: ticketsList.isEmpty
-        ? const Center(child: Text('No tickets found'))
+        ? Center(child: 
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('No tickets found'),
+              ElevatedButton(
+                onPressed: () {
+                  fetchTickets();
+                },
+                child: const Text('Reload'),
+              ),
+            ],
+          ),
+        )
         : 
         TabBarView(
           children: [
+            activeTicketsList.isEmpty ?
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('No upcoming tickets found'),
+              ],
+            ) :
             // Upcoming Tickets
             ListView.builder(
               padding: const EdgeInsets.all(16.0),
@@ -175,6 +232,14 @@ class _TicketsPageState extends State<TicketsPage> with WidgetsBindingObserver {
                 );
               },
             ),
+
+            pastTicketsList.isEmpty ?
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('No past tickets found'),
+              ],
+            ) :
             ListView.builder(
               padding: const EdgeInsets.all(16.0),
               itemCount: pastTicketsList.length, // Replace with actual ticket count

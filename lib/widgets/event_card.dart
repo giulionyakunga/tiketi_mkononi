@@ -212,9 +212,9 @@ class EventCard extends StatelessWidget {
                       const Spacer(),
 
                       (event.hasTicket) ?
-                      (event.tickets.length > 1) ?
+                      (event.tickets.length == 1) ?
                       Text(
-                        "${event.tickets.length} Tickets",
+                        "${event.tickets.length} Ticket",
                         style: TextStyle(
                           fontSize: 11, 
                           color: Colors.green
