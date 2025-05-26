@@ -24,7 +24,7 @@ class _TicketsPageState extends State<TicketsPage> with WidgetsBindingObserver {
   List<Ticket> activeTicketsList = [];
   List<Ticket> pastTicketsList = [];
   bool _isAppActive = true;
-  bool _isFirstTime = true;
+  bool _isReloading = false;
   
   @override
   void initState() {
@@ -106,13 +106,12 @@ class _TicketsPageState extends State<TicketsPage> with WidgetsBindingObserver {
         throw Exception('Failed to load tickets');
       }
     } on SocketException catch (e) {
-        if(_isFirstTime){
-          setState(() {
-            _isFirstTime = false;
-          });
-        } else {
-          _handleSocketException(e);
-        }
+      if(_isReloading){
+        _handleSocketException(e);
+        setState(() {
+          _isReloading = false;
+        });
+      }
     } catch (e) {
       debugPrint('An error occurred: $e');
       _showSnackBar('An error occurred: $e');
@@ -203,6 +202,9 @@ class _TicketsPageState extends State<TicketsPage> with WidgetsBindingObserver {
               Text('No tickets found'),
               ElevatedButton(
                 onPressed: () {
+                  setState(() {
+                    _isReloading = true;
+                  });
                   fetchTickets();
                 },
                 child: const Text('Reload'),

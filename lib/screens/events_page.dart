@@ -27,7 +27,7 @@ class _EventsPageState extends State<EventsPage> {
   final TextEditingController _searchController = TextEditingController();
   List<Event> fetchedEvents = [];
   bool _isSearchBarVisible = false;
-  bool _isFirstTime = true;
+  bool _isReloading = false;
 
   final List<String> _categories = [
     'All',
@@ -182,13 +182,12 @@ class _EventsPageState extends State<EventsPage> {
         _pagingController.error = 'Failed to load events';
       }
     } on SocketException catch (e) {
-        if(_isFirstTime){
-          setState(() {
-            _isFirstTime = false;
-          });
-        } else {
-          _handleSocketException(e);
-        }
+      if(_isReloading){
+        _handleSocketException(e);
+        setState(() {
+          _isReloading = false;
+        });
+      }
     } catch (error) {
       _pagingController.error = error;
     }
@@ -377,6 +376,9 @@ class _EventsPageState extends State<EventsPage> {
                     const Text('Error loading events'),
                     ElevatedButton(
                       onPressed: () {
+                        setState(() {
+                          _isReloading = true;
+                        });
                         _fetchPage(1);
                         _pagingController.refresh();
                       },

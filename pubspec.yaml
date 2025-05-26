@@ -52,8 +52,9 @@ dependencies:
   url_launcher: ^6.3.1
   google_sign_in: ^6.1.5
   package_info_plus: ^8.3.0
-  # sign_in_with_apple: ^5.0.0
+  sign_in_with_apple: ^5.0.0
   # sign_in_with_apple: ^4.2.0  # Use an older version
+  # sign_in_with_apple: ^4.0.0
 
 
 dev_dependencies:

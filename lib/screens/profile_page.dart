@@ -225,7 +225,7 @@ class _ProfilePageState extends State<ProfilePage> {
           await Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => const PurchasePistoryPage(),
+              builder: (context) => PurchasePistoryPage(userId: userId),
             ),
           );
           _loadUserProfile();

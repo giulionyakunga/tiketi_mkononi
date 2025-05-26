@@ -152,6 +152,10 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
     super.dispose();
   }
 
+  void disconnectWebSocketService() {
+    _webSocketService.disconnect();
+  }
+
   bool _isLargeScreen(BuildContext context) {
     return MediaQuery.of(context).size.width > 768;
   }
@@ -315,6 +319,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
 
             final ticket = snapshot.data!;
             if (ticket.scanStatus == 1 && widget.ticketId == ticket.id) {
+              disconnectWebSocketService();
               return Column(
                 children: [
                   Icon(
