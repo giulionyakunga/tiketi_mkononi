@@ -7,7 +7,7 @@ import 'package:tiketi_mkononi/services/storage_service.dart';
 import '../../env.dart';
 import 'package:http/http.dart' as http;
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+// import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -182,54 +182,56 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _handleAppleSignIn() async {
-    if (_isLoading) return;  // Early return if already loading
+  void _handleAppleSignIn() async {}
+
+  // void _handleAppleSignIn() async {
+  //   if (_isLoading) return;  // Early return if already loading
     
-    try {
-      setState(() => _isLoading = true);
+  //   try {
+  //     setState(() => _isLoading = true);
       
-      final credential = await SignInWithApple.getAppleIDCredential(
-        scopes: [
-          AppleIDAuthorizationScopes.email,
-          AppleIDAuthorizationScopes.fullName,
-        ],
-      );
+  //     final credential = await SignInWithApple.getAppleIDCredential(
+  //       scopes: [
+  //         AppleIDAuthorizationScopes.email,
+  //         AppleIDAuthorizationScopes.fullName,
+  //       ],
+  //     );
 
-      // Send to your backend
-      final response = await http.post(
-        Uri.parse('${backend_url}api/apple-login'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'token': credential.identityToken,
-          'email': credential.email,
-          'name': '${credential.givenName} ${credential.familyName}',
-        }),
-      );
+  //     // Send to your backend
+  //     final response = await http.post(
+  //       Uri.parse('${backend_url}api/apple-login'),
+  //       headers: {'Content-Type': 'application/json'},
+  //       body: jsonEncode({
+  //         'token': credential.identityToken,
+  //         'email': credential.email,
+  //         'name': '${credential.givenName} ${credential.familyName}',
+  //       }),
+  //     );
 
-      if (response.statusCode == 200) {
-        // final profile = UserProfile(
-        //   id: jsonDecode(response.body)['id'] ?? 0,
-        //   firstName: credential.givenName ?? '',
-        //   lastName: credential.familyName ?? '',
-        //   email: credential.email ?? '',
-        //   token: jsonDecode(response.body)['token'],
-        //   // Other fields as needed
-        // );
+  //     if (response.statusCode == 200) {
+  //       // final profile = UserProfile(
+  //       //   id: jsonDecode(response.body)['id'] ?? 0,
+  //       //   firstName: credential.givenName ?? '',
+  //       //   lastName: credential.familyName ?? '',
+  //       //   email: credential.email ?? '',
+  //       //   token: jsonDecode(response.body)['token'],
+  //       //   // Other fields as needed
+  //       // );
         
-        // await _storageService.saveUserProfile(profile);
-        if (mounted) Navigator.pushReplacementNamed(context, '/home');
-      }
-    } catch (e) {
-      print('Apple sign in failed: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Apple sign in failed: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
+  //       // await _storageService.saveUserProfile(profile);
+  //       if (mounted) Navigator.pushReplacementNamed(context, '/home');
+  //     }
+  //   } catch (e) {
+  //     print('Apple sign in failed: $e');
+  //     if (mounted) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(content: Text('Apple sign in failed: $e')),
+  //       );
+  //     }
+  //   } finally {
+  //     if (mounted) setState(() => _isLoading = false);
+  //   }
+  // }
 
   Widget _buildSocialButton({
     required String imagePath,
