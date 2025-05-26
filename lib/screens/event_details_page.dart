@@ -224,7 +224,8 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start, // Align all items to the start
               children: [
-                ...event.ticketTypes.map((ticketType) => Padding(
+                ...event.ticketTypes.where((ticketType) => ticketType.ticketInformation.trim().isNotEmpty)
+                .map((ticketType) => Padding(
                   padding: const EdgeInsets.only(bottom: 8), // Add spacing between items
                   child: TextButton(
                     onPressed: null,

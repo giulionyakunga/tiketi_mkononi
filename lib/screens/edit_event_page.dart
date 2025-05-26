@@ -764,10 +764,7 @@ class _EditEventPageState extends State<EditEventPage> {
                           color: Colors.black, // Input text color
                         ),
                         validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Please enter ticket information';
-                          }
-                          if (value.length > 250) {
+                          if (value!.length > 250) {
                             return 'Ticket information must be 250 characters or less';
                           }
                           return null;
@@ -946,10 +943,7 @@ class _EditEventPageState extends State<EditEventPage> {
                           color: Colors.black, // Input text color
                         ),
                         validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Please enter ticket information';
-                          }
-                          if (value.length > 250) {
+                          if (value!.length > 250) {
                             return 'Ticket information must be 250 characters or less';
                           }
                           return null;

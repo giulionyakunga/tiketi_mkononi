@@ -352,9 +352,13 @@ class _EventsPageState extends State<EventsPage> {
       ),
       body: Column(
         children: [
+          _isSearchBarVisible ?
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: _isSearchBarVisible ? _buildSearchBar(isDarkMode) : Text(""),
+            child: _buildSearchBar(isDarkMode),
+          ) : 
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
           ),
           Expanded(
             child: PagedListView<int, Event>(

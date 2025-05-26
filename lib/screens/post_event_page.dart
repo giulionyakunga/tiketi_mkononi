@@ -289,7 +289,7 @@ class _PostEventPageState extends State<PostEventPage> {
         'name': ticket.name.trim(),
         'price': ticket.price,
         'number_of_tickets': ticket.numberOfTickets,
-        'ticket_information': ticket.ticketInformation,
+        'ticket_information': ticket.ticketInformation.trim(),
         'is_custom': ticket.isCustom,
       }).toList(),
       'file_type': fileType,
@@ -411,7 +411,7 @@ class _PostEventPageState extends State<PostEventPage> {
           ),
           onChanged: (value) {
             setState(() {
-              _ticketTypes[index].ticketInformation = value;
+              _ticketTypes[index].ticketInformation = value.trim();
             });
           },
           maxLines: 3,
@@ -420,10 +420,7 @@ class _PostEventPageState extends State<PostEventPage> {
             color: Colors.black, // Input text color
           ),
           validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return 'Please enter ticket information';
-            }
-            if (value.length > 250) {
+            if (value!.length > 250) {
               return 'Ticket information must be 250 characters or less';
             }
             return null;
@@ -489,7 +486,7 @@ class _PostEventPageState extends State<PostEventPage> {
           ),
           onChanged: (value) {
             setState(() {
-              _ticketTypes[index].ticketInformation = value;
+              _ticketTypes[index].ticketInformation = value.trim();
             });
           },
           maxLines: 3,
@@ -498,10 +495,7 @@ class _PostEventPageState extends State<PostEventPage> {
             color: Colors.black, // Input text color
           ),
           validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return 'Please enter ticket information';
-            }
-            if (value.length > 250) {
+            if (value!.length > 250) {
               return 'Ticket information must be 250 characters or less';
             }
             return null;
@@ -585,10 +579,10 @@ class _PostEventPageState extends State<PostEventPage> {
     return InputDecoration(
       labelText: label,
       prefixText: prefixText,
-      prefixIcon: Icon(
+      prefixIcon: (prefixIcon != null) ? Icon(
         prefixIcon,
         color: Colors.grey[600],
-      ),
+      ) : null,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
         borderSide: BorderSide(color: Colors.grey[400]!),
