@@ -154,7 +154,6 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
     }
   }
 
-
   // Helper method to determine if the screen is considered "large"
   bool _isLargeScreen(BuildContext context) {
     return MediaQuery.of(context).size.width > 600;

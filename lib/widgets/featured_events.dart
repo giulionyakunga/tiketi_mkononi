@@ -9,8 +9,9 @@ class FeaturedEvents extends StatelessWidget {
   final List<Event> events;
   final int userId;
   final Function refreshMethod;
+  final bool useDNS;
 
-  const FeaturedEvents({super.key, required this.events, required this.userId, required this.refreshMethod});
+  const FeaturedEvents({super.key, required this.events, required this.userId, required this.refreshMethod, required this.useDNS});
 
   double _getLowestPrice(Event event) {
     return event.ticketTypes.isNotEmpty 
@@ -63,7 +64,7 @@ class FeaturedEvents extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => EventDetailsPage(event: event, userId: userId, refreshMethod: refreshMethod,),
+                            builder: (context) => EventDetailsPage(event: event, userId: userId, refreshMethod: refreshMethod, useDNS: useDNS,),
                           ),
                         );
                       },
@@ -76,10 +77,9 @@ class FeaturedEvents extends StatelessWidget {
                               height: 160,
                               decoration: BoxDecoration(
                                 image: DecorationImage(
-                                  image: CachedNetworkImageProvider('${backend_url}api/image/${event.imageUrl}'),
-
-                                  // image: NetworkImage('${backend_url}api/image/${event.imageUrl}'),
-                                  // fit: BoxFit.cover,
+                                  image: CachedNetworkImageProvider(
+                                    useDNS ? '${backend_url}api/image/${event.imageUrl}' : '${backend_url_with_fallback_ip}api/image/${event.imageUrl}',
+                                  ),
                                   fit: BoxFit.contain,
                                 ),
                               ),

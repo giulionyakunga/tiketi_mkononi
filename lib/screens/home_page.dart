@@ -29,6 +29,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _isNewVerionAvailable = false;
   int userId = 0;
   final TextEditingController _searchController = TextEditingController();
+  bool useDNS_2 = true;
 
   @override
   void initState() {
@@ -42,6 +43,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Future<void> _initializeServices() async {
     final prefs = await SharedPreferences.getInstance();
+    useDNS_2 = await prefs.getBool('use_dns') ?? true;
+
     _storageService = StorageService(prefs);
     _loadUserProfile();
   }
@@ -91,11 +94,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> fetchEvents() async {
+  Future<void> fetchEvents({bool useDNS = true}) async {
     if (!_isAppActive) return;
 
     try {
-      final response = await http.get(Uri.parse('${backend_url}api/events/$userId'));
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/events/$userId') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}api/events/$userId'); // Use IP
+        
+      final response = await http.get(uri);
 
       if (response.statusCode == 200) {
         List<dynamic> dataList = jsonDecode(response.body);
@@ -105,8 +111,37 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
         SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setString('cached_events', jsonEncode(dataList));
+
+        if(useDNS){
+          if(!useDNS_2) {
+            await prefs.setBool('use_dns', true);
+
+            setState(() {
+              useDNS_2 = true;
+            });
+          }
+        }
       }
-    } catch (e) {
+    } on SocketException catch (e) {
+        debugPrint('Network error occurred:');
+        debugPrint('- Exception type: ${e.runtimeType}');
+        debugPrint('- Message: ${e.message}');
+        
+        if (e.osError != null) {
+          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+          debugPrint('  - OS message: ${e.osError!.message}');
+
+          // Retry with IP if DNS fails (errno = 7) and not already retrying
+          if (e.osError!.errorCode == 7 && useDNS) {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('use_dns', false);
+
+            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+            await fetchEvents(useDNS: false); // Recursive retry
+            return;
+          }
+        }
+      } catch (e) {
       debugPrint('Error fetching events: $e');
     }
   }
@@ -124,7 +159,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
 
-  Future<void> checkForUpdates(BuildContext context) async {
+  Future<void> checkForUpdates(BuildContext context, {bool useDNS = true}) async {
     // Get current app version
     final packageInfo = await PackageInfo.fromPlatform();
     String installedVersion = packageInfo.version;
@@ -134,13 +169,46 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     String operatingSystem = Platform.operatingSystem; // Hardcoded for example
 
     try {
-      final response = await http.get(Uri.parse('${backend_url}api/application_information/$userId/$installedVersion/$operatingSystem'));
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/application_information/$userId/$installedVersion/$operatingSystem') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}api/application_information/$userId/$installedVersion/$operatingSystem'); // Use IP
+
+      final response = await http.get(uri);
       if (response.statusCode == 200) {
         final applicationInformation = jsonDecode(response.body);
         if (applicationInformation['app_version'] != "") {
           latestVersion = applicationInformation['app_version'];
           SharedPreferences prefs = await SharedPreferences.getInstance();
           await prefs.setString('application_information', response.body);
+        }
+
+        if(useDNS){
+          if(!useDNS_2) {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('use_dns', true);
+
+            setState(() {
+              useDNS_2 = true;
+            });
+          }
+        }
+      }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if (e.osError!.errorCode == 7 && useDNS) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
+            
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await checkForUpdates(context, useDNS: false); // Recursive retry
+          return;
         }
       }
     } catch (e) {}
@@ -400,7 +468,7 @@ Future<void> _launchStore() async {
           events: filteredEvents,
           userId: userId,
           refreshMethod: refreshMethod,
-          // isWideScreen: isWideScreen,
+          useDNS: useDNS_2,
         ),
       ],
     );

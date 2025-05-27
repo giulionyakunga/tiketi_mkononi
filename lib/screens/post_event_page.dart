@@ -231,7 +231,7 @@ class _PostEventPageState extends State<PostEventPage> {
     });
   }
   
-  Future<void> _submitEvent() async {
+  Future<void> _submitEvent({bool useDNS = true}) async {
     if (!_formKey.currentState!.validate()) {
       _scrollToFirstError();
       return;
@@ -298,8 +298,12 @@ class _PostEventPageState extends State<PostEventPage> {
 
     try {
       setState(() => _isLoading = true);
+
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/post_event') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}api/post_event'); // Use IP
+
       final response = await http.post(
-        Uri.parse('${backend_url}api/post_event'),
+        uri,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(requestBody),
       );
@@ -312,18 +316,78 @@ class _PostEventPageState extends State<PostEventPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(response.body)),
         );
+      } else if (response.statusCode == 302) {
+        _handleHTTPRedirect();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Request failed: ${response.statusCode}')),
-        );
+        _showSnackBar('Request failed: ${response.statusCode}');
       }
-    } catch (e) {
+    } on SocketException catch (e) {
+        debugPrint('Network error occurred:');
+        debugPrint('- Exception type: ${e.runtimeType}');
+        debugPrint('- Message: ${e.message}');
+        
+        if (e.osError != null) {
+          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+          debugPrint('  - OS message: ${e.osError!.message}');
+
+          // Retry with IP if DNS fails (errno = 7) and not already retrying
+          if (e.osError!.errorCode == 7 && useDNS) {
+            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+            await _submitEvent(useDNS: false); // Recursive retry
+            return;
+          }
+        }
+
+        _handleSocketException(e);
+      } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
       );
     } finally {
       setState(() => _isLoading = false);
     }
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
+
+   void _handleSocketException(SocketException e) {
+    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 101 || e.osError?.errorCode == 111) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Connection Error'),
+          content: const Text('Could not connect to the server. Please check your internet connection.'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      );
+    } else {
+      _showSnackBar('Connection Error: ${e.message}');
+    }
+  }
+
+  void _handleHTTPRedirect() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Connection Error'),
+        content: const Text('Could not connect to the server. Please check your internet connection.'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+    );
   }
 
   @override

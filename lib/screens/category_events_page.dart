@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:tiketi_mkononi/models/event.dart';
@@ -27,6 +28,7 @@ class _CategoryEventsPageState extends State<CategoryEventsPage> {
   late final StorageService _storageService;
   static const _pageSize = 30;
   final PagingController<int, Event> _pagingController = PagingController(firstPageKey: 1);
+  bool useDNS_2 = true;
 
   final WebSocketService _webSocketService = WebSocketService();
   bool _isWebSocketConnected = false;
@@ -64,15 +66,16 @@ class _CategoryEventsPageState extends State<CategoryEventsPage> {
     }
   }
 
-  void _handleWebSocketUpdate() async {
+  void _handleWebSocketUpdate({bool useDNS = true}) async {
     if (!mounted) return;
 
     try {
       // Get fresh first page data
-      // final url = Uri.parse('${backend_url}api/events/$userId?page=$pageKey&limit=$_pageSize');
 
-      final url = Uri.parse('${backend_url}api/events/$userId?page=1&limit=$_pageSize');
-      final response = await http.get(url);
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/events/$userId?page=1&limit=$_pageSize') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}api/events/$userId?page=1&limit=$_pageSize'); // Use IP
+
+      final response = await http.get(uri);
 
       if (response.statusCode == 200) {
         final List<dynamic> jsonList = jsonDecode(response.body);
@@ -96,7 +99,26 @@ class _CategoryEventsPageState extends State<CategoryEventsPage> {
       } else {
         debugPrint('Failed to load events silently');
       }
-    } catch (e) {
+    } on SocketException catch (e) {
+        debugPrint('Network error occurred:');
+        debugPrint('- Exception type: ${e.runtimeType}');
+        debugPrint('- Message: ${e.message}');
+        
+        if (e.osError != null) {
+          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+          debugPrint('  - OS message: ${e.osError!.message}');
+
+          // Retry with IP if DNS fails (errno = 7) and not already retrying
+          if (e.osError!.errorCode == 7 && useDNS) {
+            setState(() {
+              useDNS_2 = false;
+            });
+            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+            _handleWebSocketUpdate(useDNS: false); // Recursive retry
+            return;
+          }
+        }
+      } catch (e) {
       debugPrint('Silent update error: $e');
     }
   }
@@ -145,10 +167,12 @@ class _CategoryEventsPageState extends State<CategoryEventsPage> {
     }
   }
 
-  Future<void> _fetchPage(int pageKey) async {
+  Future<void> _fetchPage(int pageKey, {bool useDNS = true}) async {
     try {
-      final url = Uri.parse('${backend_url}api/events/$userId?page=$pageKey&limit=$_pageSize');
-      final response = await http.get(url);
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/events/$userId?page=$pageKey&limit=$_pageSize') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}api/events/$userId?page=$pageKey&limit=$_pageSize'); // Use IP
+        
+      final response = await http.get(uri);
 
       if (response.statusCode == 200) {
         final List<dynamic> jsonList = jsonDecode(response.body);
@@ -173,6 +197,25 @@ class _CategoryEventsPageState extends State<CategoryEventsPage> {
         }
       } else {
         _pagingController.error = 'Failed to load events';
+      }
+    }  on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if (e.osError!.errorCode == 7 && useDNS) {
+          setState(() {
+            useDNS_2 = false;
+          });
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await _fetchPage(pageKey, useDNS: false); // Recursive retry
+          return;
+        }
       }
     } catch (error) {
       _pagingController.error = error;
@@ -205,7 +248,7 @@ class _CategoryEventsPageState extends State<CategoryEventsPage> {
         pagingController: _pagingController,
         builderDelegate: PagedChildBuilderDelegate<Event>(
           itemBuilder: (context, event, index) {
-            return EventCard(event: event, userId: userId, refreshMethod: _handleWebSocketUpdate);
+            return EventCard(event: event, userId: userId, refreshMethod: _handleWebSocketUpdate, useDNS: useDNS_2);
           },
           noItemsFoundIndicatorBuilder: (_) =>
               const Center(child: Text('No events found')),

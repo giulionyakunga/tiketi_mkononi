@@ -100,15 +100,16 @@ class _NotificationsPageState extends State<NotificationsPage> {
     });
   }
 
-  
-  Future<void> getNotificationPreferences() async {
+  Future<void> getNotificationPreferences({bool useDNS = true}) async {
     setState(() {
       _isLoading = true;
     });
-    
 
     try {
-      final response = await http.get(Uri.parse('${backend_url}api/get_notification_preferences/${widget.userId}'));
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/get_notification_preferences/${widget.userId}') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}api/get_notification_preferences/${widget.userId}'); // Use IP
+
+      final response = await http.get(uri);
     
       if (response.statusCode == 200) {
         final notificationPreferences = jsonDecode(response.body);
@@ -120,7 +121,22 @@ class _NotificationsPageState extends State<NotificationsPage> {
             });
           }
         });        
+      }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
 
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if (e.osError!.errorCode == 7 && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await getNotificationPreferences(useDNS: false); // Recursive retry
+          return;
+        }
       }
     } catch (e) {
       debugPrint('Error getting notification preferences: $e');
@@ -131,10 +147,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     }
   }
 
-
-
-
-  Future<void> _submitForm() async {
+  Future<void> _submitForm({bool useDNS = true}) async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedEventCategories.isEmpty) return;
 
@@ -144,7 +157,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
     });
 
     try {
-      // Simulate API call
       await Future.delayed(const Duration(seconds: 2));
 
       // Cache the data locally
@@ -154,9 +166,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
       try {
         setState(() => _isLoading = true);
+
+        final Uri uri = useDNS ? Uri.parse('${backend_url}api/save_notification_preferences/${widget.userId}') // Original URL 
+        : Uri.parse('${backend_url_with_fallback_ip}api/save_notification_preferences/${widget.userId}'); // Use IP
         
         final response = await http.post(
-          Uri.parse('${backend_url}api/save_notification_preferences/${widget.userId}'),
+          uri,
           headers: {'Content-Type': 'application/json; charset=UTF-8'},
           body: encodedList,
         );
@@ -167,10 +182,28 @@ class _NotificationsPageState extends State<NotificationsPage> {
           } else {
             _showSnackBar('Request failed: ${response.statusCode}');
           }
+        } else if (response.statusCode == 302) {
+          _handleHTTPRedirect();
         } else {
           _showSnackBar('Request failed: ${response.statusCode}');
         }
       } on SocketException catch (e) {
+        debugPrint('Network error occurred:');
+        debugPrint('- Exception type: ${e.runtimeType}');
+        debugPrint('- Message: ${e.message}');
+
+        if (e.osError != null) {
+          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+          debugPrint('  - OS message: ${e.osError!.message}');
+
+          // Retry with IP if DNS fails (errno = 7) and not already retrying
+          if (e.osError!.errorCode == 7 && useDNS) {
+            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+            await _submitForm(useDNS: false); // Recursive retry
+            return;
+          }
+        }
+
         _handleSocketException(e);
       } catch (e) {
         debugPrint('An error occurred: $e');
@@ -220,7 +253,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
   }
 
   void _handleSocketException(SocketException e) {
-    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 111) {
+    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 101 || e.osError?.errorCode == 111) {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
@@ -234,6 +267,19 @@ class _NotificationsPageState extends State<NotificationsPage> {
     } else {
       _showSnackBar('Connection Error: ${e.message}');
     }
+  }
+
+  void _handleHTTPRedirect() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Connection Error'),
+        content: const Text('Could not connect to the server. Please check your internet connection.'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+    );
   }
 
   @override

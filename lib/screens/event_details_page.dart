@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:tiketi_mkononi/env.dart';
@@ -18,12 +19,14 @@ class EventDetailsPage extends StatefulWidget {
   final Event event;
   final int userId;
   final Function refreshMethod;
+  final bool useDNS;
 
   const EventDetailsPage({
     super.key,
     required this.event,
     required this.userId,
     required this.refreshMethod,
+    required this.useDNS,
   });
 
   @override
@@ -79,14 +82,15 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
     }
   }
 
-  void fetchEvent() async {
+  void fetchEvent({bool useDNS = true}) async {
     if (!mounted) return;
     widget.refreshMethod();
 
     try {
-      final url = Uri.parse(
-          '${backend_url}api/get_event/${widget.event.id}/${widget.userId}');
-      final response = await http.get(url);
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/get_event/${widget.event.id}/${widget.userId}') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}api/get_event/${widget.event.id}/${widget.userId}'); // Use IP
+        
+      final response = await http.get(uri);
 
       if (response.statusCode == 200) {
         Map<String, dynamic> jsonResponse = jsonDecode(response.body);
@@ -99,7 +103,23 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
       } else {
         debugPrint('Failed to load event');
       }
-    } catch (e) {
+    }on SocketException catch (e) {
+        debugPrint('Network error occurred:');
+        debugPrint('- Exception type: ${e.runtimeType}');
+        debugPrint('- Message: ${e.message}');
+        
+        if (e.osError != null) {
+          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+          debugPrint('  - OS message: ${e.osError!.message}');
+
+          // Retry with IP if DNS fails (errno = 7) and not already retrying
+          if (e.osError!.errorCode == 7 && useDNS) {
+            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+            fetchEvent(useDNS: false); // Recursive retry
+            return;
+          }
+        }
+      } catch (e) {
       debugPrint('Silent update error: $e');
     }
   }
@@ -678,16 +698,19 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
             flexibleSpace: FlexibleSpaceBar(
               background: Hero(
                 tag: 'event-image-${event.id}',
-                child: CachedNetworkImage(
-                  imageUrl: '${backend_url}api/image/${event.imageUrl}',
+                child: 
+                CachedNetworkImage(
+                  imageUrl: widget.useDNS ? '${backend_url}api/image/${event.imageUrl}' : '${backend_url_with_fallback_ip}api/image/${event.imageUrl}',
                   fit: BoxFit.cover,
                   placeholder: (context, url) => Container(
                     color: Colors.grey[300],
                     child: const Center(child: CircularProgressIndicator()),
                   ),
-                  errorWidget: (context, url, error) =>
-                      const Icon(Icons.error, size: 50, color: Colors.red),
+                  errorWidget: (context, url, error) {
+                    return const Icon(Icons.error);
+                  },
                 ),
+
               ),
             ),
           ),
@@ -829,15 +852,17 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
             flexibleSpace: FlexibleSpaceBar(
               background: Hero(
                 tag: 'event-image-${event.id}',
-                child: CachedNetworkImage(
-                  imageUrl: '${backend_url}api/image/${event.imageUrl}',
+                child: 
+                CachedNetworkImage(
+                  imageUrl: widget.useDNS ? '${backend_url}api/image/${event.imageUrl}' : '${backend_url_with_fallback_ip}api/image/${event.imageUrl}',
                   fit: BoxFit.cover,
                   placeholder: (context, url) => Container(
                     color: Colors.grey[300],
                     child: const Center(child: CircularProgressIndicator()),
                   ),
-                  errorWidget: (context, url, error) =>
-                      const Icon(Icons.error, size: 50, color: Colors.red),
+                  errorWidget: (context, url, error) {
+                    return const Icon(Icons.error);
+                  }
                 ),
               ),
             ),

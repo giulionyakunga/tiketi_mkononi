@@ -48,7 +48,7 @@ class _TicketsPageState extends State<TicketsPage> with WidgetsBindingObserver {
       });
       fetchTickets(); // Then fetch new data
     }
-  }
+  } 
 
   @override
   void dispose() {
@@ -81,13 +81,14 @@ class _TicketsPageState extends State<TicketsPage> with WidgetsBindingObserver {
   } 
 
   /// Fetch tickets from backend and cache them
-  Future<void> fetchTickets() async {
+  Future<void> fetchTickets({bool useDNS = true}) async {
     if (!_isAppActive) return; // Prevent fetching when app is inactive
 
-    String url = '${backend_url}api/tickets/$userId';
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/tickets/$userId') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}api/tickets/$userId'); // Use IP
 
     try {
-      final response = await http.get(Uri.parse(url));
+      final response = await http.get(uri);
 
       if (response.statusCode == 200) {
         List<dynamic> dataList = jsonDecode(response.body);
@@ -102,10 +103,29 @@ class _TicketsPageState extends State<TicketsPage> with WidgetsBindingObserver {
         // Cache the data locally
         SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setString('cached_tickets', jsonEncode(dataList));
+      } else if (response.statusCode == 302) {
+        if(_isReloading){
+          _handleHTTPRedirect();
+        }
       } else {
         throw Exception('Failed to load tickets');
       }
     } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if (e.osError!.errorCode == 7 && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}... tickets');
+          await fetchTickets(useDNS: false); // Recursive retry
+          return;
+        }
+      }
       if(_isReloading){
         _handleSocketException(e);
         setState(() {
@@ -136,7 +156,7 @@ class _TicketsPageState extends State<TicketsPage> with WidgetsBindingObserver {
   }
 
   void _handleSocketException(SocketException e) {
-    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 111) {
+    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 101 || e.osError?.errorCode == 111) {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
@@ -147,7 +167,22 @@ class _TicketsPageState extends State<TicketsPage> with WidgetsBindingObserver {
           ),
         ),
       );
+    } else {
+      _showSnackBar('Connection Error: ${e.message}');
     }
+  }
+
+  void _handleHTTPRedirect() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Connection Error'),
+        content: const Text('Could not connect to the server. Please check your internet connection.'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+    );
   }
 
   void _showSnackBar(String message) {

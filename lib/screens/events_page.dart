@@ -28,6 +28,7 @@ class _EventsPageState extends State<EventsPage> {
   List<Event> fetchedEvents = [];
   bool _isSearchBarVisible = false;
   bool _isReloading = false;
+  bool useDNS_2 = true;
 
   final List<String> _categories = [
     'All',
@@ -62,6 +63,9 @@ class _EventsPageState extends State<EventsPage> {
   }
 
   Future<void> _init() async {
+    final prefs = await SharedPreferences.getInstance();
+    useDNS_2 = await prefs.getBool('use_dns') ?? true;
+
     await _initializeServices();
     await _loadCachedEvents();
     _pagingController.addPageRequestListener((pageKey) {
@@ -86,12 +90,13 @@ class _EventsPageState extends State<EventsPage> {
     }
   }
 
-  void _handleWebSocketUpdate() async {
+  void _handleWebSocketUpdate({bool useDNS = true}) async {
     if (!mounted) return;
-
     try {
-      final url = Uri.parse('${backend_url}api/events/$userId?page=1&limit=$_pageSize');
-      final response = await http.get(url);
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/events/$userId?page=1&limit=$_pageSize') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}api/events/$userId?page=1&limit=$_pageSize'); // Use IP
+        
+      final response = await http.get(uri);
 
       if (response.statusCode == 200) {
         final List<dynamic> jsonList = jsonDecode(response.body);
@@ -107,6 +112,22 @@ class _EventsPageState extends State<EventsPage> {
         await prefs.setString('cached_events', jsonEncode(jsonList));
       } else {
         debugPrint('Failed to load events silently');
+      }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if (e.osError!.errorCode == 7 && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          _handleWebSocketUpdate(useDNS: false); // Recursive retry
+          return;
+        }
       }
     } catch (e) {
       debugPrint('Silent update error: $e');
@@ -152,10 +173,12 @@ class _EventsPageState extends State<EventsPage> {
     }
   }
 
-  Future<void> _fetchPage(int pageKey) async {
+  Future<void> _fetchPage(int pageKey, {bool useDNS = true}) async {
     try {
-      final url = Uri.parse('${backend_url}api/events/$userId?page=$pageKey&limit=$_pageSize');
-      final response = await http.get(url);
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/events/$userId?page=$pageKey&limit=$_pageSize') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}api/events/$userId?page=$pageKey&limit=$_pageSize'); // Use IP
+        
+      final response = await http.get(uri);
 
       if (response.statusCode == 200) {
         final List<dynamic> jsonList = jsonDecode(response.body);
@@ -178,18 +201,35 @@ class _EventsPageState extends State<EventsPage> {
           final nextPageKey = pageKey + 1;
           _pagingController.appendPage(filteredItems, nextPageKey);
         }
+      } else if (response.statusCode == 302) {
+        if(_isReloading){
+          _handleHTTPRedirect();
+        }
       } else {
         _pagingController.error = 'Failed to load events';
       }
-    } on SocketException catch (e) {
-      if(_isReloading){
-        _handleSocketException(e);
-        setState(() {
-          _isReloading = false;
-        });
+    }  on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if (e.osError!.errorCode == 7 && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await _fetchPage(pageKey, useDNS: false); // Recursive retry
+          return;
+        }
       }
     } catch (error) {
       _pagingController.error = error;
+    } finally {
+      setState(() {
+        _isReloading = false;
+      });
     }
   }
 
@@ -215,8 +255,20 @@ class _EventsPageState extends State<EventsPage> {
     return filtered;
   }
 
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
+
   void _handleSocketException(SocketException e) {
-    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 111) {
+    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 101 || e.osError?.errorCode == 111) {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
@@ -227,7 +279,22 @@ class _EventsPageState extends State<EventsPage> {
           ),
         ),
       );
+    } else {
+      _showSnackBar('Connection Error: ${e.message}');
     }
+  }
+
+  void _handleHTTPRedirect() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Connection Error'),
+        content: const Text('Could not connect to the server. Please check your internet connection.'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+    );
   }
 
   @override
@@ -369,7 +436,8 @@ class _EventsPageState extends State<EventsPage> {
                   return EventCard(
                     event: event, 
                     userId: userId, 
-                    refreshMethod: _handleWebSocketUpdate
+                    refreshMethod: _handleWebSocketUpdate,
+                    useDNS: useDNS_2,
                   );
                 },
                 noItemsFoundIndicatorBuilder: (_) =>

@@ -85,14 +85,16 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
     return true;
   }
 
-  Future<void> _handlePaying() async {
+  Future<void> _handlePaying({bool useDNS = true}) async {
     if (_formKey.currentState!.validate() && checkTicketAvailability()){
       try {
         setState(() => _isLoading = true);
 
-        String url = '${backend_url}api/checkout';
+        final Uri uri = useDNS ? Uri.parse('${backend_url}api/checkout') // Original URL 
+        : Uri.parse('${backend_url_with_fallback_ip}api/checkout'); // Use IP
+
         final response = await http.post(
-          Uri.parse(url),
+          uri,
           headers: {'Content-Type': 'application/json; charset=UTF-8'},
           body: '{"user_id": "$userId", "event_id": "$eventId", "quantity": "$quantity", "ticket_price": $ticketPrice, "ticket_type": "$ticketTypeName", "selected_payment_method": "$selectedPaymentMethod", "phone_number": "${formatPhoneNumber(_phoneNumberController.text)}"}',
         );
@@ -120,21 +122,29 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
             widget.refreshMethod();
             fetchTickets();
           }
+        } else if (response.statusCode == 302) {
+          _handleHTTPRedirect();
         } else {
           _showSnackBar('Request failed: ${response.statusCode}');
         }
       } on SocketException catch (e) {
-          if (e.osError?.errorCode == 7 || e.osError?.errorCode == 111) {
-            showDialog(
-              context: context,
-              builder: (context) => const AlertDialog(
-                title: Text('Connection Error'),
-                content: Text('Could not connect to the server. Please check your internet connection.'),
-              ),
-            );
-          } else {
-            _showSnackBar('Connection Error occurred: ${e.message}');
+        debugPrint('Network error occurred:');
+        debugPrint('- Exception type: ${e.runtimeType}');
+        debugPrint('- Message: ${e.message}');
+        
+        if (e.osError != null) {
+          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+          debugPrint('  - OS message: ${e.osError!.message}');
+
+          // Retry with IP if DNS fails (errno = 7) and not already retrying
+          if (e.osError!.errorCode == 7 && useDNS) {
+            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+            await _handlePaying(useDNS: false); // Recursive retry
+            return;
           }
+        }
+
+        _handleSocketException(e);
       } catch (e) {
         _showSnackBar('An error occurred: $e');
       } finally {
@@ -147,6 +157,36 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  void _handleSocketException(SocketException e) {
+    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 101 || e.osError?.errorCode == 111) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Connection Error'),
+          content: const Text('Could not connect to the server. Please check your internet connection.'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      );
+    } else {
+      _showSnackBar('Connection Error: ${e.message}');
+    }
+  }
+
+  void _handleHTTPRedirect() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Connection Error'),
+        content: const Text('Could not connect to the server. Please check your internet connection.'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+    );
+  }
+
   void _startFetchingEventPaymentStatus() {
     _timer = Timer.periodic(const Duration(seconds: 2), (timer) {
       if (_isAppActive) {
@@ -155,7 +195,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
     });
   }
 
-  Future<void> fetchEventPaymentStatus() async {
+  Future<void> fetchEventPaymentStatus({bool useDNS = true}) async {
     if (!_isAppActive || !__processing_payment) return;
 
     setState(() => trials--);
@@ -167,10 +207,11 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
       });
     }
 
-    String url = '${backend_url}api/event/$eventId/$userId';
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/event/$eventId/$userId') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}api/event/$eventId/$userId'); // Use IP
 
     try {
-      final response = await http.get(Uri.parse(url));
+      final response = await http.get(uri);
 
       if (response.statusCode == 200) {
         debugPrint('response.body : ${response.body}');
@@ -217,24 +258,57 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
       } else {
         throw Exception('Failed to load event');
       }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if (e.osError!.errorCode == 7 && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await fetchEventPaymentStatus(useDNS: false); // Recursive retry
+          return;
+        }
+      }
     } catch (e) {
       debugPrint('Error fetching event: $e');
     }
   }
 
-  Future<void> fetchTickets() async {
+  Future<void> fetchTickets({bool useDNS = true}) async {
     if (!_isAppActive) return;
 
-    String url = '${backend_url}api/tickets/$userId';
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/tickets/$userId') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}api/tickets/$userId'); // Use IP
 
     try {
-      final response = await http.get(Uri.parse(url));
+      final response = await http.get(uri);
       if (response.statusCode == 200) {
         List<dynamic> dataList = jsonDecode(response.body);
         SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setString('cached_tickets', jsonEncode(dataList));
       } else {
         throw Exception('Failed to load tickets');
+      }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if (e.osError!.errorCode == 7 && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await fetchTickets(useDNS: false); // Recursive retry
+          return;
+        }
       }
     } catch (e) {
       debugPrint('Error fetching tickets: $e');

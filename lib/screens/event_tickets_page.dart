@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -75,20 +76,18 @@ class _EventTicketsPageState extends State<EventTicketsPage>
     }
   }
 
-  Future<void> fetchTickets() async {
+  Future<void> fetchTickets({bool useDNS = true}) async {
     if (!_isAppActive) return;
 
-    String url = '${backend_url}api/event_tickets/${widget.event.id}';
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/event_tickets/${widget.event.id}') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}api/event_tickets/${widget.event.id}'); // Use IP
 
     try {
-      final response = await http.get(Uri.parse(url));
+      final response = await http.get(uri);
 
       if (response.statusCode == 200) {
         List<dynamic> dataList = jsonDecode(response.body)['tickets'];
-        debugPrint(" >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> dataList : $dataList");
         List<Ticket> tickets = dataList.map((json) => Ticket.fromJson(json)).toList();
-
-        debugPrint(" >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> tickets : $tickets");
 
         List<dynamic> dataList2 = jsonDecode(response.body)['ticket_types'];
         List<TicketType> ticketTypes = 
@@ -100,6 +99,22 @@ class _EventTicketsPageState extends State<EventTicketsPage>
         });
       } else {
         throw Exception('Failed to load tickets');
+      }
+    }on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if (e.osError!.errorCode == 7 && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await fetchTickets(useDNS: false); // Recursive retry
+          return;
+        }
       }
     } catch (e) {
       debugPrint('Error fetching tickets: $e');
@@ -117,10 +132,10 @@ class _EventTicketsPageState extends State<EventTicketsPage>
         appBar: AppBar(
           title: const Text('Tickets'),
           backgroundColor: const Color.fromARGB(255, 240, 244, 247),
-          bottom: const TabBar(
+          bottom: TabBar(
             tabs: [
               Tab(text: 'Tickets'),
-              Tab(text: 'Collection'),
+              Tab(text: (widget.event.type == 'paid') ? 'Collection' : 'Confirmations'),
             ],
           ),
         ),
@@ -266,18 +281,26 @@ class _EventTicketsPageState extends State<EventTicketsPage>
         child: Column(
           children: [
             Text(
-              'Total Collection',
+              (widget.event.type == 'paid') ? 'Total Collection' : 'Total Confirmations',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 8),
+            (widget.event.type == 'paid') ?
             Text(
               'TSH ${getTotalCollection().toStringAsFixed(2)}',
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: Colors.green,
               ),
+            ) : Text(
+              '${ticketsList.length}',
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
+              ),
             ),
             const SizedBox(height: 8),
+            if(widget.event.type == 'paid')
             Text(
               '${ticketsList.length} tickets sold',
               style: Theme.of(context).textTheme.bodyLarge, 
@@ -292,7 +315,7 @@ class _EventTicketsPageState extends State<EventTicketsPage>
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(ticketType.name),
-                        Text("${ticketType.soldTickets} sold"),
+                        Text("${ticketType.soldTickets}"),
                       ],
                     ),
                   );

@@ -1193,9 +1193,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
             },
           ),
         ],
-       
-
-
 
       ),
       body: SingleChildScrollView(

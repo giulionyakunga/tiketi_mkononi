@@ -77,13 +77,16 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
     );
   }
 
-  Future<void> _handleAddApplicationInformation() async {
+  Future<void> _handleAddApplicationInformation({bool useDNS = true}) async {
     if (_formKey.currentState!.validate()) {
       try {
         setState(() => _isLoading = true);
+
+        final Uri uri = useDNS ? Uri.parse('${backend_url}api/add_application_information') // Original URL 
+        : Uri.parse('${backend_url_with_fallback_ip}api/add_application_information'); // Use IP
         
         final response = await http.post(
-          Uri.parse('${backend_url}api/add_application_information'),
+          uri,
           headers: {'Content-Type': 'application/json; charset=UTF-8'},
           body: jsonEncode({
             "user_id": userId,
@@ -94,10 +97,28 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
         if (response.statusCode == 200) {
           _showSnackBar(response.body);
           checkForUpdates();
+        } else if (response.statusCode == 302) {
+          _handleHTTPRedirect();
         } else {
           _showSnackBar('Request failed: ${response.statusCode}');
         }
       } on SocketException catch (e) {
+        debugPrint('Network error occurred:');
+        debugPrint('- Exception type: ${e.runtimeType}');
+        debugPrint('- Message: ${e.message}');
+        
+        if (e.osError != null) {
+          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+          debugPrint('  - OS message: ${e.osError!.message}');
+
+          // Retry with IP if DNS fails (errno = 7) and not already retrying
+          if (e.osError!.errorCode == 7 && useDNS) {
+            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+            await _handleAddApplicationInformation(useDNS: false); // Recursive retry
+            return;
+          }
+        }
+
         _handleSocketException(e);
       } catch (e) {
         debugPrint('An error occurred: $e');
@@ -109,7 +130,7 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
   }
 
   void _handleSocketException(SocketException e) {
-    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 111) {
+    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 101 || e.osError?.errorCode == 111) {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
@@ -123,6 +144,19 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
     } else {
       _showSnackBar('Connection Error: ${e.message}');
     }
+  }
+
+  void _handleHTTPRedirect() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Connection Error'),
+        content: const Text('Could not connect to the server. Please check your internet connection.'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+    );
   }
 
   Widget _buildAppInformationForm(bool isLargeScreen) {
@@ -225,24 +259,7 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
     );
   }
 
-  Future<void> addApplicationInformation(String app_version) async {
-    try {        
-      final response = await http.post(
-        Uri.parse('${backend_url}api/add_application_information'),
-        headers: {'Content-Type': 'application/json; charset=UTF-8'},
-        body: jsonEncode({
-          "app_version": app_version,
-          "user_id": userId
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        debugPrint(response.body);
-      }
-    } finally {}
-  }
-
-  Future<void> checkForUpdates() async {
+  Future<void> checkForUpdates({bool useDNS = true}) async {
     setState(() {
       _isLoading = true;
     });
@@ -257,8 +274,11 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
     String _latestVersion = "";
     String operatingSystem = Platform.operatingSystem; // Hardcoded for example
 
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/application_information/$userId/$installedVersion2/$operatingSystem') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}api/application_information/$userId/$installedVersion2/$operatingSystem'); // Use IP
+        
     try {
-      final response = await http.get(Uri.parse('${backend_url}api/application_information/$userId/$installedVersion2/$operatingSystem'));
+      final response = await http.get(uri);
       if (response.statusCode == 200) {
         final applicationInformation = jsonDecode(response.body);
         if (applicationInformation['app_version'] != "") {
@@ -270,7 +290,29 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
           });
           await prefs.setString('application_information', response.body);
         }
+      } else if (response.statusCode == 302) {
+        _handleHTTPRedirect();
+      } else {
+        _showSnackBar('Request failed: ${response.statusCode}');
       }
+    } on SocketException catch (e) {
+        debugPrint('Network error occurred:');
+        debugPrint('- Exception type: ${e.runtimeType}');
+        debugPrint('- Message: ${e.message}');
+        
+        if (e.osError != null) {
+          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+          debugPrint('  - OS message: ${e.osError!.message}');
+
+          // Retry with IP if DNS fails (errno = 7) and not already retrying
+          if (e.osError!.errorCode == 7 && useDNS) {
+            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+            await checkForUpdates(useDNS: false); // Recursive retry
+            return;
+          }
+        }
+
+        _handleSocketException(e);
     } catch (e) {
       debugPrint('Error checking for updates: $e');
     } finally {

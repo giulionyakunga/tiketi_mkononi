@@ -136,6 +136,7 @@ class _LanguageSettingsPageState extends State<LanguageSettingsPage> {
     );
   }
 
+
   void _handleLanguageChange(BuildContext context, Map<String, String> language) {
     if (language['name'] == "Kiswahili") {
       setState(() {

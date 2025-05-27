@@ -16,7 +16,6 @@ class OrganizerRequestsPage extends StatefulWidget {
 }
 
 class _OrganizerRequestsPageState extends State<OrganizerRequestsPage> {
-  // Mock data - replace with your API data
   List<dynamic> _requests = [];
   bool _isLoading = false;
 
@@ -62,13 +61,16 @@ class _OrganizerRequestsPageState extends State<OrganizerRequestsPage> {
     }
   }
 
-  Future<void> _updateRequestStatus(int userId, int requestId, String status) async {
+  Future<void> _updateRequestStatus(int userId, int requestId, String status, {bool useDNS = true}) async {
 
     try {
       setState(() => _isLoading = true);
+
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/update_organizer_request') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}api/update_organizer_request'); // Use IP
       
       final response = await http.post(
-        Uri.parse('${backend_url}api/update_organizer_request'),
+        uri,
         headers: {'Content-Type': 'application/json; charset=UTF-8'},
         body: jsonEncode({
           "user_id": userId,
@@ -83,12 +85,29 @@ class _OrganizerRequestsPageState extends State<OrganizerRequestsPage> {
             SnackBar(content: Text('Request $status successfully')),
           );
         }
+      } else if (response.statusCode == 302) {
+        _handleHTTPRedirect();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Request failed: ${response.statusCode}')),
-        );
+        _showSnackBar('Request failed: ${response.statusCode}');
       }
     } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if (e.osError!.errorCode == 7 && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await _updateRequestStatus(userId, requestId, status, useDNS: false); // Recursive retry
+
+          return;
+        }
+      }
+
       _handleSocketException(e);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -103,8 +122,20 @@ class _OrganizerRequestsPageState extends State<OrganizerRequestsPage> {
     });
   }
 
-   void _handleSocketException(SocketException e) {
-    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 111) {
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
+
+  void _handleSocketException(SocketException e) {
+    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 101 || e.osError?.errorCode == 111) {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
@@ -116,19 +147,31 @@ class _OrganizerRequestsPageState extends State<OrganizerRequestsPage> {
         ),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Connection Error: ${e.message}')),
-      );
+      _showSnackBar('Connection Error: ${e.message}');
     }
   }
 
-   /// Fetch get_organizer_requests from backend and cache them
-  Future<void> fetchOrganizerRequests() async {
+  void _handleHTTPRedirect() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Connection Error'),
+        content: const Text('Could not connect to the server. Please check your internet connection.'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+    );
+  }
 
-    String url = '${backend_url}api/get_organizer_requests';
+   /// Fetch get_organizer_requests from backend and cache them
+  Future<void> fetchOrganizerRequests({bool useDNS = true}) async {
+
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/get_organizer_requests') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}api/get_organizer_requests'); // Use IP
 
     try {
-      final response = await http.get(Uri.parse(url));
+      final response = await http.get(uri);
 
       if (response.statusCode == 200) {
         
@@ -142,6 +185,24 @@ class _OrganizerRequestsPageState extends State<OrganizerRequestsPage> {
       } else {
         throw Exception('Failed to load tickets');
       }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if (e.osError!.errorCode == 7 && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await fetchOrganizerRequests(useDNS: false); // Recursive retry
+          return;
+        }
+      }
+
+      _handleSocketException(e);
     } catch (e) {
       debugPrint('Error fetching tickets: $e');
     }

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
@@ -59,19 +60,17 @@ class _PurchasePistoryPageState extends State<PurchasePistoryPage> {
     }
   }
 
-  Future<void> _fetchPage(int pageKey) async {
-    debugPrint(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> start fetching userId : ${widget.userId}");
+  Future<void> _fetchPage(int pageKey, {bool useDNS = true}) async {
 
     try {
       if (widget.userId == 0) return; // Don't fetch if we don't have a user ID yet
 
-      final url = Uri.parse('${backend_url}api/purchased_events/${widget.userId}?page=$pageKey&limit=$_pageSize');
-      final response = await http.get(url);
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/purchased_events/${widget.userId}?page=$pageKey&limit=$_pageSize') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}api/purchased_events/${widget.userId}?page=$pageKey&limit=$_pageSize'); // Use IP
 
-      debugPrint(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> fetching");
+      final response = await http.get(uri);
 
       if (response.statusCode == 200) {
-        debugPrint(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> response.body : ${response.body}");
         final List<dynamic> jsonList = jsonDecode(response.body);
         final newItems = jsonList.map((json) => Event.fromJson(json)).toList();
         setState(() {
@@ -97,8 +96,55 @@ class _PurchasePistoryPageState extends State<PurchasePistoryPage> {
       } else {
         _pagingController.error = 'Failed to load history';
       }
-    } catch (error) {
+    } on SocketException catch (e) {
+        debugPrint('Network error occurred:');
+        debugPrint('- Exception type: ${e.runtimeType}');
+        debugPrint('- Message: ${e.message}');
+        
+        if (e.osError != null) {
+          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+          debugPrint('  - OS message: ${e.osError!.message}');
+
+          // Retry with IP if DNS fails (errno = 7) and not already retrying
+          if (e.osError!.errorCode == 7 && useDNS) {
+            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+            await _fetchPage(pageKey, useDNS: false); // Recursive retry
+            return;
+          }
+        }
+
+        _handleSocketException(e);
+      } catch (error) {
       _pagingController.error = error;
+    }
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
+
+  void _handleSocketException(SocketException e) {
+    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 101 || e.osError?.errorCode == 111) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Connection Error'),
+          content: const Text('Could not connect to the server. Please check your internet connection.'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      );
+    } else {
+      _showSnackBar('Connection Error: ${e.message}');
     }
   }
 

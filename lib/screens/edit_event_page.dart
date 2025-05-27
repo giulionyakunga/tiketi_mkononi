@@ -358,7 +358,7 @@ class _EditEventPageState extends State<EditEventPage> {
     });
   }
 
-  Future<void> _submitEvent() async {
+  Future<void> _submitEvent({bool useDNS = true}) async {
     if (!_formKey.currentState!.validate()) {
       _scrollToFirstError();
       return;
@@ -434,10 +434,12 @@ class _EditEventPageState extends State<EditEventPage> {
         _isLoading = true;
       });
 
-      String url = '${backend_url}api/update_event';
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/update_event') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}api/update_event'); // Use IP
+        
 
       final response = await http.post(
-        Uri.parse(url),
+        uri,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(requestBody),
       );
@@ -454,35 +456,29 @@ class _EditEventPageState extends State<EditEventPage> {
             SnackBar(content: Text('Response: ${response.body}')),
           );
         }
+      } else if (response.statusCode == 302) {
+        _handleHTTPRedirect();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(
-                  'Request not successful, Status code: ${response.statusCode}')),
-        );
+        _showSnackBar('Request failed: ${response.statusCode}');
       }
     } on SocketException catch (e) {
-      if (e.osError?.errorCode == 7) {
-        showDialog(
-          context: context,
-          builder: (context) => const AlertDialog(
-            title: Text('Connection Error'),
-            content:
-                Text('Could not connect to the server. Please check your internet connection.'),
-          ),
-        );
-      } else if (e.osError?.errorCode == 111) {
-        showDialog(
-          context: context,
-          builder: (context) => const AlertDialog(
-            title: Text('Connection Error'),
-            content:
-                Text('Could not connect to the server. Please try again later.'),
-          ),
-        );
-      } else {
-        _showSnackBar('Connection Error occurred: ${e.message}');
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if (e.osError!.errorCode == 7 && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await _submitEvent(useDNS: false); // Recursive retry
+          return;
+        }
       }
+
+      _handleSocketException(e);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('An error occurred: $e')),
@@ -494,11 +490,12 @@ class _EditEventPageState extends State<EditEventPage> {
     }
   }
 
-  Future<void> removeEvent() async {
-    String url = '${backend_url}api/remove_event/${widget.event.id}/${widget.userId}';
+  Future<void> removeEvent({bool useDNS = true}) async {
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/remove_event/${widget.event.id}/${widget.userId}') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}api/remove_event/${widget.event.id}/${widget.userId}'); // Use IP
 
     try {
-      final response = await http.get(Uri.parse(url));
+      final response = await http.get(uri);
 
       if (response.statusCode == 200) {
         if (response.body == "Event removed successfully!") {
@@ -508,13 +505,29 @@ class _EditEventPageState extends State<EditEventPage> {
           );
           Navigator.pop(context);
         }
+      }  else if (response.statusCode == 302) {
+        _handleHTTPRedirect();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(
-                  'Request not successful, Status code: ${response.statusCode}')),
-        );
+        _showSnackBar('Request failed: ${response.statusCode}');
       }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if (e.osError!.errorCode == 7 && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await removeEvent(useDNS: false); // Recursive retry
+          return;
+        }
+      }
+
+      _handleSocketException(e);
     } catch (e) {
       debugPrint('Error removing event: $e');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -523,12 +536,12 @@ class _EditEventPageState extends State<EditEventPage> {
     }
   }
 
-  Future<void> closeEventBooking() async {
-    String url =
-        '${backend_url}api/close_event_booking/${widget.event.id}/${widget.userId}';
+  Future<void> closeEventBooking({bool useDNS = true}) async {
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/close_event_booking/${widget.event.id}/${widget.userId}') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}api/close_event_booking/${widget.event.id}/${widget.userId}'); // Use IP
 
     try {
-      final response = await http.get(Uri.parse(url));
+      final response = await http.get(uri);
 
       if (response.statusCode == 200) {
         if (response.body == "Event closed successfully!") {
@@ -538,13 +551,29 @@ class _EditEventPageState extends State<EditEventPage> {
           );
           Navigator.pop(context);
         }
+      } else if (response.statusCode == 302) {
+        _handleHTTPRedirect();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(
-                  'Request not successful, Status code: ${response.statusCode}')),
-        );
+        _showSnackBar('Request failed: ${response.statusCode}');
       }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if (e.osError!.errorCode == 7 && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await closeEventBooking(useDNS: false); // Recursive retry
+          return;
+        }
+      }
+
+      _handleSocketException(e);
     } catch (e) {
       debugPrint('Error closing event: $e');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -553,12 +582,12 @@ class _EditEventPageState extends State<EditEventPage> {
     }
   }
 
-  Future<void> openEventBooking() async {
-    String url =
-        '${backend_url}api/open_event_booking/${widget.event.id}/${widget.userId}';
+  Future<void> openEventBooking({bool useDNS = true}) async {
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/open_event_booking/${widget.event.id}/${widget.userId}') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}api/open_event_booking/${widget.event.id}/${widget.userId}'); // Use IP
 
     try {
-      final response = await http.get(Uri.parse(url));
+      final response = await http.get(uri);
 
       if (response.statusCode == 200) {
         if (response.body == "Event opened successfully!") {
@@ -568,13 +597,29 @@ class _EditEventPageState extends State<EditEventPage> {
           );
           Navigator.pop(context);
         }
+      } else if (response.statusCode == 302) {
+        _handleHTTPRedirect();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(
-                  'Request not successful, Status code: ${response.statusCode}')),
-        );
+        _showSnackBar('Request failed: ${response.statusCode}');
       }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if (e.osError!.errorCode == 7 && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await openEventBooking(useDNS: false); // Recursive retry
+          return;
+        }
+      }
+
+      _handleSocketException(e);
     } catch (e) {
       debugPrint('Error opening event: $e');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -585,6 +630,36 @@ class _EditEventPageState extends State<EditEventPage> {
 
   void _showSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+    void _handleSocketException(SocketException e) {
+    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 101 || e.osError?.errorCode == 111) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Connection Error'),
+          content: const Text('Could not connect to the server. Please check your internet connection.'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      );
+    } else {
+      _showSnackBar('Connection Error: ${e.message}');
+    }
+  }
+
+  void _handleHTTPRedirect() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Connection Error'),
+        content: const Text('Could not connect to the server. Please check your internet connection.'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+    );
   }
 
   Widget _buildTicketTypeField(int index) {

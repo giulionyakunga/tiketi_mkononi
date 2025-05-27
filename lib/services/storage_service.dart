@@ -26,6 +26,7 @@ class StorageService {
     await _prefs.remove("cached_tickets");
     await _prefs.remove("purchased_events");
     await _prefs.remove("selected_event_categories");
+    await _prefs.remove("use_dns");
     await _prefs.remove(_userProfileKey);
   }
 }

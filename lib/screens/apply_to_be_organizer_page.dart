@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:http/http.dart' as http;
@@ -23,12 +24,15 @@ class _ApplyToBeOrganizerPageState extends State<ApplyToBeOrganizerPage> {
     userId = widget.userId;
   }
 
-  Future<void> _submitApplication() async {
+  Future<void> _submitApplication({bool useDNS = true}) async {
     try {
       setState(() => _isLoading = true);
 
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/apply_to_be_organizer') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}api/apply_to_be_organizer'); // Use IP
+        
       final response = await http.post(
-        Uri.parse('${backend_url}api/apply_to_be_organizer'),
+        uri,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'user_id': userId}),
       );
@@ -45,10 +49,30 @@ class _ApplyToBeOrganizerPageState extends State<ApplyToBeOrganizerPage> {
             ),
           );
         }
+      } else if (response.statusCode == 302) {
+        _handleHTTPRedirect();
       } else {
-        throw Exception('Request failed with status ${response.statusCode}');
+        _showSnackBar('Request failed: ${response.statusCode}');
       }
-    } catch (e) {
+    } on SocketException catch (e) {
+        debugPrint('Network error occurred:');
+        debugPrint('- Exception type: ${e.runtimeType}');
+        debugPrint('- Message: ${e.message}');
+        
+        if (e.osError != null) {
+          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+          debugPrint('  - OS message: ${e.osError!.message}');
+
+          // Retry with IP if DNS fails (errno = 7) and not already retrying
+          if (e.osError!.errorCode == 7 && useDNS) {
+            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+            await _submitApplication(useDNS: false); // Recursive retry
+            return;
+          }
+        }
+
+        _handleSocketException(e);
+      } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error: ${e.toString()}'),
@@ -86,6 +110,48 @@ class _ApplyToBeOrganizerPageState extends State<ApplyToBeOrganizerPage> {
             child: const Text('OK'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
+
+  void _handleSocketException(SocketException e) {
+    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 101 || e.osError?.errorCode == 111) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Connection Error'),
+          content: const Text('Could not connect to the server. Please check your internet connection.'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      );
+    } else {
+      _showSnackBar('Connection Error: ${e.message}');
+    }
+  }
+
+  void _handleHTTPRedirect() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Connection Error'),
+        content: const Text('Could not connect to the server. Please check your internet connection.'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
       ),
     );
   }

@@ -91,15 +91,17 @@ class _ConfirmPageState extends State<ConfirmPage> with WidgetsBindingObserver {
     return true;
   }
 
-  Future<void> _handleConfirming() async {
+  Future<void> _handleConfirming({bool useDNS = true}) async {
     if (checkTicketAvailability()){
       if (checkNumberTickets()){
         try {
           setState(() => _isLoading = true);
 
-          String url = '${backend_url}api/confirm';
+          final Uri uri = useDNS ? Uri.parse('${backend_url}api/confirm') // Original URL 
+          : Uri.parse('${backend_url_with_fallback_ip}api/confirm'); // Use IP
+        
           final response = await http.post(
-            Uri.parse(url),
+            uri,
             headers: {'Content-Type': 'application/json; charset=UTF-8'},
             body: '{"user_id": "$userId", "event_id": "$eventId", "quantity": "$quantity", "ticket_price": $ticketPrice, "ticket_type": "$ticketTypeName"}',
           );
@@ -118,21 +120,29 @@ class _ConfirmPageState extends State<ConfirmPage> with WidgetsBindingObserver {
               widget.refreshMethod();
               fetchTickets();
             }
+          }  else if (response.statusCode == 302) {
+            _handleHTTPRedirect();
           } else {
             _showSnackBar('Request failed: ${response.statusCode}');
           }
         } on SocketException catch (e) {
-          if (e.osError?.errorCode == 7 || e.osError?.errorCode == 111) {
-            showDialog(
-              context: context,
-              builder: (context) => const AlertDialog(
-                title: Text('Connection Error'),
-                content: Text('Could not connect to the server. Please check your internet connection.'),
-              ),
-            );
-          } else {
-            _showSnackBar('Connection Error occurred: ${e.message}');
+          debugPrint('Network error occurred:');
+          debugPrint('- Exception type: ${e.runtimeType}');
+          debugPrint('- Message: ${e.message}');
+          
+          if (e.osError != null) {
+            debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+            debugPrint('  - OS message: ${e.osError!.message}');
+
+            // Retry with IP if DNS fails (errno = 7) and not already retrying
+            if (e.osError!.errorCode == 7 && useDNS) {
+              debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+              await _handleConfirming(useDNS: false); // Recursive retry
+              return;
+            }
           }
+
+          _handleSocketException(e);
         } catch (e) {
           _showSnackBar('An error occurred: $e');
         } finally {
@@ -146,19 +156,66 @@ class _ConfirmPageState extends State<ConfirmPage> with WidgetsBindingObserver {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Future<void> fetchTickets() async {
+  void _handleSocketException(SocketException e) {
+    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 101 || e.osError?.errorCode == 111) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Connection Error'),
+          content: const Text('Could not connect to the server. Please check your internet connection.'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      );
+    } else {
+      _showSnackBar('Connection Error: ${e.message}');
+    }
+  }
+
+  void _handleHTTPRedirect() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Connection Error'),
+        content: const Text('Could not connect to the server. Please check your internet connection.'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+    );
+  }
+
+  Future<void> fetchTickets({bool useDNS = true}) async {
     if (!_isAppActive) return;
 
-    String url = '${backend_url}api/tickets/$userId';
-
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/tickets/$userId') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}api/tickets/$userId'); // Use IP
+        
     try {
-      final response = await http.get(Uri.parse(url));
+      final response = await http.get(uri);
       if (response.statusCode == 200) {
         List<dynamic> dataList = jsonDecode(response.body);
         SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setString('cached_tickets', jsonEncode(dataList));
       } else {
         throw Exception('Failed to load tickets');
+      }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if (e.osError!.errorCode == 7 && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await fetchTickets(useDNS: false); // Recursive retry
+          return;
+        }
       }
     } catch (e) {
       debugPrint('Error fetching tickets: $e');

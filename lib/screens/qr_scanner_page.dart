@@ -35,7 +35,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
     super.dispose();
   }
 
-  Future<void> _onDetect(BarcodeCapture capture) async {
+  Future<void> _onDetect(BarcodeCapture capture, {bool useDNS = true}) async {
     if (!_isScanning || _isLoading) return;
     
     final List<Barcode> barcodes = capture.barcodes;
@@ -49,7 +49,9 @@ class _QRScannerPageState extends State<QRScannerPage> {
       });
       
       try {
-        String url = '${backend_url}api/check_ticket/${widget.userId}';
+        String url = useDNS ? '${backend_url}api/check_ticket/${widget.userId}' // Original URL 
+        : '${backend_url_with_fallback_ip}api/check_ticket/${widget.userId}'; // Use IP
+
         // Include event ID if provided
         if (_eventIdController.text.isNotEmpty) {
           url += '?event_id=${_eventIdController.text}';
@@ -77,6 +79,8 @@ class _QRScannerPageState extends State<QRScannerPage> {
 
         if (response.statusCode == 200) {
           _showCustomDialog(context, response.body);
+        } else if (response.statusCode == 302) {
+          _handleHTTPRedirect();
         } else {
           _showErrorSnackbar(context, 
             response.body.contains("Unexpected token") 
@@ -85,17 +89,23 @@ class _QRScannerPageState extends State<QRScannerPage> {
           );
         }
       } on SocketException catch (e) {
-        if (e.osError?.errorCode == 7 || e.osError?.errorCode == 111) {
-          showDialog(
-            context: context,
-            builder: (context) => const AlertDialog(
-              title: Text('Connection Error'),
-              content: Text('Could not connect to the server. Please check your internet connection.'),
-            ),
-          );
-        } else {
-          _showSnackBar('Connection Error occurred: ${e.message}');
+        debugPrint('Network error occurred:');
+        debugPrint('- Exception type: ${e.runtimeType}');
+        debugPrint('- Message: ${e.message}');
+        
+        if (e.osError != null) {
+          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+          debugPrint('  - OS message: ${e.osError!.message}');
+
+          // Retry with IP if DNS fails (errno = 7) and not already retrying
+          if (e.osError!.errorCode == 7 && useDNS) {
+            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+            await _onDetect(capture, useDNS: false); // Recursive retry
+            return;
+          }
         }
+
+        _handleSocketException(e);
       } catch (e) {
         _showCustomDialog(context, "Invalid Ticket!");
         // _showErrorSnackbar(context, 'An error occurred: ${e.toString()}');
@@ -110,6 +120,36 @@ class _QRScannerPageState extends State<QRScannerPage> {
 
   void _showSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _handleSocketException(SocketException e) {
+    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 101 || e.osError?.errorCode == 111) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Connection Error'),
+          content: const Text('Could not connect to the server. Please check your internet connection.'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      );
+    } else {
+      _showSnackBar('Connection Error: ${e.message}');
+    }
+  }
+
+  void _handleHTTPRedirect() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Connection Error'),
+        content: const Text('Could not connect to the server. Please check your internet connection.'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+    );
   }
 
   void _showCustomDialog(BuildContext context, String message) {

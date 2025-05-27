@@ -61,13 +61,16 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Future<void> _handleLogin() async {
+  Future<void> _handleLogin({bool useDNS = true}) async {
     if (_formKey.currentState!.validate()) {
       try {
         setState(() => _isLoading = true);
+
+        final Uri uri = useDNS ? Uri.parse('${backend_url}api/login') // Original URL 
+        : Uri.parse('${backend_url_with_fallback_ip}api/login'); // Use IP
         
         final response = await http.post(
-          Uri.parse('${backend_url}api/login'),
+          uri,
           headers: {'Content-Type': 'application/json; charset=UTF-8'},
           body: jsonEncode({
             "email": _emailController.text,
@@ -87,10 +90,36 @@ class _LoginScreenState extends State<LoginScreen> {
               _showSnackBar(response.body);
             }
           }
+
+          if(useDNS){
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('use_dns', true);
+          }
+        } else if (response.statusCode == 302) {
+          _handleHTTPRedirect();
         } else {
           _showSnackBar('Request failed: ${response.statusCode}');
         }
       } on SocketException catch (e) {
+        debugPrint('Network error occurred:');
+        debugPrint('- Exception type: ${e.runtimeType}');
+        debugPrint('- Message: ${e.message}');
+        
+        if (e.osError != null) {
+          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+          debugPrint('  - OS message: ${e.osError!.message}');
+
+          // Retry with IP if DNS fails (errno = 7) and not already retrying
+          if (e.osError!.errorCode == 7 && useDNS) {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('use_dns', false);
+
+            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+            await _handleLogin(useDNS: false); // Recursive retry
+            return;
+          }
+        }
+
         _handleSocketException(e);
       } catch (e) {
         debugPrint('An error occurred: $e');
@@ -125,7 +154,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _handleSocketException(SocketException e) {
-    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 111) {
+    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 101 || e.osError?.errorCode == 111) {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
@@ -141,7 +170,20 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _handleGoogleSignIn() async {
+  void _handleHTTPRedirect() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Connection Error'),
+        content: const Text('Could not connect to the server. Please check your internet connection.'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleGoogleSignIn({bool useDNS = true}) async {
     if (_isLoading) return;
     
     try {
@@ -150,11 +192,13 @@ class _LoginScreenState extends State<LoginScreen> {
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) return;
 
-      final GoogleSignInAuthentication googleAuth = 
-          await googleUser.authentication;
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/google_login') // Original URL
+      : Uri.parse('${backend_url_with_fallback_ip}api/google_login'); // Use IP
 
       final response = await http.post(
-        Uri.parse('${backend_url}api/google_login'),
+        uri,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'token': googleAuth.idToken,
@@ -170,10 +214,28 @@ class _LoginScreenState extends State<LoginScreen> {
           await _saveUserProfile(jsonDecode(response.body));
           Navigator.pushReplacementNamed(context, '/home');
         }      
+      } else if (response.statusCode == 302) {
+        _handleHTTPRedirect();
       } else {
         _showSnackBar('Request failed: ${response.statusCode}');
       }
     } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if (e.osError!.errorCode == 7 && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await _handleLogin(useDNS: false); // Recursive retry
+          return;
+        }
+      }
+
       _handleSocketException(e);
     } catch (e) {
       if (mounted) _showSnackBar('Google sign in failed: $e');
@@ -182,9 +244,9 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _handleAppleSignIn() async {}
+  void _handleAppleSignIn({bool useDNS = true}) async {}
 
-  // void _handleAppleSignIn() async {
+  // void _handleAppleSignIn({bool useDNS = true}) async {
   //   if (_isLoading) return;  // Early return if already loading
     
   //   try {
@@ -198,8 +260,11 @@ class _LoginScreenState extends State<LoginScreen> {
   //     );
 
   //     // Send to your backend
+  //     final Uri uri = useDNS ? Uri.parse('${backend_url}api/apple_login') // Original URL
+  //     : Uri.parse('${backend_url_with_fallback_ip}api/apple_login'); // Use IP 
+
   //     final response = await http.post(
-  //       Uri.parse('${backend_url}api/apple-login'),
+  //       uri,
   //       headers: {'Content-Type': 'application/json'},
   //       body: jsonEncode({
   //         'token': credential.identityToken,
@@ -220,7 +285,29 @@ class _LoginScreenState extends State<LoginScreen> {
         
   //       // await _storageService.saveUserProfile(profile);
   //       if (mounted) Navigator.pushReplacementNamed(context, '/home');
+  //     } else if (response.statusCode == 302) {
+  //       _handleHTTPRedirect();
+  //     } else {
+  //       _showSnackBar('Request failed: ${response.statusCode}');
   //     }
+  //   } on SocketException catch (e) {
+  //       debugPrint('Network error occurred:');
+  //       debugPrint('- Exception type: ${e.runtimeType}');
+  //       debugPrint('- Message: ${e.message}');
+        
+  //       if (e.osError != null) {
+  //         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+  //         debugPrint('  - OS message: ${e.osError!.message}');
+
+  //         // Retry with IP if DNS fails (errno = 7) and not already retrying
+  //         if (e.osError!.errorCode == 7 && useDNS) {
+  //           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+  //           await _handleLogin(useDNS: false); // Recursive retry
+  //           return;
+  //         }
+  //       }
+
+  //       _handleSocketException(e);
   //   } catch (e) {
   //     print('Apple sign in failed: $e');
   //     if (mounted) {
@@ -442,7 +529,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ],
         ),
-        SizedBox(height: isLargeScreen ? 24 : 16),
+        SizedBox(height: isLargeScreen ? 20 : 12),
         if (Platform.isAndroid) ...[
           _buildSocialButton(
             imagePath: 'assets/images/google_logo.png',
@@ -452,7 +539,7 @@ class _LoginScreenState extends State<LoginScreen> {
             onPressed: _handleGoogleSignIn,
             isLargeScreen: isLargeScreen,
           ),
-          SizedBox(height: isLargeScreen ? 16 : 12),
+          SizedBox(height: isLargeScreen ? 10 : 6),
         ],
         if (Platform.isIOS) ...[
           _buildSocialButton(
@@ -463,7 +550,7 @@ class _LoginScreenState extends State<LoginScreen> {
             onPressed: _handleAppleSignIn,
             isLargeScreen: isLargeScreen,
           ),
-          SizedBox(height: isLargeScreen ? 16 : 12),
+          SizedBox(height: isLargeScreen ? 10 : 6),
         ],
       ],
     );
@@ -532,11 +619,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  SizedBox(height: isLargeScreen ? 40 : 24),
+                  SizedBox(height: isLargeScreen ? 36 : 20),
                   _buildLoginForm(isLargeScreen),
-                  SizedBox(height: isLargeScreen ? 32 : 24),
+                  SizedBox(height: isLargeScreen ? 30 : 20),
                   _buildSocialLoginSection(isLargeScreen),
-                  SizedBox(height: isLargeScreen ? 32 : 24),
+                  SizedBox(height: isLargeScreen ? 30 : 20),
                   _buildRegisterSection(isLargeScreen),
                 ],
               ),
