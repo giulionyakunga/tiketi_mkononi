@@ -36,7 +36,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initializeServices();
-    _loadCachedEvents();
+    
     _startFetchingEvents();
     checkForUpdates(context);
   }
@@ -44,6 +44,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> _initializeServices() async {
     final prefs = await SharedPreferences.getInstance();
     useDNS_2 = await prefs.getBool('use_dns') ?? true;
+
+    await _loadCachedEvents();
 
     _storageService = StorageService(prefs);
     _loadUserProfile();
@@ -245,7 +247,7 @@ Future<void> _launchStore() async {
           ? null // No app bar for wide screens (we'll use our own)
           : AppBar(
               title: Text(
-                'Tiketi Mkononi',
+                'Tiketi Mkononi $useDNS_2',
                 style: TextStyle(
                   fontWeight: FontWeight.normal,
                   fontSize: 24,
@@ -435,7 +437,7 @@ Future<void> _launchStore() async {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Featured Events',
+                'Featured Events $useDNS_2',
                 style: TextStyle(
                   fontSize: isWideScreen ? 24 : 20,
                   fontWeight: FontWeight.bold,

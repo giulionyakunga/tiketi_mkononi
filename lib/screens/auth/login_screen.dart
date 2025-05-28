@@ -94,6 +94,9 @@ class _LoginScreenState extends State<LoginScreen> {
           if(useDNS){
             final prefs = await SharedPreferences.getInstance();
             await prefs.setBool('use_dns', true);
+          }else {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('use_dns', false);
           }
         } else if (response.statusCode == 302) {
           _handleHTTPRedirect();
@@ -207,7 +210,15 @@ class _LoginScreenState extends State<LoginScreen> {
         } else {
           await _saveUserProfile(jsonDecode(response.body));
           Navigator.pushReplacementNamed(context, '/home');
-        }      
+        }
+
+        if(useDNS){
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', true);
+        }else {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
+        }
       } else if (response.statusCode == 302) {
         _handleHTTPRedirect();
       } else {
@@ -297,6 +308,14 @@ class _LoginScreenState extends State<LoginScreen> {
   //       //   token: jsonDecode(response.body)['token'],
   //       //   // Other fields as needed
   //       // );
+
+  //       if(useDNS){
+  //         final prefs = await SharedPreferences.getInstance();
+  //         await prefs.setBool('use_dns', true);
+  //       } else {
+  //         final prefs = await SharedPreferences.getInstance();
+  //         await prefs.setBool('use_dns', false);
+  //       }
         
   //       // await _storageService.saveUserProfile(profile);
   //       if (mounted) Navigator.pushReplacementNamed(context, '/home');
