@@ -101,7 +101,7 @@ class FeaturedEvents extends StatelessWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      '$useDNS ${event.name} $useDNS',
+                                      event.name,
                                       overflow: TextOverflow.ellipsis, // Truncates with ellipsis
                                       style: const TextStyle(
                                         color: Colors.white,

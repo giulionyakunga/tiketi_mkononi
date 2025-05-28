@@ -247,7 +247,7 @@ Future<void> _launchStore() async {
           ? null // No app bar for wide screens (we'll use our own)
           : AppBar(
               title: Text(
-                'Tiketi Mkononi $useDNS_2',
+                'Tiketi Mkononi',
                 style: TextStyle(
                   fontWeight: FontWeight.normal,
                   fontSize: 24,
@@ -437,7 +437,7 @@ Future<void> _launchStore() async {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Featured Events $useDNS_2',
+                'Featured Events',
                 style: TextStyle(
                   fontSize: isWideScreen ? 24 : 20,
                   fontWeight: FontWeight.bold,
