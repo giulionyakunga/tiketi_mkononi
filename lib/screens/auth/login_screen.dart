@@ -183,16 +183,10 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Future<void> _handleGoogleSignIn({bool useDNS = true}) async {
-    if (_isLoading) return;
-    
-    try {
-      setState(() => _isLoading = true);
-      
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) return;
 
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+  Future<void> _handleGoogleSignIn2(String? token, String email, String? name,  {bool useDNS = true}) async {
+    try {
+      debugPrint(" >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Google SignIn");
 
       final Uri uri = useDNS ? Uri.parse('${backend_url}api/google_login') // Original URL
       : Uri.parse('${backend_url_with_fallback_ip}api/google_login'); // Use IP
@@ -201,9 +195,9 @@ class _LoginScreenState extends State<LoginScreen> {
         uri,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'token': googleAuth.idToken,
-          'email': googleUser.email,
-          'name': googleUser.displayName,
+          'token': token,
+          'email': email,
+          'name': name,
         }),
       );
 
@@ -231,7 +225,7 @@ class _LoginScreenState extends State<LoginScreen> {
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if (e.osError!.errorCode == 7 && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await _handleLogin(useDNS: false); // Recursive retry
+          await _handleGoogleSignIn2(token, email, name, useDNS: false); // Recursive retry
           return;
         }
       }
@@ -239,10 +233,31 @@ class _LoginScreenState extends State<LoginScreen> {
       _handleSocketException(e);
     } catch (e) {
       if (mounted) _showSnackBar('Google sign in failed: $e');
+    }
+  }
+
+  
+  Future<void> _handleGoogleSignIn({bool useDNS = true}) async {
+    if (_isLoading) return;
+    debugPrint(" >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> handle Google SignIn");
+    
+    try {
+      setState(() => _isLoading = true);
+      
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) return;
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+      await _handleGoogleSignIn2(googleAuth.idToken, googleUser.email, googleUser.displayName);
+
+    } catch (e) {
+      if (mounted) _showSnackBar('Google sign in failed: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
+
 
   void _handleAppleSignIn({bool useDNS = true}) async {}
 
@@ -302,7 +317,7 @@ class _LoginScreenState extends State<LoginScreen> {
   //         // Retry with IP if DNS fails (errno = 7) and not already retrying
   //         if (e.osError!.errorCode == 7 && useDNS) {
   //           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-  //           await _handleLogin(useDNS: false); // Recursive retry
+  //           await _handleAppleSignIn(useDNS: false); // Recursive retry
   //           return;
   //         }
   //       }

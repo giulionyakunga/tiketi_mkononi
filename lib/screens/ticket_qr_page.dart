@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -13,7 +14,6 @@ final websocketServiceProvider = Provider<WebSocketService>((ref) {
 });
 
 class WebSocketService {
-  final String url = backend_ws_url;
   WebSocketChannel? _channel;
 
   Timer? _reconnectTimer;
@@ -29,12 +29,15 @@ class WebSocketService {
   Stream<bool> get connectionStatusStream => _connectionStatusController.stream;
   Stream<Ticket> get ticketStream => _ticketController.stream;
 
-  Future<void> connect(userId, ticketId, scanStatus) async {
+  Future<void> connect(userId, ticketId, scanStatus, {bool useDNS = true}) async {
     if (scanStatus == 1) return;
 
     try {
+      final Uri uri = useDNS ? Uri.parse(backend_ws_url) // Original URL
+      : Uri.parse(backend_ws_url_with_fallback_ip); // Use IP
+
       _connectionStatusController.add(false);
-      _channel = WebSocketChannel.connect(Uri.parse(url));
+      _channel = WebSocketChannel.connect(uri);
       await _channel!.ready;
       _connectionStatusController.add(true);
 
@@ -51,6 +54,43 @@ class WebSocketService {
         onError: (error) => _handleConnectionError(userId, ticketId, scanStatus),
         onDone: () => _handleConnectionError(userId, ticketId, scanStatus),
       );
+    } on WebSocketChannelException catch (e) {
+      if (e.inner is SocketException) {
+        final socketException = e.inner as SocketException;
+        debugPrint('Network error occurred:');
+        debugPrint('- Exception type: ${e.runtimeType}');
+        debugPrint('- Message: ${e.message}');
+        
+        if (socketException.osError != null) {
+          debugPrint('  - Error number (errno): ${socketException.osError!.errorCode}');
+          debugPrint('  - OS message: ${socketException.osError!.message}');
+
+          // Retry with IP if DNS fails (errno = 7) and not already retrying
+          if (socketException.osError!.errorCode == 7 && useDNS) {
+            debugPrint('DNS failed! Retrying with IP: ${backend_ws_url_with_fallback_ip}...');
+            connect(userId, ticketId, scanStatus, useDNS: false); // Recursive retry
+            return;
+          }
+        }
+      } else {
+        print('WebSocketChannelException: ${e.message}');
+      }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if (e.osError!.errorCode == 7 && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_ws_url_with_fallback_ip}...');
+          connect(userId, ticketId, scanStatus, useDNS: false); // Recursive retry
+          return;
+        }
+      }
     } on TimeoutException {
       _scheduleReconnection(userId, ticketId, scanStatus);
     } catch (e) {

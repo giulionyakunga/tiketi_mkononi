@@ -145,7 +145,8 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
 
   void _loadImageDimensions() {
     final imageProvider = CachedNetworkImageProvider(
-        '${backend_url}api/image/${widget.event.imageUrl}');
+        widget.useDNS ? '${backend_url}api/image/${widget.event.imageUrl}' : '${backend_url_with_fallback_ip}api/image/${widget.event.imageUrl}'
+      );
     imageProvider.resolve(const ImageConfiguration()).addListener(
       ImageStreamListener((info, _) {
         if (mounted) {

@@ -35,7 +35,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
     super.dispose();
   }
 
-  Future<void> _onDetect(BarcodeCapture capture, {bool useDNS = true}) async {
+  Future<void> _onDetect(BarcodeCapture capture) async {
     if (!_isScanning || _isLoading) return;
     
     final List<Barcode> barcodes = capture.barcodes;
@@ -49,8 +49,8 @@ class _QRScannerPageState extends State<QRScannerPage> {
       });
       
       try {
-        String url = useDNS ? '${backend_url}api/check_ticket/${widget.userId}' // Original URL 
-        : '${backend_url_with_fallback_ip}api/check_ticket/${widget.userId}'; // Use IP
+
+        String url = '${backend_url}api/check_ticket/${widget.userId}';
 
         // Include event ID if provided
         if (_eventIdController.text.isNotEmpty) {
@@ -64,7 +64,6 @@ class _QRScannerPageState extends State<QRScannerPage> {
 
         String eventId = _eventIdController.text;
         int event_id = jsonDecode(barcode.rawValue!)['event_id'];
-        debugPrint("barcode.rawValue : event_id : $event_id >> eventId : $eventId, >>>>>>>> ${barcode.rawValue}");
         
         if (int.tryParse(eventId) != event_id) {
           _showCustomDialog(context, "Invalid Ticket!");
@@ -98,9 +97,48 @@ class _QRScannerPageState extends State<QRScannerPage> {
           debugPrint('  - OS message: ${e.osError!.message}');
 
           // Retry with IP if DNS fails (errno = 7) and not already retrying
-          if (e.osError!.errorCode == 7 && useDNS) {
+          if (e.osError!.errorCode == 7) {
             debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-            await _onDetect(capture, useDNS: false); // Recursive retry
+
+            String url = '${backend_url_with_fallback_ip}api/check_ticket/${widget.userId}';
+
+            // Include event ID if provided
+            if (_eventIdController.text.isNotEmpty) {
+              url += '?event_id=${_eventIdController.text}';
+            }else {
+              _showErrorSnackbar(context, 
+                'Please enter event ID'
+              );
+              return;
+            }
+
+            String eventId = _eventIdController.text;
+            int event_id = jsonDecode(barcode.rawValue!)['event_id'];
+          
+            if (int.tryParse(eventId) != event_id) {
+              _showCustomDialog(context, "Invalid Ticket!");
+              return;
+            }
+
+            final response = await http.post(
+              Uri.parse(url),
+              headers: {'Content-Type': 'application/json'},
+              body: barcode.rawValue,
+            );
+
+
+            if (response.statusCode == 200) {
+              _showCustomDialog(context, response.body);
+            } else if (response.statusCode == 302) {
+              _handleHTTPRedirect();
+            } else {
+              _showErrorSnackbar(context, 
+                response.body.contains("Unexpected token") 
+                  ? 'Invalid Ticket!' 
+                  : 'Request failed with status: ${response.statusCode}'
+              );
+            }
+            
             return;
           }
         }

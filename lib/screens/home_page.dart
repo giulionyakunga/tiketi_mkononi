@@ -164,7 +164,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final packageInfo = await PackageInfo.fromPlatform();
     String installedVersion = packageInfo.version;
 
-    // Replace with your logic (e.g., API call, Firebase Remote Config)
     String latestVersion = "";
     String operatingSystem = Platform.operatingSystem; // Hardcoded for example
 
