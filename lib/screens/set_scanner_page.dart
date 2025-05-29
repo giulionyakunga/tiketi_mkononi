@@ -23,9 +23,47 @@ class _SetScannerPageState extends State<SetScannerPage> {
   bool _searchPerformed = false;
 
   @override
+  void initState() {
+    super.initState();
+    getEventScanner();
+  }
+
+  @override
   void dispose() {
     _emailController.dispose();
     super.dispose();
+  }
+
+  Future<void> getEventScanner() async {
+    try {
+      final response = await http.get(
+        Uri.parse('${backend_url}api/event_scanner/${widget.eventId}'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      debugPrint("Response : ${response.body}");
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          _userData = data;
+          _isScanner = data['is_scanner'] ?? false;
+        });
+      } else {
+        setState(() {
+          _userData = null;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Error connecting to server';
+        _userData = null;
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _searchUser() async {
@@ -49,8 +87,6 @@ class _SetScannerPageState extends State<SetScannerPage> {
         Uri.parse('${backend_url}api/user_with_scanner_status_by_email/$email/${widget.eventId}'),
         headers: {'Content-Type': 'application/json'},
       );
-
-      debugPrint("Response : ${response.body}");
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -100,9 +136,6 @@ class _SetScannerPageState extends State<SetScannerPage> {
         body: json.encode({'is_scanner': value, 'ticket_scanner_id': _userData!['id'] }),
       );
 
-      debugPrint("_userData!['id'] : ${_userData!['id']}");
-      debugPrint("Response : ${response.body}");
-
       if (response.statusCode == 200) {
         setState(() {
           _isScanner = value;
@@ -134,7 +167,6 @@ class _SetScannerPageState extends State<SetScannerPage> {
         throw Exception('Failed to update scanner status');
       }
     } catch (e) {
-      debugPrint("Exception : ${e}");
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to update scanner status'),
