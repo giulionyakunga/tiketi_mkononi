@@ -35,6 +35,27 @@ class _QRScannerPageState extends State<QRScannerPage> {
     super.dispose();
   }
 
+  bool isToday(String dateString) {
+    try {
+      // Parse the input string into DateTime (assuming format: DD-MM-YYYY)
+      final List<String> parts = dateString.split('-');
+      final int day = int.parse(parts[0]);
+      final int month = int.parse(parts[1]);
+      final int year = int.parse(parts[2]);
+      final DateTime inputDate = DateTime(year, month, day);
+
+      // Get today's date (without time, to compare only dates)
+      final DateTime today = DateTime.now();
+      final DateTime todayDateOnly = DateTime(today.year, today.month, today.day);
+
+      // Compare if the dates are the same
+      return inputDate == todayDateOnly;
+    } catch (e) {
+      // Handle parsing errors (invalid date format)
+      return false;
+    }
+  }
+
   Future<void> _onDetect(BarcodeCapture capture) async {
     if (!_isScanning || _isLoading) return;
     
@@ -64,6 +85,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
 
         String eventId = _eventIdController.text;
         int event_id = jsonDecode(barcode.rawValue!)['event_id'];
+        String event_date = jsonDecode(barcode.rawValue!)['date'];
         
         if (int.tryParse(eventId) != event_id) {
           _showCustomDialog(context, "Invalid Ticket!");
@@ -77,7 +99,11 @@ class _QRScannerPageState extends State<QRScannerPage> {
         );
 
         if (response.statusCode == 200) {
-          _showCustomDialog(context, response.body);
+          if(!isToday(event_date)) {
+            _showCustomDialog(context, response.body, isWarning:true);
+          }else {
+            _showCustomDialog(context, response.body);
+          }
         } else if (response.statusCode == 302) {
           _handleHTTPRedirect();
         } else {
@@ -190,57 +216,113 @@ class _QRScannerPageState extends State<QRScannerPage> {
     );
   }
 
-  void _showCustomDialog(BuildContext context, String message) {
+  void _showCustomDialog(BuildContext context, String message, {bool isWarning = false}) {
     final isSuccess = message == "Valid Ticket!";
+
+    if( (message == "Valid Ticket!") && isWarning ) {
+      message = "Past Ticket!";
+    }
     
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        backgroundColor: Colors.white,
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isSuccess ? Icons.check_circle : Icons.error,
-              color: isSuccess ? Colors.green : Colors.red,
-              size: 80,
-            ),
-            const SizedBox(height: 20),
-            Text(
-              message,
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
+    
+    if(!isWarning) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          backgroundColor: Colors.white,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isSuccess ? Icons.check_circle : Icons.error,
                 color: isSuccess ? Colors.green : Colors.red,
+                size: 80,
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isSuccess ? Colors.green : Colors.red,
-                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+              const SizedBox(height: 20),
+              Text(
+                message,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: isSuccess ? Colors.green : Colors.red,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isSuccess ? Colors.green : Colors.red,
+                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                onPressed: () {
+                  Navigator.pop(context);
+                  setState(() => _isScanning = true);
+                },
+                child: const Text(
+                  'OK',
+                  style: TextStyle(fontSize: 18, color: Colors.white),
                 ),
               ),
-              onPressed: () {
-                Navigator.pop(context);
-                setState(() => _isScanning = true);
-              },
-              child: const Text(
-                'OK',
-                style: TextStyle(fontSize: 18, color: Colors.white),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    }else {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          backgroundColor: Colors.white,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.check_circle,
+                color: Colors.yellow,
+                size: 80,
+              ),
+              const SizedBox(height: 20),
+              Text(
+                message,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.yellow,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.yellow,
+                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                onPressed: () {
+                  Navigator.pop(context);
+                  setState(() => _isScanning = true);
+                },
+                child: const Text(
+                  'OK',
+                  style: TextStyle(fontSize: 18, color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
   }
 
   void _showErrorSnackbar(BuildContext context, String message) {

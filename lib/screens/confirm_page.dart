@@ -222,15 +222,6 @@ class _ConfirmPageState extends State<ConfirmPage> with WidgetsBindingObserver {
     }
   }
 
-  bool allTicketsUpdatedAfterEvent(Event event) {
-    return event.tickets.every((ticket) {
-      final ticketUpdatedAt = ticket['updatedAt'] is DateTime 
-          ? ticket['updatedAt'] as DateTime
-          : DateTime.parse(ticket['updatedAt'] as String);
-      return ticketUpdatedAt.isAfter(event.updatedAt);
-    });
-  }
-
   Widget _buildPoweredByLabel() {
     return Container(
       margin: const EdgeInsets.only(top: 20),
@@ -521,7 +512,6 @@ class _ConfirmPageState extends State<ConfirmPage> with WidgetsBindingObserver {
     return SizedBox(
       width: double.infinity,
       height: 50,
-      // child: (_confirmed || allTicketsUpdatedAfterEvent(widget.event)  || full) ?
       child: (_confirmed || full) ?
       ElevatedButton(
         onPressed: null,
