@@ -34,6 +34,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
     _eventIdFocusNode.dispose();
     super.dispose();
   }
+  
 
   bool isToday(String dateString) {
     try {
