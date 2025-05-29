@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/screens/app_info_updates_page.dart';
 import 'package:tiketi_mkononi/screens/apply_to_be_organizer_page.dart';
 import 'package:tiketi_mkononi/screens/edit_profile_page.dart';
+import 'package:tiketi_mkononi/screens/favorite_events_page.dart';
 import 'package:tiketi_mkononi/screens/help_support_page.dart';
 import 'package:tiketi_mkononi/screens/language_settings_page.dart';
 import 'package:tiketi_mkononi/screens/notifications_page.dart';
@@ -236,8 +237,14 @@ class _ProfilePageState extends State<ProfilePage> {
         icon: Icons.favorite,
         iconColor: Colors.pink,
         title: 'Favorite Events',
-        onTap: () {
-          // TODO: Implement favorites
+        onTap: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => FavoriteEventsPage(userId: userId),
+            ),
+          );
+          _loadUserProfile();
         },
       ),
     ];

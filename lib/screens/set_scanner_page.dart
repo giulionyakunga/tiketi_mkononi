@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -112,7 +114,7 @@ class _SetScannerPageState extends State<SetScannerPage> {
     }
   }
 
-  Future<void> _toggleScannerStatus(bool value) async {
+  Future<void> _toggleScannerStatus(bool value, {bool useDNS = true}) async {
     if (_userData == null) return;
 
     if(widget.userId == _userData!['id']) {
@@ -129,9 +131,12 @@ class _SetScannerPageState extends State<SetScannerPage> {
       _isLoading = true;
     });
 
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/set_event_scanner/${widget.eventId}/${widget.userId}') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}api/set_event_scanner/${widget.eventId}/${widget.userId}'); // Use IP
+
     try {
       final response = await http.post(
-        Uri.parse('${backend_url}api/set_event_scanner/${widget.eventId}/${widget.userId}'),
+        uri,
         headers: {'Content-Type': 'application/json'},
         body: json.encode({'is_scanner': value, 'ticket_scanner_id': _userData!['id'] }),
       );
@@ -163,10 +168,30 @@ class _SetScannerPageState extends State<SetScannerPage> {
             ),
           );
         }        
+      } else if (response.statusCode == 302) {
+        _handleHTTPRedirect();
       } else {
         throw Exception('Failed to update scanner status');
       }
-    } catch (e) {
+    } on SocketException catch (e) {
+        debugPrint('Network error occurred:');
+        debugPrint('- Exception type: ${e.runtimeType}');
+        debugPrint('- Message: ${e.message}');
+        
+        if (e.osError != null) {
+          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+          debugPrint('  - OS message: ${e.osError!.message}');
+
+          // Retry with IP if DNS fails (errno = 7) and not already retrying
+          if (e.osError!.errorCode == 7 && useDNS) {
+            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+            await _toggleScannerStatus(value, useDNS: false); // Recursive retry
+            return;
+          }
+        }
+
+        _handleSocketException(e);
+      } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to update scanner status'),
@@ -179,6 +204,49 @@ class _SetScannerPageState extends State<SetScannerPage> {
       });
     }
   }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
+    
+  void _handleSocketException(SocketException e) {
+    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 101 || e.osError?.errorCode == 111) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Connection Error'),
+          content: const Text('Could not connect to the server. Please check your internet connection.'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      );
+    } else {
+      _showSnackBar('Connection Error: ${e.message}');
+    }
+  }
+
+  void _handleHTTPRedirect() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Connection Error'),
+        content: const Text('Could not connect to the server. Please check your internet connection.'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {

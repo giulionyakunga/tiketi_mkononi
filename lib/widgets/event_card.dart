@@ -309,7 +309,7 @@ class EventCard extends StatelessWidget {
                                                 borderRadius: BorderRadius.circular(8),
                                               ),
                                               child: Text(
-                                                '${ticketType.soldTickets}/${ticketType.numberOfTickets}',
+                                                '${NumberFormat('#,##0').format(ticketType.soldTickets)}/${NumberFormat('#,##0').format(ticketType.numberOfTickets)}',
                                                 style: const TextStyle(
                                                   fontSize: 8,
                                                   color: Colors.white,
