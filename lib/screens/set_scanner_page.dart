@@ -111,14 +111,14 @@ class _SetScannerPageState extends State<SetScannerPage> {
         if(response.body == "Event scanner added successfully!") {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('User is now a scanner for this event'),
+              content: Text('${_userData!['first_name']} is now a scanner for this event'),
               backgroundColor: Colors.green,
             ),
           );
         }else if(response.body == "Event scanner removed successfully!") {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('User is no longer a scanner for this event'),
+              content: Text('${_userData!['first_name']} is no longer a scanner for this event'),
               backgroundColor: Colors.green,
             ),
           );
