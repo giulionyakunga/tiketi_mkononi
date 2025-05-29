@@ -79,6 +79,16 @@ class _SetScannerPageState extends State<SetScannerPage> {
   Future<void> _toggleScannerStatus(bool value) async {
     if (_userData == null) return;
 
+    if(widget.userId == _userData!['id']) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('You are default scanner for this event'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _isLoading = true;
     });
