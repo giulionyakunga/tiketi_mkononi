@@ -177,6 +177,15 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
     return screenWidth / aspectRatio;
   }
 
+  bool allTicketsUpdatedAfterEvent(Event event) {
+    return event.tickets.every((ticket) {
+      final ticketUpdatedAt = ticket['updatedAt'] is DateTime 
+          ? ticket['updatedAt'] as DateTime
+          : DateTime.parse(ticket['updatedAt'] as String);
+      return ticketUpdatedAt.isAfter(event.updatedAt);
+    });
+  }
+
   Widget _buildCategoryChip(String category) {
     final Map<String, Color> categoryColors = {
       'CONCERTS': Colors.orange[800]!,
@@ -618,7 +627,9 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: 
-                event.hasTicket ? null :
+                
+
+                allTicketsUpdatedAfterEvent(event) ? null :
                  () {
                         Navigator.push(
                           context,
