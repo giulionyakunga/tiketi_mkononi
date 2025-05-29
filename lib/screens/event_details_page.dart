@@ -177,8 +177,8 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
     return screenWidth / aspectRatio;
   }
 
-  bool allTicketsUpdatedAfterEvent(Event event) {
-    return event.tickets.every((ticket) {
+  bool existsTicketUpdatedAfterEvent(Event event) {
+    return event.tickets.any((ticket) {
       final ticketUpdatedAt = ticket['updatedAt'] is DateTime 
           ? ticket['updatedAt'] as DateTime
           : DateTime.parse(ticket['updatedAt'] as String);
@@ -627,18 +627,18 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: 
-                allTicketsUpdatedAfterEvent(event) ? null :
-                 () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ConfirmPage(
-                              event: event,
-                              refreshMethod: fetchEvent,
-                            ),
-                          ),
-                        );
-                      },
+                // (existsTicketUpdatedAfterEvent(event)) ? null :
+                () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ConfirmPage(
+                        event: event,
+                        refreshMethod: fetchEvent,
+                      ),
+                    ),
+                  );
+                },
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   backgroundColor:

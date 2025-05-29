@@ -521,7 +521,8 @@ class _ConfirmPageState extends State<ConfirmPage> with WidgetsBindingObserver {
     return SizedBox(
       width: double.infinity,
       height: 50,
-      child: (_confirmed || allTicketsUpdatedAfterEvent(widget.event)  || full) ?
+      // child: (_confirmed || allTicketsUpdatedAfterEvent(widget.event)  || full) ?
+      child: (_confirmed || full) ?
       ElevatedButton(
         onPressed: null,
         style: ElevatedButton.styleFrom(
