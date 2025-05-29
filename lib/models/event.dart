@@ -57,6 +57,7 @@ class Event {
   final String description;
   final int soldTickets;
   final String status;
+  final int ticketScannerId;
   final DateTime createdAt;
   final DateTime updatedAt;
   final List<TicketType> ticketTypes;
@@ -76,6 +77,7 @@ class Event {
     required this.description,
     required this.soldTickets,
     required this.status,
+    required this.ticketScannerId,
     required this.createdAt,
     required this.updatedAt,
     required this.ticketTypes,
@@ -98,6 +100,7 @@ class Event {
       description: json['description'] ?? '',
       soldTickets: json['soldTickets'] ?? 0,
       status: json['status'] ?? '',
+      ticketScannerId: json['ticket_scanner_id'] ?? 0,
       createdAt: DateTime.parse(json['createdAt']),
       updatedAt: DateTime.parse(json['updatedAt']),
       ticketTypes: (json['ticket_types'] as List<dynamic>?)

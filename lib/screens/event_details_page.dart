@@ -11,6 +11,7 @@ import 'package:tiketi_mkononi/screens/edit_event_page.dart';
 import 'package:http/http.dart' as http;
 import 'package:tiketi_mkononi/screens/event_tickets_page.dart';
 import 'package:tiketi_mkononi/screens/qr_scanner_page.dart';
+import 'package:tiketi_mkononi/screens/set_scanner_page.dart';
 import 'package:tiketi_mkononi/screens/tickets_page.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -763,7 +764,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                 const SizedBox(width: 2),
                                 if (widget.userId == event.userId)
                                 Text(
-                                  'ID : ${event.id}',
+                                  'ID: ${event.id}',
                                   style: TextStyle(
                                     fontSize: 11, 
                                     color: Colors.black,
@@ -778,11 +779,29 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                         Navigator.push(
                                           context,
                                           MaterialPageRoute(
-                                            builder: (context) => QRScannerPage(userId: widget.userId, eventId: event.id),
+                                            builder: (context) => SetScannerPage(userId: widget.userId, eventId: event.id),
                                           ),
                                         );
                                       }
                                     : null,
+                                  child: const Icon(
+                                    Icons.assignment_ind,
+                                    size: 16,
+                                    color: Colors.green
+                                  ),
+                                ),
+                                const SizedBox(width: 1),
+
+                                if ((widget.userId == event.userId) || (widget.userId == event.ticketScannerId))
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => QRScannerPage(userId: widget.userId, eventId: event.id),
+                                      ),
+                                    );
+                                  },
                                   child: const Icon(
                                     Icons.qr_code_scanner,
                                     size: 16,
@@ -913,17 +932,18 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                           );
                         },
                       ),
-                      const SizedBox(width: 2),
+                      // const SizedBox(width: 2),
+                      const Spacer(),
                       if (widget.userId == event.userId)
                       Text(
-                        'ID : ${event.id}',
+                        'ID: ${event.id}',
                         style: TextStyle(
                           fontSize: 11, 
                           color: Colors.black
                         ),
                       ),
-                      const SizedBox(width: 1),
-
+                      // const SizedBox(width: 1),
+                      const Spacer(),
                       if (widget.userId == event.userId)
                       TextButton(
                         onPressed: (widget.userId == event.userId)
@@ -931,18 +951,37 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => QRScannerPage(userId: widget.userId, eventId: event.id),
+                                  builder: (context) => SetScannerPage(userId: widget.userId, eventId: event.id),
                                 ),
                               );
                             }
                           : null,
+                        child: const Icon(
+                          Icons.assignment_ind,
+                          size: 16,
+                          color: Colors.green
+                        ),
+                      ),
+                      // const SizedBox(width: 1),
+                      const Spacer(),
+                      if ((widget.userId == event.userId) || (widget.userId == event.ticketScannerId))
+                      TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => QRScannerPage(userId: widget.userId, eventId: event.id),
+                            ),
+                          );
+                        },
                         child: const Icon(
                           Icons.qr_code_scanner,
                           size: 16,
                           color: Colors.green
                         ),
                       ),
-                      const SizedBox(width: 2),
+                      // const SizedBox(width: 2),
+                      const Spacer(),
                       TextButton(
                         onPressed: (widget.userId == event.userId)
                             ? () {

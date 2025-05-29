@@ -322,8 +322,6 @@ class _QRScannerPageState extends State<QRScannerPage> {
             controller: cameraController,
             onDetect: _onDetect,
           ),
-          
-          
 
           Positioned.fill(
             child: Container(
