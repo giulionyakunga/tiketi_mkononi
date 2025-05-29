@@ -287,13 +287,13 @@ class _EventTicketsPageState extends State<EventTicketsPage>
             const SizedBox(height: 8),
             (widget.event.type == 'paid') ?
             Text(
-              'TSH ${getTotalCollection().toStringAsFixed(2)}',
+              'TSH ${NumberFormat('#,##0').format(getTotalCollection().toInt())}',
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: Colors.green,
               ),
             ) : Text(
-              '${ticketsList.length}',
+              '${NumberFormat('#,##0').format(ticketsList.length)}',
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: Colors.green,
@@ -302,7 +302,7 @@ class _EventTicketsPageState extends State<EventTicketsPage>
             const SizedBox(height: 8),
             if(widget.event.type == 'paid')
             Text(
-              '${ticketsList.length} tickets sold',
+              '${NumberFormat('#,##0').format(ticketsList.length)} tickets sold',
               style: Theme.of(context).textTheme.bodyLarge, 
             ),
             const Divider(),
