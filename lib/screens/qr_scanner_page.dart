@@ -222,6 +222,10 @@ class _QRScannerPageState extends State<QRScannerPage> {
     if( (message == "Valid Ticket!") && isWarning ) {
       message = "Past Ticket!";
     }
+
+    if(message == "Used Ticket!") {
+      isWarning = false;
+    }
     
     
     if(!isWarning) {
