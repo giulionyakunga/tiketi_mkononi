@@ -34,7 +34,6 @@ class _QRScannerPageState extends State<QRScannerPage> {
     _eventIdFocusNode.dispose();
     super.dispose();
   }
-  
 
   bool isToday(String dateString) {
     try {
@@ -51,6 +50,27 @@ class _QRScannerPageState extends State<QRScannerPage> {
 
       // Compare if the dates are the same
       return inputDate == todayDateOnly;
+    } catch (e) {
+      // Handle parsing errors (invalid date format)
+      return false;
+    }
+  }
+
+  bool isDateInPast(String dateString) {
+    try {
+      // Parse the input string into DateTime (assuming format: DD-MM-YYYY)
+      final List<String> parts = dateString.split('-');
+      final int day = int.parse(parts[0]);
+      final int month = int.parse(parts[1]);
+      final int year = int.parse(parts[2]);
+      final DateTime inputDate = DateTime(year, month, day);
+
+      // Get today's date (without time, to compare only dates)
+      final DateTime today = DateTime.now();
+      final DateTime todayDateOnly = DateTime(today.year, today.month, today.day);
+
+      // Check if input date is before today
+      return inputDate.isBefore(todayDateOnly);
     } catch (e) {
       // Handle parsing errors (invalid date format)
       return false;
@@ -100,7 +120,11 @@ class _QRScannerPageState extends State<QRScannerPage> {
         );
 
         if (response.statusCode == 200) {
-          if(!isToday(event_date)) {
+          if(!isToday(event_date) && !isDateInPast(event_date)) {
+            debugPrint(">>>>>>>>>>>>>>>>>>>>>>>>>>>> not today and is not past");
+            _showCustomDialog(context, response.body);
+          }else if(!isToday(event_date) && isDateInPast(event_date)) {
+            debugPrint(">>>>>>>>>>>>>>>>>>>>>>>>>>>> not today and is past");
             _showCustomDialog(context, response.body, isWarning:true);
           }else {
             _showCustomDialog(context, response.body);
@@ -176,7 +200,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
         // _showErrorSnackbar(context, 'An error occurred: ${e.toString()}');
       } finally {
         setState(() => _isLoading = false);
-        Future.delayed(const Duration(seconds: 3), () {
+        Future.delayed(const Duration(seconds: 10), () {
           if (mounted) setState(() => _isScanning = true);
         });
       }
@@ -220,15 +244,6 @@ class _QRScannerPageState extends State<QRScannerPage> {
   void _showCustomDialog(BuildContext context, String message, {bool isWarning = false}) {
     final isSuccess = message == "Valid Ticket!";
 
-    if( (message == "Valid Ticket!") && isWarning ) {
-      message = "Past Ticket!";
-    }
-
-    if(message == "Used Ticket!") {
-      isWarning = false;
-    }
-    
-    
     if(!isWarning) {
       showDialog(
         context: context,

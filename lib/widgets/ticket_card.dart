@@ -113,6 +113,7 @@ class TicketCard extends StatelessWidget {
                               ticketType: ticket.ticketType,
                               price: ticket.price,
                               scanStatus: ticket.scanStatus,
+                              updatedAt: ticket.updatedAt,
                               createdAt: ticket.createdAt,
                             ),
                           ),

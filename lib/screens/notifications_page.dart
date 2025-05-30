@@ -289,7 +289,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Notification Preferences'),
+        title: const Text(
+          'Notification Preferences',
+          style: TextStyle(
+            fontSize: 18,
+          ),
+        ),
         centerTitle: true,
         elevation: 0,
       ),

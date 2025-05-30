@@ -146,6 +146,7 @@ class TicketQRPage extends ConsumerStatefulWidget {
   final String ticketType;
   final double price;
   final int scanStatus;
+  final DateTime updatedAt;
   final DateTime createdAt;
 
   const TicketQRPage({
@@ -161,6 +162,7 @@ class TicketQRPage extends ConsumerStatefulWidget {
     required this.ticketType,
     required this.price,
     required this.scanStatus,
+    required this.updatedAt,
     required this.createdAt,
   });
 
@@ -170,10 +172,14 @@ class TicketQRPage extends ConsumerStatefulWidget {
 
 class _TicketQRPageState extends ConsumerState<TicketQRPage> {
   late final WebSocketService _webSocketService;
+  late DateTime scannedAt;
+  late int scanStatus2;
 
   @override
   void initState() {
     super.initState();
+    scanStatus2 = widget.scanStatus;
+    scannedAt = widget.updatedAt;
     if(widget.scanStatus != 1) {
       _webSocketService = ref.read(websocketServiceProvider);
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -198,6 +204,19 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
 
   bool _isLargeScreen(BuildContext context) {
     return MediaQuery.of(context).size.width > 768;
+  }
+
+  String _formatDate(String date) {
+    final DateFormat inputFormat = DateFormat('dd-MM-yyyy');
+    final DateTime dateTime = inputFormat.parse(date);
+    final DateFormat outputFormat = DateFormat('EEEE, MMMM d, yyyy');
+    return outputFormat.format(dateTime);
+  }
+
+  String _formatDate2(DateTime dateTime) {
+    debugPrint(" >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> dateTime : $dateTime");
+    final DateFormat outputFormat = DateFormat('EEEE, MMMM d, yyyy - hh:mm a');
+    return outputFormat.format(dateTime);
   }
 
   Widget _buildQRCodeSection(bool isLargeScreen) {
@@ -227,7 +246,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
         Text(
           widget.eventName,
           style: TextStyle(
-            fontSize: isLargeScreen ? 28 : 20,
+            fontSize: isLargeScreen ? 28 : 18,
             fontWeight: FontWeight.bold,
           ),
           textAlign: TextAlign.center,
@@ -243,7 +262,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
             widget.ticketType,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 16,
+              fontSize: 15,
             ),
             textAlign: TextAlign.center,
           ),
@@ -251,17 +270,17 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
         const SizedBox(height: 4),
         Text(
             (widget.price > 0.0) ? 'TSH${NumberFormat('#,##0').format(widget.price.toInt())}' : 'Free',
-            style: TextStyle(fontSize: isLargeScreen ? 20 : 18),
+            style: TextStyle(fontSize: isLargeScreen ? 20 : 14),
         ),
         const SizedBox(height: 4),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.calendar_today, size: isLargeScreen ? 24 : 20),
+            Icon(Icons.calendar_today, size: isLargeScreen ? 24 : 16),
             const SizedBox(width: 8),
             Text(
-              widget.date,
-              style: TextStyle(fontSize: isLargeScreen ? 20 : 18),
+              _formatDate(widget.date),
+              style: TextStyle(fontSize: isLargeScreen ? 20 : 14),
             ),
           ],
         ),
@@ -269,11 +288,11 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.access_time, size: isLargeScreen ? 24 : 20),
+            Icon(Icons.access_time, size: isLargeScreen ? 24 : 16),
             const SizedBox(width: 8),
             Text(
               widget.time,
-              style: TextStyle(fontSize: isLargeScreen ? 20 : 18),
+              style: TextStyle(fontSize: isLargeScreen ? 20 : 14),
             ),
           ],
         ),
@@ -284,7 +303,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
             Flexible(
               child: Text(
                 widget.venue,
-                style: TextStyle(fontSize: isLargeScreen ? 20 : 18),
+                style: TextStyle(fontSize: isLargeScreen ? 20 : 14),
                 textAlign: TextAlign.center,
                 maxLines: 4,
                 overflow: TextOverflow.ellipsis, // Optional: handles overflow with ellipsis
@@ -293,13 +312,18 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
           ],
         ),
         const SizedBox(height: 12),
+        (scanStatus2 == 0) ?
         Text(
           'Present this QR code at the venue',
           style: TextStyle(
             fontSize: isLargeScreen ? 16 : 14,
             color: Colors.grey,
           ),
-        ),
+        ) : 
+        Text(
+          'Used on : ${_formatDate2(scannedAt)}',
+          style: TextStyle(fontSize: isLargeScreen ? 20 : 14),
+        )
       ],
     );
   }
@@ -358,6 +382,10 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
 
             final ticket = snapshot.data!;
             if (ticket.scanStatus == 1 && widget.ticketId == ticket.id) {
+              setState(() {
+                scanStatus2 = ticket.scanStatus;
+                scannedAt = ticket.updatedAt;
+              });
               disconnectWebSocketService();
               return Column(
                 children: [

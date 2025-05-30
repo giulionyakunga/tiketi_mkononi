@@ -352,7 +352,7 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
   }
 
   Future<void> _launchStore() async {
-    const appStoreUrl = "https://apps.apple.com/app/idYOUR_APP_ID"; // iOS
+    const appStoreUrl = "https://apps.apple.com/app/id6746575990"; // iOS
     const playStoreUrl = "https://play.google.com/store/apps/details?id=com.telabs.tiketi_mkononi"; // Android
 
     final Uri storeUrl = Uri.parse(
