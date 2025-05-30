@@ -711,7 +711,8 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                 tag: 'event-image-${event.id}',
                 child: 
                 CachedNetworkImage(
-                  imageUrl: widget.useDNS ? '${backend_url}api/image/${event.imageUrl}' : '${backend_url_with_fallback_ip}api/image/${event.imageUrl}',
+                  imageUrl: '${backend_url}api/image/${event.imageUrl}',
+                  // imageUrl: widget.useDNS ? '${backend_url}api/image/${event.imageUrl}' : '${backend_url_with_fallback_ip}api/image/${event.imageUrl}',
                   fit: BoxFit.cover,
                   placeholder: (context, url) => Container(
                     color: Colors.grey[300],

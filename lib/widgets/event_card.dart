@@ -64,7 +64,8 @@ class EventCard extends StatelessWidget {
             Hero(
               tag: 'event-image-${event.id}',
               child: CachedNetworkImage(
-                imageUrl: useDNS ? '${backend_url}api/image/${event.imageUrl}' : '${backend_url_with_fallback_ip}api/image/${event.imageUrl}',
+                imageUrl: '${backend_url}api/image/${event.imageUrl}',
+                // imageUrl: useDNS ? '${backend_url}api/image/${event.imageUrl}' : '${backend_url_with_fallback_ip}api/image/${event.imageUrl}',
                 width: double.infinity,
                 fit: BoxFit.cover,
                 placeholder: (context, url) => const Center(

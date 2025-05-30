@@ -1,0 +1,33 @@
+3 actions recommended
+Edge-to-edge may not display for all users
+
+
+1. From Android 15, apps targeting SDK 35 will display edge-to-edge by default. Apps targeting SDK 35 should handle insets to make sure that their app displays correctly on Android 15 and later. Investigate this issue and allow time to test edge-to-edge and make the required updates. Alternatively, call enableEdgeToEdge() for Kotlin or EdgeToEdge.enable() for Java for backward compatibility.
+
+2. Your app uses deprecated APIs or parameters for edge-to-edge
+
+One or more of the APIs you use or parameters that you set for edge-to-edge and window display have been deprecated in Android 15. Your app uses the following deprecated APIs or parameters:
+
+    android.view.Window.setStatusBarColor
+    android.view.Window.setNavigationBarDividerColor
+    android.view.Window.setNavigationBarColor
+
+These start in the following places:
+
+    io.flutter.embedding.android.d.I
+    io.flutter.plugin.platform.e.a
+    io.flutter.plugin.platform.g.C
+
+To prepare for the change to Android 15, migrate away from these APIs or parameters.
+
+3. Recompile your app with 16 KB native library alignment
+
+Your app uses native libraries that are not aligned to support devices with 16 KB memory page sizes. These devices may not be able to install or start your app, or your app may start and then crash.
+
+There are new app bundles in this release that do not support 16 KB.
+
+Version codes:
+
+    1
+
+Android 15 supports devices with 16 KB memory page sizes, which can improve your app's performance. We recommend recompiling your app when you migrate to Android 15 and testing your app in a 16 KB environment to avoid issues for users.

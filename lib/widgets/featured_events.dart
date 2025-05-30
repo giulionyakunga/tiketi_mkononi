@@ -78,7 +78,8 @@ class FeaturedEvents extends StatelessWidget {
                               decoration: BoxDecoration(
                                 image: DecorationImage(
                                   image: CachedNetworkImageProvider(
-                                    useDNS ? '${backend_url}api/image/${event.imageUrl}' : '${backend_url_with_fallback_ip}api/image/${event.imageUrl}',
+                                    '${backend_url}api/image/${event.imageUrl}',
+                                    // useDNS ? '${backend_url}api/image/${event.imageUrl}' : '${backend_url_with_fallback_ip}api/image/${event.imageUrl}',
                                   ),
                                   fit: BoxFit.contain,
                                 ),

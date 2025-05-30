@@ -120,12 +120,22 @@ class _QRScannerPageState extends State<QRScannerPage> {
         );
 
         if (response.statusCode == 200) {
+          final responseData = jsonDecode(response.body);
+          String message = responseData['message'];
+          String scannedAt = responseData['updated_at'];
+          debugPrint('Formatted Date (debug): $scannedAt'); // For Flutter debug output
+
+
           if(!isToday(event_date) && !isDateInPast(event_date)) {
-            _showCustomDialog(context, response.body);
+            _showCustomDialog(context, message);
           }else if(!isToday(event_date) && isDateInPast(event_date)) {
-            _showCustomDialog(context, response.body, isWarning:true);
+            
+            
+            
+
+            _showCustomDialog(context, message, isWarning:true);
           }else {
-            _showCustomDialog(context, response.body);
+            _showCustomDialog(context, message); 
           }
         } else if (response.statusCode == 302) {
           _handleHTTPRedirect();
@@ -163,6 +173,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
 
             String eventId = _eventIdController.text;
             int event_id = jsonDecode(barcode.rawValue!)['event_id'];
+            String event_date = jsonDecode(barcode.rawValue!)['date'];
           
             if (int.tryParse(eventId) != event_id) {
               _showCustomDialog(context, "Invalid Ticket!");
@@ -177,7 +188,18 @@ class _QRScannerPageState extends State<QRScannerPage> {
 
 
             if (response.statusCode == 200) {
-              _showCustomDialog(context, response.body);
+              final responseData = jsonDecode(response.body);
+              String message = responseData['message'];
+
+              if(!isToday(event_date) && !isDateInPast(event_date)) {
+                _showCustomDialog(context, message);
+              }else if(!isToday(event_date) && isDateInPast(event_date)) {
+                String updatedAt = responseData['updated_at'];
+
+                _showCustomDialog(context, message, isWarning:true);
+              }else {
+                _showCustomDialog(context, message); 
+              }
             } else if (response.statusCode == 302) {
               _handleHTTPRedirect();
             } else {
