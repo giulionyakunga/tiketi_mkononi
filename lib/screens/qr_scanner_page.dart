@@ -122,20 +122,25 @@ class _QRScannerPageState extends State<QRScannerPage> {
         if (response.statusCode == 200) {
           final responseData = jsonDecode(response.body);
           String message = responseData['message'];
-          String scannedAt = responseData['updated_at'];
-          debugPrint('Formatted Date (debug): $scannedAt'); // For Flutter debug output
-
-
+          
           if(!isToday(event_date) && !isDateInPast(event_date)) {
-            _showCustomDialog(context, message);
+            if(message == "Used Ticket!") {
+              String scannedAt = responseData['updated_at'];
+              debugPrint('Formatted Date (debug): $scannedAt'); // For Flutter debug output
+              _showCustomDialog(context, message, scannedAt:scannedAt);
+            }else {
+              _showCustomDialog(context, message);
+            }
           }else if(!isToday(event_date) && isDateInPast(event_date)) {
-            
-            
-            
-
             _showCustomDialog(context, message, isWarning:true);
           }else {
-            _showCustomDialog(context, message); 
+            if(message == "Used Ticket!") {
+              String scannedAt = responseData['updated_at'];
+              debugPrint('Formatted Date (debug): $scannedAt'); // For Flutter debug output
+              _showCustomDialog(context, message, scannedAt:scannedAt);
+            }else {
+              _showCustomDialog(context, message);
+            }
           }
         } else if (response.statusCode == 302) {
           _handleHTTPRedirect();
@@ -192,13 +197,23 @@ class _QRScannerPageState extends State<QRScannerPage> {
               String message = responseData['message'];
 
               if(!isToday(event_date) && !isDateInPast(event_date)) {
-                _showCustomDialog(context, message);
+                if(message == "Used Ticket!") {
+                  String scannedAt = responseData['updated_at'];
+                  debugPrint('Formatted Date (debug): $scannedAt'); // For Flutter debug output
+                  _showCustomDialog(context, message, scannedAt:scannedAt);
+                }else {
+                  _showCustomDialog(context, message);
+                }
               }else if(!isToday(event_date) && isDateInPast(event_date)) {
-                String updatedAt = responseData['updated_at'];
-
                 _showCustomDialog(context, message, isWarning:true);
               }else {
-                _showCustomDialog(context, message); 
+                if(message == "Used Ticket!") {
+                  String scannedAt = responseData['updated_at'];
+                  debugPrint('Formatted Date (debug): $scannedAt'); // For Flutter debug output
+                  _showCustomDialog(context, message, scannedAt:scannedAt);
+                }else {
+                  _showCustomDialog(context, message);
+                }
               }
             } else if (response.statusCode == 302) {
               _handleHTTPRedirect();
@@ -261,8 +276,9 @@ class _QRScannerPageState extends State<QRScannerPage> {
     );
   }
 
-  void _showCustomDialog(BuildContext context, String message, {bool isWarning = false}) {
+  void _showCustomDialog(BuildContext context, String message, {String scannedAt = "", bool isWarning = false}) {
     final isSuccess = message == "Valid Ticket!";
+    final isUsedTicket = message == "Used Ticket!";
 
     if(!isWarning) {
       showDialog(
@@ -291,6 +307,25 @@ class _QRScannerPageState extends State<QRScannerPage> {
                 ),
                 textAlign: TextAlign.center,
               ),
+
+
+              if(isUsedTicket)
+              const SizedBox(height: 5),
+              if(isUsedTicket)
+              Text(
+                'Used On: $scannedAt',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              if(isUsedTicket)
+              const SizedBox(height: 5),
+
+
+
               const SizedBox(height: 20),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
