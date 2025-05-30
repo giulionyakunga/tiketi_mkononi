@@ -121,10 +121,8 @@ class _QRScannerPageState extends State<QRScannerPage> {
 
         if (response.statusCode == 200) {
           if(!isToday(event_date) && !isDateInPast(event_date)) {
-            debugPrint(">>>>>>>>>>>>>>>>>>>>>>>>>>>> not today and is not past");
             _showCustomDialog(context, response.body);
           }else if(!isToday(event_date) && isDateInPast(event_date)) {
-            debugPrint(">>>>>>>>>>>>>>>>>>>>>>>>>>>> not today and is past");
             _showCustomDialog(context, response.body, isWarning:true);
           }else {
             _showCustomDialog(context, response.body);

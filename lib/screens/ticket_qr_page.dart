@@ -174,13 +174,14 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
   late final WebSocketService _webSocketService;
   late DateTime scannedAt;
   late int scanStatus2;
+  bool _isTicketScanned = false;
 
   @override
   void initState() {
     super.initState();
     scanStatus2 = widget.scanStatus;
     scannedAt = widget.updatedAt;
-    if(widget.scanStatus != 1) {
+    if (widget.scanStatus != 1) {
       _webSocketService = ref.read(websocketServiceProvider);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _webSocketService.connect(
@@ -214,7 +215,6 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
   }
 
   String _formatDate2(DateTime dateTime) {
-    debugPrint(" >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> dateTime : $dateTime");
     final DateFormat outputFormat = DateFormat('EEEE, MMMM d, yyyy - hh:mm a');
     return outputFormat.format(dateTime);
   }
@@ -306,44 +306,45 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
                 style: TextStyle(fontSize: isLargeScreen ? 20 : 14),
                 textAlign: TextAlign.center,
                 maxLines: 4,
-                overflow: TextOverflow.ellipsis, // Optional: handles overflow with ellipsis
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
         ),
         const SizedBox(height: 12),
-        (scanStatus2 == 0) ?
-        Text(
-          'Present this QR code at the venue',
-          style: TextStyle(
-            fontSize: isLargeScreen ? 16 : 14,
-            color: Colors.grey,
-          ),
-        ) : 
-        Text(
-          'Used on : ${_formatDate2(scannedAt)}',
-          style: TextStyle(fontSize: isLargeScreen ? 20 : 14),
-        )
+        _isTicketScanned || scanStatus2 == 1
+            ? Text(
+                'Used On : ${_formatDate2(scannedAt)}',
+                style: TextStyle(fontSize: isLargeScreen ? 20 : 14),
+              )
+            : Text(
+                'Present this QR code at the venue',
+                style: TextStyle(
+                  fontSize: isLargeScreen ? 16 : 14,
+                  color: Colors.grey,
+                ),
+              )
       ],
     );
   }
 
   Widget _buildStatusSection() {
-    if (widget.scanStatus == 1) {
+    if (widget.scanStatus == 1 || _isTicketScanned) {
       return Column(
         children: [
           const SizedBox(height: 10),
           Icon(
             Icons.check_circle,
             size: 80,
-            color: Colors.orange[800],
+            color: _isTicketScanned ? Colors.green : Colors.orange[800],
           ),
           const SizedBox(height: 4),
-          const Text(
-            "Ticket Already Used",
+          Text(
+            _isTicketScanned ? "Ticket Scanned Successfully!" : "Ticket Already Used",
             style: TextStyle(
-              fontSize: 18,
+              fontSize: _isTicketScanned ? 15 : 18,
               fontWeight: FontWeight.bold,
+              color: _isTicketScanned ? Colors.green : Colors.black,
             ),
           ),
         ],
@@ -382,29 +383,17 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
 
             final ticket = snapshot.data!;
             if (ticket.scanStatus == 1 && widget.ticketId == ticket.id) {
-              setState(() {
-                scanStatus2 = ticket.scanStatus;
-                scannedAt = ticket.updatedAt;
+              // Use a post-frame callback to update state after build
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!_isTicketScanned) {
+                  setState(() {
+                    scanStatus2 = ticket.scanStatus;
+                    scannedAt = ticket.updatedAt;
+                    _isTicketScanned = true;
+                  });
+                  disconnectWebSocketService();
+                }
               });
-              disconnectWebSocketService();
-              return Column(
-                children: [
-                  Icon(
-                    Icons.check_circle,
-                    size: 80,
-                    color: Colors.green,
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    "Ticket Scanned Successfully!",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green,
-                    ),
-                  ),
-                ],
-              );
             }
             return const Text(
               'Ready to scan',

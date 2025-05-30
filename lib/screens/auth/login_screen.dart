@@ -7,7 +7,7 @@ import 'package:tiketi_mkononi/services/storage_service.dart';
 import '../../env.dart';
 import 'package:http/http.dart' as http;
 import 'package:google_sign_in/google_sign_in.dart';
-// import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -248,7 +248,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   
-  Future<void> _handleGoogleSignIn({bool useDNS = true}) async {
+  Future<void> _handleGoogleSignIn() async {
     if (_isLoading) return;
     debugPrint(" >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> handle Google SignIn");
     
@@ -270,7 +270,95 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
 
-  void _handleAppleSignIn({bool useDNS = true}) async {}
+
+
+
+  
+  Future<void> _handleAppleSignIn2(String? token, String? email, String? name,  {bool useDNS = true}) async {
+    try {
+
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/apple_login') // Original URL
+      : Uri.parse('${backend_url_with_fallback_ip}api/apple_login'); // Use IP
+
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'token': token,
+          'email': email,
+          'name': name,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        if (response.body == "Login failed, Plz check your credentials!") {
+          _showSnackBar(response.body);
+        } else {
+          await _saveUserProfile(jsonDecode(response.body));
+          Navigator.pushReplacementNamed(context, '/home');
+        }
+
+        if(useDNS){
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', true);
+        }else {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
+        }
+      } else if (response.statusCode == 302) {
+        _handleHTTPRedirect();
+      } else {
+        _showSnackBar('Request failed: ${response.statusCode}');
+      }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if (e.osError!.errorCode == 7 && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await _handleAppleSignIn2(token, email, name, useDNS: false); // Recursive retry
+          return;
+        }
+      }
+
+      _handleSocketException(e);
+    } catch (e) {
+      if (mounted) _showSnackBar('Google sign in failed: $e');
+    }
+  }
+
+  // void _handleAppleSignIn({bool useDNS = true}) async {}
+
+  void _handleAppleSignIn({bool useDNS = true}) async {
+    debugPrint(" >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Apple SignIn");
+
+    if (_isLoading) return;  // Early return if already loading
+    
+    try {
+      setState(() => _isLoading = true);
+      
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+      );
+
+      await _handleAppleSignIn2(credential.identityToken, credential.email, '${credential.givenName} ${credential.familyName}');
+
+    } catch (e) {
+      if (mounted) _showSnackBar('Apple sign in failed: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
 
   // void _handleAppleSignIn({bool useDNS = true}) async {
   //   if (_isLoading) return;  // Early return if already loading
