@@ -329,7 +329,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       _handleSocketException(e);
     } catch (e) {
-      if (mounted) _showSnackBar('Google sign in failed: $e');
+      if (mounted) _showSnackBar('Apple sign in failed: $e');
     }
   }
 
@@ -353,7 +353,8 @@ class _LoginScreenState extends State<LoginScreen> {
       await _handleAppleSignIn2(credential.identityToken, credential.email, '${credential.givenName} ${credential.familyName}');
 
     } catch (e) {
-      if (mounted) _showSnackBar('Apple sign in failed: $e');
+      debugPrint('Apple sign in failed: $e');
+      if (mounted) _showSnackBar('Apple sign in failed, Plz try another way');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
