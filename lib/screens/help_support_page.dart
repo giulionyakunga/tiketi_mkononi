@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/services/api_service.dart';
@@ -152,6 +154,69 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
         SnackBar(content: Text('Failed to launch email: $e')),
       );
     }
+  }
+
+  Future<void> _launchMap(String location) async {
+    // Encode the location string for use in the URL
+    final String encodedLocation = Uri.encodeComponent(location);
+
+    if (Platform.isAndroid) {
+      final Uri launchUri = Uri(
+        scheme: 'geo',
+        path: '0,0',
+        query: 'q=$encodedLocation',
+      );
+
+      if (await canLaunchUrl(launchUri)) {
+        await launchUrl(launchUri);
+      } else {
+        // Fallback to Google Maps in browser if native app isn't available
+        final Uri fallbackUri = Uri(
+          scheme: 'https',
+          host: 'www.google.com',
+          path: '/maps/search/',
+          queryParameters: {'api': '1', 'query': encodedLocation},
+        );
+        
+        if (await canLaunchUrl(fallbackUri)) {
+          await launchUrl(fallbackUri);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+             SnackBar(content: Text('Could not launch map app')),
+          );
+        }
+      }
+    }else if (Platform.isIOS) {
+      final Uri launchUri = Uri(
+        scheme: 'maps',
+        host: 'maps.apple.com',
+        queryParameters: {'q': encodedLocation},
+      );
+
+      if (await canLaunchUrl(launchUri)) {
+        await launchUrl(launchUri);
+      } else {
+        // Fallback to Google Maps in browser if native app isn't available
+        final Uri fallbackUri = Uri(
+          scheme: 'https',
+          host: 'www.google.com',
+          path: '/maps/search/',
+          queryParameters: {'api': '1', 'query': encodedLocation},
+        );
+        
+        if (await canLaunchUrl(fallbackUri)) {
+          await launchUrl(fallbackUri);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not launch map app')),
+          );
+        }
+      }      
+    }
+    
+    
+
+
   }
 
   // Helper method to determine if the screen is considered "large"
@@ -447,7 +512,8 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
         _buildContactInfoItem(
           icon: Icons.location_on,
           title: 'Call Us',
-          subtitle: '+255 766 032 160',
+          subtitle: '+255 684 444 997',
+          subtitle2: '+255 766 032 160',
           contactType: "phone number",
         ),
         const SizedBox(height: 12),
@@ -455,14 +521,16 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
           icon: Icons.email,
           title: 'Email Us',
           subtitle: 'tiketimkononi@telabs.co.tz',
+          subtitle2: '',
           contactType: "email",
         ),
         const SizedBox(height: 12),
         _buildContactInfoItem(
           icon: Icons.location_on,
           title: 'Visit Us',
-          subtitle: 'Uganda Street, Dar es Salaam, Tanzania',
-          contactType: "",
+          subtitle: 'Uganda Street, Kijitonyama, Dar es Salaam',
+          subtitle2: '',
+          contactType: "location",
         ),
       ],
     );
@@ -472,6 +540,7 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
     required IconData icon,
     required String title,
     required String subtitle,
+    required String subtitle2,
     required String contactType,
   }) {
     return Row(
@@ -497,6 +566,7 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
+
               if(contactType == "phone number")
               TextButton(
                 onPressed: () => _launchPhoneCall(subtitle),               
@@ -510,14 +580,27 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
+              if(contactType == "phone number")
+              TextButton(
+                onPressed: () => _launchPhoneCall(subtitle2),               
+                child: Text(
+                  subtitle2,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
 
               if(contactType == "email")
               TextButton(
                 onPressed: () => _launchEmailApp(
                   recipient: subtitle,
-                  subject: 'App Feedback',
-                  body: 'Hello, I would like to share some feedback about your app...',
-                ),               
+                  subject: 'Tiketi_Mkononi',
+                  body: "Habari!\nI am ${_nameController.text}\n",
+                ),
                 child: Text(
                   subtitle,
                   style: TextStyle(
@@ -529,16 +612,22 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
                 ),
               ),
 
-              if (contactType == "")
-              Text(
-                subtitle,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
+              if (contactType == "location")
+              TextButton(
+                onPressed: () => _launchMap(subtitle),               
+                child: Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
               ),
+
+
+              
             ],
           ),
         )

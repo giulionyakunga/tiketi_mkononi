@@ -245,10 +245,8 @@ class EventCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
 
-
-
-                  Text('📅 ${_formatDate(event.date)}'),
-                  Text('⏰ ${event.time}'),
+                  (event.daily_event == 'yes') ? Text('📅 Everyday') : Text('📅 ${_formatDate(event.date)}'),
+                  (event.time.contains(":")) ? Text('⏰ ${event.time}') : Text('⏰ Everytime'),
                   Text(
                     '📍 ${event.venue}',
                   ),

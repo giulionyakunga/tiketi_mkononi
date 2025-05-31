@@ -27,10 +27,17 @@ class _EventTicketsPageState extends State<EventTicketsPage>
   List<TicketType> ticketTypesList = [];
   Timer? _timer;
   bool _isAppActive = true;
+  DateTime _selectedDate = DateTime.now();
 
   @override
   void initState() {
     super.initState();
+
+    if(widget.event.daily_event == 'no') {
+      String dateStr = widget.event.date; // Format: d-M-yyyy
+      _selectedDate = DateFormat('d-M-yyyy').parse(dateStr);
+    }
+
     WidgetsBinding.instance.addObserver(this);
     _initializeServices();
     _startFetchingTickets();
@@ -79,8 +86,8 @@ class _EventTicketsPageState extends State<EventTicketsPage>
   Future<void> fetchTickets({bool useDNS = true}) async {
     if (!_isAppActive) return;
 
-    final Uri uri = useDNS ? Uri.parse('${backend_url}api/event_tickets/${widget.event.id}') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}api/event_tickets/${widget.event.id}'); // Use IP
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/event_tickets/${widget.event.id}/${DateFormat('d-M-yyyy').format(_selectedDate)}') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}api/event_tickets/${widget.event.id}/${DateFormat('d-M-yyyy').format(_selectedDate)}'); // Use IP
 
     try {
       final response = await http.get(uri);
@@ -125,6 +132,49 @@ class _EventTicketsPageState extends State<EventTicketsPage>
     return ticketsList.fold(0, (sum, ticket) => sum + ticket.price);
   }
 
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2025),    // Allow dates as early as year 2000
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked != null) {
+      if((picked != _selectedDate)) {
+        setState(() {
+          _selectedDate = picked;
+        });
+        fetchTickets();
+      }
+    }
+  }
+
+  Widget _buildDatePicker() {
+    return TextButton.icon(
+      onPressed: () => _selectDate(context),
+      icon: const Icon(Icons.calendar_today, size: 18), // Optional: Adjust icon size
+      label: Text(
+        '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
+        style: const TextStyle(
+          color: Colors.black,
+          fontWeight: FontWeight.w500,
+          fontSize: 14, // Smaller font size for compactness
+        ),
+      ),
+      style: TextButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0), // Near-zero vertical padding
+        minimumSize: const Size(0, 30), // Set a small fixed height (e.g., 30 logical pixels)
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap, // Reduces touch target to content size
+        visualDensity: VisualDensity.compact, // Squeezes elements closer
+        backgroundColor: Colors.grey[200],
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: const BorderSide(color: Colors.black, width: 1.5),
+        ),
+      ),
+    );
+  }
+
   Widget _buildMobileLayout() {
     return DefaultTabController(
       length: 2,
@@ -132,6 +182,10 @@ class _EventTicketsPageState extends State<EventTicketsPage>
         appBar: AppBar(
           title: const Text('Tickets'),
           backgroundColor: const Color.fromARGB(255, 240, 244, 247),
+          actions: [
+            _buildDatePicker(),
+            const SizedBox(width: 10)
+          ],
           bottom: TabBar(
             tabs: [
               Tab(text: 'Tickets'),
@@ -192,6 +246,10 @@ class _EventTicketsPageState extends State<EventTicketsPage>
       appBar: AppBar(
         title: const Text('Tickets'),
         backgroundColor: const Color.fromARGB(255, 240, 244, 247),
+        actions: [
+          _buildDatePicker(),
+          const SizedBox(width: 10)
+        ],
       ),
       body: ticketsList.isEmpty
           ? const Center(child: Text('No tickets found'))

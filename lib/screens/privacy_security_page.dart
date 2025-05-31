@@ -325,7 +325,7 @@ class PrivacySecurityPage extends StatelessWidget {
                     context,
                     recipient: 'tiketimkononi@telabs.co.tz',
                     subject: 'Tiketi_Mkononi',
-                    body: '',
+                    body: 'Habari!\n',
                   ),                  
                   child: 
                     RichText(

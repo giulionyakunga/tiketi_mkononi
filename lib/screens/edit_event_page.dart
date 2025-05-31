@@ -60,6 +60,7 @@ class _EditEventPageState extends State<EditEventPage> {
   String? fileType;
   bool _isLoading = false;
   bool _isPaidEvent = true;
+  bool _isDailyEvent = false;
 
   // Ticket type controllers
   final List<TicketType2> _ticketTypes = [];
@@ -88,8 +89,9 @@ class _EditEventPageState extends State<EditEventPage> {
 
     DateFormat format = DateFormat("dd-MM-yyyy");
     _isPaidEvent = widget.event.type == 'paid';
-    _selectedDate = format.parse(widget.event.date);
-    _selectedTime = parseTime(widget.event.time);
+    if(widget.event.daily_event == 'no') _selectedDate = format.parse(widget.event.date);
+    if(widget.event.daily_event == 'yes') _isDailyEvent = true;
+    if((widget.event.time.contains(":"))) _selectedTime = parseTime(widget.event.time);
     _selectedCategory = widget.event.category;
   }
 
@@ -364,14 +366,14 @@ class _EditEventPageState extends State<EditEventPage> {
       return;
     }
 
-    if (_selectedDate == null) {
+    if (!_isDailyEvent && (_selectedDate == null)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select event date')),
       );
       return;
     }
 
-    if (_selectedTime == null) {
+    if (!_isDailyEvent && (_selectedTime == null)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select event time')),
       );
@@ -408,12 +410,13 @@ class _EditEventPageState extends State<EditEventPage> {
       'event_id': widget.event.id,
       'name': eventName,
       'category': _selectedCategory,
-      'date': _selectedDate?.toIso8601String(),
+      'date': _isDailyEvent ? '' : _selectedDate?.toIso8601String(),
       'time': '${_selectedTime!.hour}:${_selectedTime!.minute}',
       'venue': eventVenue,
       'description': eventDescription,
       if (_isPaidEvent) 'type': "paid",
       if (!_isPaidEvent) 'type': "free",
+      'daily_event': _isDailyEvent ? "yes" : "no",
       'ticket_types': _ticketTypes
           .map((ticket) => {
                 'id': ticket.id,
@@ -1291,6 +1294,37 @@ class _EditEventPageState extends State<EditEventPage> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Daily Event',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      Row(
+                        children: [
+                          Text(
+                            _isDailyEvent ? 'Daily Event(Yes)' : 'Daily Event(No)',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                          const SizedBox(width: 8),
+                          Switch(
+                            value: _isDailyEvent,
+                            onChanged: (value) => setState(() {
+                              _isDailyEvent = value;
+                              if (!_isDailyEvent) {
+                                for (var ticket in _ticketTypes) {
+                                  ticket.price = 0;
+                                }
+                              }
+                            }),
+                            activeColor: Colors.orange[800],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 16),
                   GestureDetector(
                     key: _imagePickerKey,
@@ -1437,6 +1471,7 @@ class _EditEventPageState extends State<EditEventPage> {
               const SizedBox(height: 16),
               Row(
                 children: [
+                  if(!_isDailyEvent)
                   Expanded(
                     child: TextButton.icon(
                       onPressed: () => _selectDate(context),
@@ -1461,13 +1496,15 @@ class _EditEventPageState extends State<EditEventPage> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         side: BorderSide(
-                          color: _selectedDate == null ? Colors.grey[400]! : Colors.orange[800]!,
+                          // color: _selectedDate == null ? Colors.grey[400]! : Colors.orange[800]!,
+                          color: Colors.grey[400]!,
                           width: 1.5,
                         ),
                         backgroundColor: Colors.grey[200], // Light background color
                       ),
                     ),
                   ),
+                  if(!_isDailyEvent)
                   const SizedBox(width: 16),
                   Expanded(
                     child: TextButton.icon(
@@ -1493,7 +1530,8 @@ class _EditEventPageState extends State<EditEventPage> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         side: BorderSide(
-                          color: _selectedTime == null ? Colors.grey[400]! : Colors.orange[800]!,
+                          // color: _selectedTime == null ? Colors.grey[400]! : Colors.orange[800]!,
+                          color: Colors.grey[400]!,
                           width: 1.5,
                         ),
                         backgroundColor: Colors.grey[200], // Light background color

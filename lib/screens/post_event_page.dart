@@ -49,6 +49,7 @@ class _PostEventPageState extends State<PostEventPage> {
   String? fileType;
   bool _isLoading = false;
   bool _isPaidEvent = true;
+  bool _isDailyEvent = false;
   late final StorageService _storageService;
 
   final List<TicketType> _ticketTypes = [];
@@ -237,14 +238,14 @@ class _PostEventPageState extends State<PostEventPage> {
       return;
     }
 
-    if (_selectedDate == null) {
+    if (!_isDailyEvent && (_selectedDate == null)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select event date')),
       );
       return;
     }
 
-    if (_selectedTime == null) {
+    if (!_isDailyEvent && (_selectedTime == null)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select event time')),
       );
@@ -280,11 +281,12 @@ class _PostEventPageState extends State<PostEventPage> {
       'user_id': userId,
       'name': _nameController.text.trim(),
       'category': _selectedCategory,
-      'date': _selectedDate?.toIso8601String(),
+      'date': _isDailyEvent ? '' : _selectedDate?.toIso8601String(),
       'time': '${_selectedTime!.hour}:${_selectedTime!.minute}',
       'venue': _venueController.text.trim(),
       'description': _descriptionController.text.trim(),
       'type': _isPaidEvent ? "paid" : "free",
+      'daily_event': _isDailyEvent ? "yes" : "no",
       'ticket_types': _ticketTypes.map((ticket) => {
         'name': ticket.name.trim(),
         'price': ticket.price,
@@ -700,26 +702,11 @@ class _PostEventPageState extends State<PostEventPage> {
     return
     Row(
       children: [
-        Expanded(child: _buildDatePicker()),
-        const SizedBox(width: 16),
+        if(!_isDailyEvent) Expanded(child: _buildDatePicker()),
+        if(!_isDailyEvent) const SizedBox(width: 16),
         Expanded(child: _buildTimePicker()),
       ],
     );
-    // return isLargeScreen
-    // ? Row(
-    //     children: [
-    //       Expanded(child: _buildDatePicker()),
-    //       const SizedBox(width: 16),
-    //       Expanded(child: _buildTimePicker()),
-    //     ],
-    //   )
-    // : Column(
-    //     children: [
-    //       _buildDatePicker(),
-    //       const SizedBox(height: 16),
-    //       _buildTimePicker(),
-    //     ],
-    //   );
   }
 
   Widget _buildDatePicker() {
@@ -809,6 +796,39 @@ class _PostEventPageState extends State<PostEventPage> {
     );
   }
 
+  Widget _buildDailyEventToggle() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        const Text(
+          'Daily Event',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        Row(
+          children: [
+            Text(
+              _isDailyEvent ? 'Daily Event(Yes)' : 'Daily Event(No)',
+              style: const TextStyle(fontSize: 14),
+            ),
+            const SizedBox(width: 8),
+            Switch(
+              value: _isDailyEvent,
+              onChanged: (value) => setState(() {
+                _isDailyEvent = value;
+                if (!_isDailyEvent) {
+                  for (var ticket in _ticketTypes) {
+                    ticket.price = 0;
+                  }
+                }
+              }),
+              activeColor: Colors.orange[800],
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isLargeScreen = _isLargeScreen(context);
@@ -844,6 +864,8 @@ class _PostEventPageState extends State<PostEventPage> {
                     const SizedBox(height: 16),
                   ],
                   _buildEventTypeToggle(),
+                  const SizedBox(height: 6),
+                  _buildDailyEventToggle(),
                   const SizedBox(height: 16),
                   _buildImagePicker(isLargeScreen),
                   const SizedBox(height: 16),

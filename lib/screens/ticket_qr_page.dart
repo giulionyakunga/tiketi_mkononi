@@ -181,6 +181,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
     super.initState();
     scanStatus2 = widget.scanStatus;
     scannedAt = widget.updatedAt;
+
     if (widget.scanStatus != 1) {
       _webSocketService = ref.read(websocketServiceProvider);
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -205,6 +206,16 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
 
   bool _isLargeScreen(BuildContext context) {
     return MediaQuery.of(context).size.width > 768;
+  }
+
+  String formatTo24HourManual(DateTime dateTime) {
+    final localTime = dateTime.toLocal();
+    final weekday = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][localTime.weekday-1];
+    final month = ['January','February','March','April','May','June','July','August','September','October','November','December'][localTime.month-1];
+    
+    return '$weekday, $month ${localTime.day}, ${localTime.year} - '
+          '${localTime.hour.toString().padLeft(2,'0')}:'
+          '${localTime.minute.toString().padLeft(2,'0')}';
   }
 
   String _formatDate(String date) {
@@ -314,7 +325,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
         const SizedBox(height: 12),
         _isTicketScanned || scanStatus2 == 1
             ? Text(
-                'Used On : ${_formatDate2(scannedAt)}',
+                'Used On : ${formatTo24HourManual(scannedAt)}',
                 style: TextStyle(fontSize: isLargeScreen ? 20 : 14),
               )
             : Text(

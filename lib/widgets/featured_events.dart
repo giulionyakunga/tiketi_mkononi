@@ -164,14 +164,14 @@ class FeaturedEvents extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  '📅 ${_formatDate(event.date)}',
+                                  (event.daily_event == 'yes') ? '📅 Everyday' : '📅 ${_formatDate(event.date)}',
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
                                     fontSize: 13,
                                   ),
                                 ),
                                 Text(
-                                  '⏰ ${event.time}',
+                                  (event.time.contains(":")) ? '⏰ ${event.time}' : '⏰ Everytime',
                                   style: const TextStyle(
                                     fontSize: 13,
                                   ),

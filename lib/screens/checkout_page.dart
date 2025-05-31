@@ -28,7 +28,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
   int userId = 0;
   int trials = 15;
   late final StorageService _storageService;
-  int eventId = 0;
+  int eventId = 0; 
   int quantity = 1;
   double ticketPrice = 0.0;
   String ticketTypeName = "";
@@ -45,6 +45,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
   Timer? _timer;
   bool _isAppActive = true;
   final _formKey = GlobalKey<FormState>();
+  DateTime? _selectedDate;
 
   @override
   void initState() {
@@ -87,6 +88,26 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
 
   Future<void> _handlePaying({bool useDNS = true}) async {
     if (_formKey.currentState!.validate() && checkTicketAvailability()){
+      if(widget.event.daily_event == 'yes') {
+        if (_selectedDate == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please select event date')),
+          );
+          return;
+        }
+      }
+
+      final Map<String, dynamic> requestBody = {
+        'user_id': userId,
+        'event_id': eventId,
+        'quantity': quantity,
+        'ticket_price': ticketPrice,
+        'ticket_type': ticketTypeName,
+        'date': (widget.event.daily_event == 'yes') ? _selectedDate?.toIso8601String()  : null ,
+        'selected_payment_method': selectedPaymentMethod,
+        'phone_number': formatPhoneNumber(_phoneNumberController.text),
+      };
+
       try {
         setState(() => _isLoading = true);
 
@@ -96,7 +117,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
         final response = await http.post(
           uri,
           headers: {'Content-Type': 'application/json; charset=UTF-8'},
-          body: '{"user_id": "$userId", "event_id": "$eventId", "quantity": "$quantity", "ticket_price": $ticketPrice, "ticket_type": "$ticketTypeName", "selected_payment_method": "$selectedPaymentMethod", "phone_number": "${formatPhoneNumber(_phoneNumberController.text)}"}',
+          body: jsonEncode(requestBody),
         );
 
         if (response.statusCode == 200) {
@@ -188,7 +209,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
   }
 
   void _startFetchingEventPaymentStatus() {
-    _timer = Timer.periodic(const Duration(seconds: 2), (timer) {
+    _timer = Timer.periodic(const Duration(seconds: 3), (timer) {
       if (_isAppActive) {
         fetchEventPaymentStatus();
       }
@@ -435,6 +456,10 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
                 const SizedBox(height: 20),
                 _buildQuantitySelector(),
                 const SizedBox(height: 20),
+                if(widget.event.daily_event == 'yes')
+                _buildDateSelector(),
+                if(widget.event.daily_event == 'yes')
+                const SizedBox(height: 20),
                 _buildPaymentMethodSelector(isLargeScreen),
                 const SizedBox(height: 20),
                 _buildPhoneNumberInput(),
@@ -576,6 +601,69 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
       color: Colors.orange[800],
     );
   }
+
+  Widget _buildDateSelector() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('📅 Date', style: TextStyle(fontSize: 16)),
+            Row(
+              children: [
+                _buildDatePicker()
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDate = picked;
+      });
+    }
+  }
+  
+  Widget _buildDatePicker() {
+    return TextButton.icon(
+      onPressed: () => _selectDate(context),
+      icon: Icon(Icons.calendar_today, color: Colors.orange[800]),
+      label: Text(
+        _selectedDate == null
+            ? 'Select Date'
+            : '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}',
+        style: TextStyle(
+          color: _selectedDate == null ? Colors.grey[600] : Colors.black,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      style: TextButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        side: BorderSide(
+          color: _selectedDate == null ? Colors.grey[400]! : Colors.orange[800]!,
+          width: 1.5,
+        ),
+        backgroundColor: Colors.grey[200],
+      ),
+    );
+  }
+
 
   Widget _buildPaymentMethodSelector(bool isLargeScreen) {
     return Card(

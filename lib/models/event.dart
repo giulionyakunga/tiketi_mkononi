@@ -54,6 +54,7 @@ class Event {
   final String imageUrl;
   final String category;
   final String type;
+  final String daily_event;
   final String description;
   final int soldTickets;
   final String status;
@@ -74,6 +75,7 @@ class Event {
     required this.imageUrl,
     required this.category,
     required this.type,
+    required this.daily_event,
     required this.description,
     required this.soldTickets,
     required this.status,
@@ -97,6 +99,7 @@ class Event {
       imageUrl: json['imageUrl'] ?? '',
       category: json['category'] ?? '',
       type: json['type'] ?? '',
+      daily_event: json['daily_event'] ?? '',
       description: json['description'] ?? '',
       soldTickets: json['soldTickets'] ?? 0,
       status: json['status'] ?? '',

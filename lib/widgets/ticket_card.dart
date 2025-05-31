@@ -90,7 +90,7 @@ class TicketCard extends StatelessWidget {
                 ],
               ),
 
-              if (!isPast) ...[
+              // if (!isPast) ...[
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
@@ -125,7 +125,7 @@ class TicketCard extends StatelessWidget {
                     ),
                   ],
                 ),
-              ],
+              // ],
             ],
           ),
         ),

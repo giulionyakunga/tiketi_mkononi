@@ -71,7 +71,7 @@ class Ticket {
       int.parse(dateParts[2]), // year
       int.parse(dateParts[1]), // month
       int.parse(dateParts[0]), // day
-      (int.parse(timeParts[0]) + 6), // hour // make the ticket a past ticket after 6 hours
+      (int.parse(timeParts[0]) + 12), // hour // make the ticket a past ticket after 12 hours
       int.parse(timeParts[1]), // minute
     );
   }

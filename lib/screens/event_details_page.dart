@@ -237,8 +237,8 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('📅 ${_formatDate(event.date)}'),
-            Text('⏰ ${event.time}'),
+            (event.daily_event == 'yes') ? Text('📅 Everyday') : Text('📅 ${_formatDate(event.date)}'),
+            (event.time.contains(":")) ? Text('⏰ ${event.time}') : Text('⏰ Everytime'),
             Text('📍 ${event.venue}'),
             const SizedBox(height: 16),
             const Text(
@@ -911,112 +911,148 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      _buildCategoryChip(event.category),
-                      const Spacer(),
-                      if(event.hasTicket)
-                      TextButton(
-                        child: 
-                        (event.tickets.length > 1) ?
-                        Text(
-                          "View Tickets",
-                          style: TextStyle(
-                            fontSize: 11, 
-                            color: Colors.green
-                          ),
-                        ) : 
-                        Text(
-                          "View Ticket",
-                          style: TextStyle(
-                            fontSize: 11, 
-                            color: Colors.green
-                          ),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(right: 4),
+                          child: _buildCategoryChip(event.category),
                         ),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => TicketsPage(eventId: event.id),
+                        if(event.hasTicket)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 2),
+                          child: TextButton(
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
-                          );
-                        },
-                      ),
-                      const SizedBox(width: 2),
-                      const Spacer(),
-                      if (widget.userId == event.userId)
-                      Text(
-                        'ID: ${event.id}',
-                        style: TextStyle(
-                          fontSize: 11, 
-                          color: Colors.black
-                        ),
-                      ),
-                      // const SizedBox(width: 1),
-                      const Spacer(),
-                      if (widget.userId == event.userId)
-                      TextButton(
-                        onPressed: (widget.userId == event.userId)
-                          ? () {
+                            child: (event.tickets.length > 1) ?
+                            Text(
+                              "View Tickets",
+                              style: TextStyle(
+                                fontSize: 11, 
+                                color: Colors.green
+                              ),
+                            ) : 
+                            Text(
+                              "View Ticket",
+                              style: TextStyle(
+                                fontSize: 11, 
+                                color: Colors.green
+                              ),
+                            ),
+                            onPressed: () {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => SetScannerPage(userId: widget.userId, eventId: event.id),
+                                  builder: (context) => TicketsPage(eventId: event.id),
                                 ),
                               );
-                            }
-                          : null,
-                        child: const Icon(
-                          Icons.assignment_ind,
-                          size: 16,
-                          color: Colors.green
+                            },
+                          ),
                         ),
-                      ),
-                      // const SizedBox(width: 1),
-                      const Spacer(),
-                      if ((widget.userId == event.userId) || (widget.userId == event.ticketScannerId))
-                      TextButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => QRScannerPage(userId: widget.userId, eventId: event.id),
-                            ),
-                          );
-                        },
-                        child: const Icon(
-                          Icons.qr_code_scanner,
-                          size: 16,
-                          color: Colors.green
-                        ),
-                      ),
-                      // const SizedBox(width: 2),
-                      const Spacer(),
-                      TextButton(
-                        onPressed: (widget.userId == event.userId)
-                            ? () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => EventTicketsPage(
-                                      event: event,
-                                    ),
-                                  ),
-                                );
-                              }
-                            : null,
-                        child: Text(
-                          event.type == 'free'
-                              ? '🎟️ ${formatNumber(event.soldTickets)} Confirmed'
-                              : '🎟️ ${formatNumber(event.soldTickets)} Sold',
-                          style: TextStyle(
+                        if (widget.userId == event.userId)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Text(
+                            'ID: ${event.id}',
+                            style: TextStyle(
                               fontSize: 11, 
-                              color: Colors.orange[800],
-                              overflow: TextOverflow.ellipsis
+                              color: Colors.black
                             ),
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 8),
+                        if (widget.userId == event.userId)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: TextButton(
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            onPressed: (widget.userId == event.userId)
+                              ? () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => SetScannerPage(userId: widget.userId, eventId: event.id),
+                                    ),
+                                  );
+                                }
+                              : null,
+                            child: const Icon(
+                              Icons.assignment_ind,
+                              size: 16,
+                              color: Colors.green
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 50),
+                        if ((widget.userId == event.userId) || (widget.userId == event.ticketScannerId))
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: TextButton(
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => QRScannerPage(userId: widget.userId, eventId: event.id),
+                                ),
+                              );
+                            },
+                            child: const Icon(
+                              Icons.qr_code_scanner,
+                              size: 16,
+                              color: Colors.green
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 12),
+                          child: TextButton(
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            onPressed: (widget.userId == event.userId)
+                                ? () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => EventTicketsPage(
+                                          event: event,
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                : null,
+                            child: Text(
+                              event.type == 'free'
+                                  ? '🎟️ ${formatNumber(event.soldTickets)} Confirmed'
+                                  : '🎟️ ${formatNumber(event.soldTickets)} Sold',
+                              style: TextStyle(
+                                  fontSize: 11, 
+                                  color: Colors.orange[800],
+                                  overflow: TextOverflow.ellipsis
+                                ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 16),
                   _buildEventDetailsCard(event, context),

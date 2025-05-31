@@ -20,11 +20,14 @@ class _QRScannerPageState extends State<QRScannerPage> {
   bool _isLoading = false;
   final TextEditingController _eventIdController = TextEditingController();
   final FocusNode _eventIdFocusNode = FocusNode();
+  int scannnedToday = 0;
+  DateTime _selectedDate = DateTime.now();
 
   @override
   void initState() {
     super.initState();
     if(widget.eventId != 0) _eventIdController.text = '${widget.eventId}';
+    checkTicketsScanStatus();
   }
 
   @override
@@ -35,7 +38,76 @@ class _QRScannerPageState extends State<QRScannerPage> {
     super.dispose();
   }
 
-  bool isToday(String dateString) {
+  Future<void> checkTicketsScanStatus({bool useDNS = true}) async {
+
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/check_tickets_scan_status/${widget.eventId}') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}api/check_tickets_scan_status/${widget.eventId}'); // Use IP
+
+    try {
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        if((responseData['scannned_today']) != null){
+          setState(() {
+            scannnedToday = responseData['scannned_today'];
+          });
+        }
+        
+      }
+    }on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if (e.osError!.errorCode == 7 && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await checkTicketsScanStatus(useDNS: false); // Recursive retry
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching check tickets scan status: $e');
+    }
+  }
+
+
+  String formatDateTime(String dateString) {
+
+    List<String> parts = dateString.split('-');
+
+    // Parse components (day, month, year)
+    DateTime dateTime = DateTime(
+      int.parse(parts[2]), // Year (2025)
+      int.parse(parts[1]), // Month (5)
+      int.parse(parts[0])  // Day (23)
+    );
+
+
+    final months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    final weekdays = [
+      'Monday', 'Tuesday', 'Wednesday', 'Thursday', 
+      'Friday', 'Saturday', 'Sunday'
+    ];
+
+    DateTime localTime = dateTime.isUtc ? dateTime.toLocal() : dateTime;
+    
+    return '${weekdays[localTime.weekday - 1]}, '
+          '${months[localTime.month - 1]} ${localTime.day}, '
+          '${localTime.year} - '
+          '${localTime.hour.toString().padLeft(2, '0')}:'
+          '${localTime.minute.toString().padLeft(2, '0')}';
+  }
+
+  bool isSameDay(String dateString) {
     try {
       // Parse the input string into DateTime (assuming format: DD-MM-YYYY)
       final List<String> parts = dateString.split('-');
@@ -44,12 +116,10 @@ class _QRScannerPageState extends State<QRScannerPage> {
       final int year = int.parse(parts[2]);
       final DateTime inputDate = DateTime(year, month, day);
 
-      // Get today's date (without time, to compare only dates)
-      final DateTime today = DateTime.now();
-      final DateTime todayDateOnly = DateTime(today.year, today.month, today.day);
+      final DateTime dayDateOnly = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
 
       // Compare if the dates are the same
-      return inputDate == todayDateOnly;
+      return inputDate == dayDateOnly;
     } catch (e) {
       // Handle parsing errors (invalid date format)
       return false;
@@ -113,6 +183,23 @@ class _QRScannerPageState extends State<QRScannerPage> {
           return;
         }
 
+        if(!isSameDay(event_date)) {
+          String event_time = jsonDecode(barcode.rawValue!)['time'];
+          String message = "Wrong Day Ticket!";
+          _showCustomDialog(context, message, ticketDate: '${formatDateTime(event_date)} - $event_time');
+          return;
+        }
+
+
+        // Invalid day ticket
+        // Wrong event day
+        // Ticket expired
+        // Not today's ticket
+        // Wrong day ticket
+
+
+
+
         final response = await http.post(
           Uri.parse(url),
           headers: {'Content-Type': 'application/json'},
@@ -122,40 +209,45 @@ class _QRScannerPageState extends State<QRScannerPage> {
         if (response.statusCode == 200) {
           final responseData = jsonDecode(response.body);
           String message = responseData['message'];
-          
-          if(!isToday(event_date) && !isDateInPast(event_date)) {
-            if(message == "Used Ticket!") {
-              String scannedAt = responseData['updated_at'];
-              debugPrint('Formatted Date (debug): $scannedAt'); // For Flutter debug output
-              _showCustomDialog(context, message, scannedAt:scannedAt);
-            }else {
-              _showCustomDialog(context, message);
+
+          if (message.trim() == "Valid Ticket!") {
+
+            if((responseData['scannned_today']) != null){
+              setState(() {
+                scannnedToday = responseData['scannned_today'];
+              });
             }
-          }else if(!isToday(event_date) && isDateInPast(event_date)) {
-            _showCustomDialog(context, message, isWarning:true);
-          }else {
-            if(message == "Used Ticket!") {
-              String scannedAt = responseData['updated_at'];
+
+            _showCustomDialog(context, message);
+          }else if (message.trim() == "Used Ticket!") {
+            String scannedAt = "N/A";
+            if((responseData['scanned_at']) != null){
               debugPrint('Formatted Date (debug): $scannedAt'); // For Flutter debug output
-              _showCustomDialog(context, message, scannedAt:scannedAt);
-            }else {
-              _showCustomDialog(context, message);
+              scannedAt = responseData['scanned_at'];
             }
+
+            _showCustomDialog(context, message, scannedAt:scannedAt);
+          } else {
+            _showCustomDialog(context, message);
           }
+
         } else if (response.statusCode == 302) {
           _handleHTTPRedirect();
         } else {
-          _showErrorSnackbar(context, 
-            response.body.contains("Unexpected token") 
-              ? 'Invalid Ticket!' 
-              : 'Request failed with status: ${response.statusCode}'
-          );
+          if((response.body.contains("Unexpected token")) || (response.body.contains("Unexpected character"))) {
+            _showCustomDialog(context, "Invalid Ticket!");
+          } else {
+            _showErrorSnackbar(context, 'Request failed with status: ${response.statusCode}');
+          }
         }
       } on SocketException catch (e) {
         debugPrint('Network error occurred:');
         debugPrint('- Exception type: ${e.runtimeType}');
         debugPrint('- Message: ${e.message}');
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         
+        debugPrint('EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE');
+
         if (e.osError != null) {
           debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
           debugPrint('  - OS message: ${e.osError!.message}');
@@ -166,78 +258,28 @@ class _QRScannerPageState extends State<QRScannerPage> {
 
             String url = '${backend_url_with_fallback_ip}api/check_ticket/${widget.userId}';
 
-            // Include event ID if provided
-            if (_eventIdController.text.isNotEmpty) {
-              url += '?event_id=${_eventIdController.text}';
-            }else {
-              _showErrorSnackbar(context, 
-                'Please enter event ID'
-              );
-              return;
-            }
 
-            String eventId = _eventIdController.text;
-            int event_id = jsonDecode(barcode.rawValue!)['event_id'];
-            String event_date = jsonDecode(barcode.rawValue!)['date'];
-          
-            if (int.tryParse(eventId) != event_id) {
-              _showCustomDialog(context, "Invalid Ticket!");
-              return;
-            }
-
-            final response = await http.post(
-              Uri.parse(url),
-              headers: {'Content-Type': 'application/json'},
-              body: barcode.rawValue,
-            );
-
-
-            if (response.statusCode == 200) {
-              final responseData = jsonDecode(response.body);
-              String message = responseData['message'];
-
-              if(!isToday(event_date) && !isDateInPast(event_date)) {
-                if(message == "Used Ticket!") {
-                  String scannedAt = responseData['updated_at'];
-                  debugPrint('Formatted Date (debug): $scannedAt'); // For Flutter debug output
-                  _showCustomDialog(context, message, scannedAt:scannedAt);
-                }else {
-                  _showCustomDialog(context, message);
-                }
-              }else if(!isToday(event_date) && isDateInPast(event_date)) {
-                _showCustomDialog(context, message, isWarning:true);
-              }else {
-                if(message == "Used Ticket!") {
-                  String scannedAt = responseData['updated_at'];
-                  debugPrint('Formatted Date (debug): $scannedAt'); // For Flutter debug output
-                  _showCustomDialog(context, message, scannedAt:scannedAt);
-                }else {
-                  _showCustomDialog(context, message);
-                }
-              }
-            } else if (response.statusCode == 302) {
-              _handleHTTPRedirect();
-            } else {
-              _showErrorSnackbar(context, 
-                response.body.contains("Unexpected token") 
-                  ? 'Invalid Ticket!' 
-                  : 'Request failed with status: ${response.statusCode}'
-              );
-            }
-            
-            return;
           }
         }
 
-        _handleSocketException(e);
-      } catch (e) {
-        _showCustomDialog(context, "Invalid Ticket!");
-        // _showErrorSnackbar(context, 'An error occurred: ${e.toString()}');
-      } finally {
-        setState(() => _isLoading = false);
         Future.delayed(const Duration(seconds: 10), () {
           if (mounted) setState(() => _isScanning = true);
         });
+        _handleSocketException(e);
+      } catch (e) {
+        debugPrint('An error occurred: ${e.toString()}');
+
+        if((e.toString().contains("Unexpected token")) || (e.toString().contains("Unexpected character"))) {
+          _showCustomDialog(context, "Invalid Ticket!");
+        } else {
+          _showErrorSnackbar(context, 'An error occurred: ${e.toString()}');
+        }
+
+      } finally {
+        setState(() => _isLoading = false);
+        // Future.delayed(const Duration(seconds: 10), () {
+        //   if (mounted) setState(() => _isScanning = true);
+        // });
       }
     }
   }
@@ -276,9 +318,10 @@ class _QRScannerPageState extends State<QRScannerPage> {
     );
   }
 
-  void _showCustomDialog(BuildContext context, String message, {String scannedAt = "", bool isWarning = false}) {
+  void _showCustomDialog(BuildContext context, String message, {String ticketDate = "", String scannedAt = "", bool isWarning = false}) {
     final isSuccess = message == "Valid Ticket!";
     final isUsedTicket = message == "Used Ticket!";
+    final wrongDayTicket = message == "Wrong Day Ticket!";
 
     if(!isWarning) {
       showDialog(
@@ -322,6 +365,22 @@ class _QRScannerPageState extends State<QRScannerPage> {
                 textAlign: TextAlign.center,
               ),
               if(isUsedTicket)
+              const SizedBox(height: 5),
+
+              
+              if(wrongDayTicket)
+              const SizedBox(height: 5),
+              if(wrongDayTicket)
+              Text(
+                'Booked For: $ticketDate',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              if(wrongDayTicket)
               const SizedBox(height: 5),
 
 
@@ -420,6 +479,59 @@ class _QRScannerPageState extends State<QRScannerPage> {
     );
   }
 
+
+  
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2025),    // Allow dates as early as year 2000
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked != null) {
+      if((picked != _selectedDate)) {
+        setState(() {
+          _selectedDate = picked;
+        });
+      }
+    }
+  }
+
+  Widget _buildDatePicker() {
+    return TextButton.icon(
+      onPressed: () => _selectDate(context),
+      icon: Icon(
+        Icons.calendar_today, 
+        size: 18,
+        color: Colors.white.withOpacity(0.7),
+      ),
+      label: Text(
+        '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
+        style: TextStyle(
+          color: Colors.white.withOpacity(0.7),
+          fontWeight: FontWeight.w500,
+          fontSize: 14, // Smaller font size for compactness
+        ),
+      ),
+      style: TextButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0), // Near-zero vertical padding
+        minimumSize: const Size(0, 30), // Set a small fixed height (e.g., 30 logical pixels)
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap, // Reduces touch target to content size
+        visualDensity: VisualDensity.compact, // Squeezes elements closer
+        backgroundColor: Colors.black.withOpacity(0.4),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(
+            color: Colors.black.withOpacity(0.4),
+            width: 1.5
+          ),
+        ),
+      ),
+    );
+  }
+
+
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -514,7 +626,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
                   padding: const EdgeInsets.symmetric(
                     horizontal: 20, vertical: 10),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.6),
+                    color: Colors.black.withOpacity(0.55),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Text(
@@ -538,7 +650,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
 
           // Event ID input field at top center
           Positioned(
-            top: 20,
+            top: 10,
             left: 20,
             right: 20,
             child: Center(
@@ -575,6 +687,80 @@ class _QRScannerPageState extends State<QRScannerPage> {
               ),
             ),
           ),
+
+          Positioned(
+            top: 75,
+            left: 20,
+            right: 20,
+            child: Center(
+              child: Container(
+                width: MediaQuery.of(context).size.width * 0.6,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.4),
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: 
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 14), // Match TextField's vertical padding
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.qr_code_scanner,
+                        color: Colors.white.withOpacity(0.7)
+                      ), // Same prefix icon
+                      const SizedBox(width: 10), // Default icon spacing
+                      Text(
+                        'Scanned: $scannnedToday',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.7), // Match hint style
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              ),
+            ),
+          ),
+
+
+
+
+
+
+          Positioned(
+            top: 140,
+            left: 20,
+            right: 20,
+            child: Center(
+              child: _buildDatePicker(),
+              // Container(
+              //   width: MediaQuery.of(context).size.width * 0.6,
+              //   padding: const EdgeInsets.symmetric(horizontal: 16),
+              //   decoration: BoxDecoration(
+              //     color: Colors.black.withOpacity(0.4),
+              //     borderRadius: BorderRadius.circular(30),
+              //   ),
+              //   child: 
+              //   Container(
+              //     padding: const EdgeInsets.symmetric(vertical: 14), // Match TextField's vertical padding
+              //     child: Row(
+              //       children: [
+              //         _buildDatePicker(),
+              //       ],
+              //     ),
+              //   )
+              // ),
+            ),
+          ),
+
+
+
+
+
+
+
+
         ],
       ),
     );
