@@ -48,9 +48,9 @@ class _QRScannerPageState extends State<QRScannerPage> {
 
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body);
-        if((responseData['scannned_today']) != null){
+        if((responseData['scanned_today']) != null){
           setState(() {
-            scannnedToday = responseData['scannned_today'];
+            scannnedToday = responseData['scanned_today'];
           });
         }
         
@@ -212,9 +212,9 @@ class _QRScannerPageState extends State<QRScannerPage> {
 
           if (message.trim() == "Valid Ticket!") {
 
-            if((responseData['scannned_today']) != null){
+            if((responseData['scanned_today']) != null){
               setState(() {
-                scannnedToday = responseData['scannned_today'];
+                scannnedToday = responseData['scanned_today'];
               });
             }
 

@@ -189,8 +189,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _handleGoogleSignIn2(String? token, String email, String? name,  {bool useDNS = true}) async {
     try {
-      debugPrint(" >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Google SignIn");
-
       final Uri uri = useDNS ? Uri.parse('${backend_url}api/google_login') // Original URL
       : Uri.parse('${backend_url_with_fallback_ip}api/google_login'); // Use IP
 
@@ -249,9 +247,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   
   Future<void> _handleGoogleSignIn() async {
-    if (_isLoading) return;
-    debugPrint(" >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> handle Google SignIn");
-    
+    if (_isLoading) return;    
     try {
       setState(() => _isLoading = true);
       
@@ -268,6 +264,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) setState(() => _isLoading = false);
     }
   }
+
 
 
 

@@ -127,7 +127,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
             _showSnackBar(response.body);
           }
           else if (response.body == "Invalid msisdn!") {
-            _showSnackBar("Transaction denied: Namba uliyoweka sio sahihi");
+            _showSnackBar("Muamala Haujakamilika: Namba uliyoweka sio sahihi");
           }
           else if (response.body == "Processing payment!") {
             setState(() {
@@ -242,7 +242,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
         if (transactionDesc == "SENDER_NOT_ENOUGH_FUND" || 
             transactionDesc == "Please Confirm to submit the loan request") {
           if(__processing_payment) {
-            _showSnackBar("Transaction denied: Hauna salio la kutosha, Pia unaweza kuweka namba yenye salio hapo juu");
+            _showSnackBar("Muamala Haujakamilika: Hauna salio la kutosha, Unaweza kuweka namba yenye salio hapo juu");
             setState(() {
               trials = 15;
               __processing_payment = false;
@@ -251,16 +251,25 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
           return;
         } else if (transactionDesc == "Not routed") {
           if(__processing_payment) {
-            _showSnackBar("Transaction denied: Mfumo hauruhusu malipo kwa M-Pesa");
+            _showSnackBar("Muamala Haujakamilika: Mfumo hauruhusu malipo kwa M-Pesa, Weka namba ya mtandao mwingine yenye salio hapo juu");
             setState(() {
               trials = 15;
               __processing_payment = false;
             });
           }
           return;
-        } else if (transactionDesc == "Invalid PIN.") {
+        } else if ((transactionDesc == "Invalid PIN.") || transactionDesc.contains("wrong PIN") ) {
           if(__processing_payment) {
-            _showSnackBar("Transaction denied: PIN uliyoingiza sio sahihi");
+            _showSnackBar("Muamala Haujakamilika: PIN uliyoingiza sio sahihi");
+            setState(() {
+              trials = 15;
+              __processing_payment = false;
+            });
+          }
+          return;
+        } else if (transactionDesc == "User is Barred.") {
+          if(__processing_payment) {
+            _showSnackBar("Muamala Haujakamilika: Akaunti yako imezuiliwa");
             setState(() {
               trials = 15;
               __processing_payment = false;
@@ -622,48 +631,55 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
       ),
     );
   }
-
+  
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
-      firstDate: DateTime.now(),
+      firstDate: DateTime(2025),    // Allow dates as early as year 2000
       lastDate: DateTime.now().add(const Duration(days: 365)),
     );
     if (picked != null) {
-      setState(() {
-        _selectedDate = picked;
-      });
+      if((picked != _selectedDate)) {
+        setState(() {
+          _selectedDate = picked;
+        });
+        fetchTickets();
+      }
     }
   }
-  
+
   Widget _buildDatePicker() {
     return TextButton.icon(
       onPressed: () => _selectDate(context),
-      icon: Icon(Icons.calendar_today, color: Colors.orange[800]),
+      icon: Icon(Icons.calendar_today, size: 18, color: Colors.orange[800]), // Optional: Adjust icon size
       label: Text(
         _selectedDate == null
             ? 'Select Date'
             : '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}',
-        style: TextStyle(
-          color: _selectedDate == null ? Colors.grey[600] : Colors.black,
+        style: const TextStyle(
+          color: Colors.black,
           fontWeight: FontWeight.w500,
+          fontSize: 14, // Smaller font size for compactness
         ),
       ),
       style: TextButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0), // Near-zero vertical padding
+        minimumSize: const Size(0, 30), // Set a small fixed height (e.g., 30 logical pixels)
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap, // Reduces touch target to content size
+        visualDensity: VisualDensity.compact, // Squeezes elements closer
+        backgroundColor: Colors.grey[200],
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
+          side: const BorderSide(color: Colors.black, width: 1.5),
         ),
         side: BorderSide(
           color: _selectedDate == null ? Colors.grey[400]! : Colors.orange[800]!,
           width: 1.5,
         ),
-        backgroundColor: Colors.grey[200],
       ),
     );
   }
-
 
   Widget _buildPaymentMethodSelector(bool isLargeScreen) {
     return Card(
