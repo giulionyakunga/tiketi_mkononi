@@ -541,7 +541,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
       appBar: AppBar(
         title: const Text(
           'QR Code Scanner',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         centerTitle: true,
         elevation: 0,

@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
+import 'package:tiketi_mkononi/models/server_metrics.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
 import 'package:http/http.dart' as http;
+import 'package:tiketi_mkononi/widgets/server_metrics_card.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -24,6 +26,10 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
   String latestVersion = "";
   String lastUpdate = "";
   bool _isNewVerionAvailable = false;
+  late ServerMetrics serverMetrics;
+  bool _hasReceivedServerMetrics = false;
+
+
 
   final _formKey = GlobalKey<FormState>();
   final _appVersionController = TextEditingController();
@@ -52,6 +58,8 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
         userId = profile.id;      
         role = profile.role;
       });
+
+      if(role == "admin") getServerMetrics();
     }
   }
 
@@ -351,6 +359,50 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
     }
   }
 
+  
+  Future<void> getServerMetrics({bool useDNS = true}) async {
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/metrics') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}api/metrics'); // Use IP
+        
+    try {
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {        
+        
+        setState(() {
+          serverMetrics = ServerMetrics.fromJson(jsonDecode(response.body));
+          _hasReceivedServerMetrics = true;
+        });      
+        
+      } else if (response.statusCode == 302) {
+        _handleHTTPRedirect();
+      } else {
+        _showSnackBar('Request failed: ${response.statusCode}');
+      }
+    } on SocketException catch (e) {
+        debugPrint('Network error occurred:');
+        debugPrint('- Exception type: ${e.runtimeType}');
+        debugPrint('- Message: ${e.message}');
+        
+        if (e.osError != null) {
+          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+          debugPrint('  - OS message: ${e.osError!.message}');
+
+          // Retry with IP if DNS fails (errno = 7) and not already retrying
+          if (e.osError!.errorCode == 7 && useDNS) {
+            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+            await getServerMetrics(useDNS: false); // Recursive retry
+            return;
+          }
+        }
+
+        _handleSocketException(e);
+    } catch (e) {
+      debugPrint('Error getting server metrics: $e');
+    } finally {
+      debugPrint('Process finished');
+    }
+  }
+
   Future<void> _launchStore() async {
     const appStoreUrl = "https://apps.apple.com/app/id6746575990"; // iOS
     const playStoreUrl = "https://play.google.com/store/apps/details?id=com.telabs.tiketi_mkononi"; // Android
@@ -396,7 +448,11 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
                   const SizedBox(height: 24),
                   _buildUpdateButton(context),
                 ],
+                if(_hasReceivedServerMetrics) SizedBox(height: isLargeScreen ? 40 : 24),
+                if(_hasReceivedServerMetrics) ServerMetricsCard(serverMetrics: serverMetrics),
+                
                 SizedBox(height: isLargeScreen ? 40 : 24),
+
                 if(role == "admin")
                 _buildAppInformationForm(isLargeScreen),
               ],
