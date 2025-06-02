@@ -216,14 +216,14 @@ class EventCard extends StatelessWidget {
                       (event.hasTicket) ?
                       (event.tickets.length == 1) ?
                       Text(
-                        "${event.tickets.length} Ticket",
+                        (event.type == 'paid') ? "Bought ${event.tickets.length} Ticket" : "Confirmed ${event.tickets.length} Ticket",
                         style: TextStyle(
                           fontSize: 11, 
                           color: Colors.green
                         ),
                       ) :
                       Text(
-                        "${event.tickets.length} Ticket",
+                        (event.type == 'paid') ? "Bought ${event.tickets.length} Tickets" : "Confirmed ${event.tickets.length} Tickets",
                         style: TextStyle(
                           fontSize: 11, 
                           color: Colors.green
