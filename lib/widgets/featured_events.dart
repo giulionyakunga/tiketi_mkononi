@@ -115,13 +115,13 @@ class FeaturedEvents extends StatelessWidget {
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
                                         Text(
-                                            
                                           (event.type == 'paid') ? 'TSH${NumberFormat('#,##0').format(_getLowestPrice(event).toInt())}' : 'Free',
                                           style: const TextStyle(
                                             color: Colors.white,
                                             fontSize: 13,
                                           ),
                                         ),
+                                        if (event.daily_event == 'no')
                                         Container(
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 8,
@@ -140,7 +140,6 @@ class FeaturedEvents extends StatelessWidget {
                                                 color: Colors.white,
                                               ),
                                               const SizedBox(width: 4),
-                                              if (event.daily_event == 'no')
                                               Text(
                                                 (event.type == 'paid') ? '${formatNumber(event.soldTickets)} sold' : '${formatNumber(event.soldTickets)} confirmed',
                                                 style: const TextStyle(

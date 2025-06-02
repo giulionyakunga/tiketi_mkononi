@@ -43,10 +43,12 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
   bool _isWebSocketConnected = false;
   String organiser_name = "";
   String organiser_phone_number = "";
+  int eventTicketsCount = 0;
 
   @override
   void initState() {
     super.initState();
+    checkTicketsScanStatus();
     fetchEvent();
     _loadImageDimensions();
     _connectWebSocket();
@@ -73,6 +75,47 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
       debugPrint('WebSocket connection error: $e');
     }
   }
+
+  Future<void> checkTicketsScanStatus({bool useDNS = true}) async {
+
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/event_tickets_count/${widget.event.id}') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}api/event_tickets_count/${widget.event.id}'); // Use IP
+
+    try {
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        debugPrint(" >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> response.body : ${response.body}");
+        final responseData = jsonDecode(response.body);
+        if((responseData['tickets_count']) != null){
+          setState(() {
+            eventTicketsCount = responseData['tickets_count'];
+          });
+        }
+        
+      }
+    }on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if (e.osError!.errorCode == 7 && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await checkTicketsScanStatus(useDNS: false); // Recursive retry
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching check tickets scan status: $e');
+    }
+  }
+
+
 
   void _handleWebSocketUpdate() async {
     if (!mounted) return;
@@ -833,20 +876,10 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                           );
                                         }
                                       : null,
-                                  child: 
-                                  (event.daily_event == 'no') ?
-                                  Text(
+                                  child: Text(
                                     event.type == 'free'
-                                        ? '🎟️ ${formatNumber(event.soldTickets)} Confirmed'
-                                        : '🎟️ ${formatNumber(event.soldTickets)} Sold',
-                                    style: TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.orange[800]),
-                                  ) :
-                                  Text(
-                                    event.type == 'free'
-                                        ? 'Confirmations'
-                                        : 'Ticket Sales',
+                                        ? '🎟️ $eventTicketsCount Confirmed'
+                                        : '🎟️ $eventTicketsCount Sold',
                                     style: TextStyle(
                                         fontSize: 11,
                                         color: Colors.orange[800]),
@@ -1049,22 +1082,10 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                     );
                                   }
                                 : null,
-                            child:
-                            (event.daily_event == 'no') ?
-                            Text(
+                            child: Text(
                               event.type == 'free'
-                                  ? '🎟️ ${formatNumber(event.soldTickets)} Confirmed'
-                                  : '🎟️ ${formatNumber(event.soldTickets)} Sold',
-                              style: TextStyle(
-                                  fontSize: 11, 
-                                  color: Colors.orange[800],
-                                  overflow: TextOverflow.ellipsis
-                                ),
-                            ) : 
-                            Text(
-                              event.type == 'free'
-                                  ? 'Confirmations'
-                                  : 'Ticket Sales',
+                                  ? '🎟️ $eventTicketsCount Confirmed'
+                                  : '🎟️ $eventTicketsCount Sold',
                               style: TextStyle(
                                   fontSize: 11, 
                                   color: Colors.orange[800],

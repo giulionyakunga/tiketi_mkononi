@@ -100,7 +100,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (!_isAppActive) return;
 
     try {
-      final Uri uri = useDNS ? Uri.parse('${backend_url}api/events/$userId') // Original URL 
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/events/$userId') // Original URL
       : Uri.parse('${backend_url_with_fallback_ip}api/events/$userId'); // Use IP
         
       final response = await http.get(uri);
