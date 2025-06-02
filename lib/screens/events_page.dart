@@ -255,34 +255,7 @@ class _EventsPageState extends State<EventsPage> {
     return filtered;
   }
 
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
-    );
-  }
 
-  void _handleSocketException(SocketException e) {
-    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 101 || e.osError?.errorCode == 111) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Connection Error'),
-          content: const Text('Could not connect to the server. Please check your internet connection.'),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
-      );
-    } else {
-      _showSnackBar('Connection Error: ${e.message}');
-    }
-  }
 
   void _handleHTTPRedirect() {
     showDialog(
@@ -329,22 +302,22 @@ class _EventsPageState extends State<EventsPage> {
       child: SearchBar(
         controller: _searchController,
         hintText: 'Search events...',
-        hintStyle: MaterialStateTextStyle.resolveWith(
+        hintStyle: WidgetStateTextStyle.resolveWith(
           (states) => TextStyle(
             color: isDarkMode ? Colors.white70 : Colors.grey[600],
           ),
         ),
-        backgroundColor: MaterialStateProperty.all(
+        backgroundColor: WidgetStateProperty.all(
           isDarkMode ? Colors.transparent : Colors.white.withOpacity(0.7),
         ),
-        elevation: MaterialStateProperty.all(0),
-        side: MaterialStateProperty.all(BorderSide.none),
-        shape: MaterialStateProperty.all(
+        elevation: WidgetStateProperty.all(0),
+        side: WidgetStateProperty.all(BorderSide.none),
+        shape: WidgetStateProperty.all(
           RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
           ),
         ),
-        padding: MaterialStateProperty.all(
+        padding: WidgetStateProperty.all(
           const EdgeInsets.symmetric(horizontal: 16),
         ),
         leading: Icon(

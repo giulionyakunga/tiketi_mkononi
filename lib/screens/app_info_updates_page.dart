@@ -69,10 +69,6 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
     super.dispose();
   }
 
-  bool _isLargeScreen(BuildContext context) {
-    return MediaQuery.of(context).size.width > 768;
-  }
-
   void _showSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -231,8 +227,6 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
     required String label,
     required IconData icon,
     bool isLargeScreen = false,
-    bool isPasswordField = false,
-    VoidCallback? onVisibilityPressed,
   }) {
     return InputDecoration(
       labelText: label,
