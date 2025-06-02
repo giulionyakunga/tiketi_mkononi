@@ -239,8 +239,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
         final responseData = jsonDecode(response.body);
         final transactionDesc = responseData['transaction_description'];
 
-        if (transactionDesc == "SENDER_NOT_ENOUGH_FUND" || 
-            transactionDesc == "Please Confirm to submit the loan request") {
+        if (transactionDesc == "SENDER_NOT_ENOUGH_FUND" || transactionDesc == "Please Confirm to submit the loan request") {
           if(__processing_payment) {
             _showSnackBar("Muamala Haujakamilika: Hauna salio la kutosha, Unaweza kuweka namba yenye salio hapo juu");
             setState(() {
@@ -279,7 +278,8 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
         }
 
         bool hasTicket = responseData['has_ticket'];
-        if(hasTicket) {
+
+        if(hasTicket && (transactionDesc == "Success")) {
           setState(() {
             _payed = true;
             __processing_payment = false;

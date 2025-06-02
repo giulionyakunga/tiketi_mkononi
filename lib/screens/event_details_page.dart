@@ -85,7 +85,6 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
       final response = await http.get(uri);
 
       if (response.statusCode == 200) {
-        debugPrint(" >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> response.body : ${response.body}");
         final responseData = jsonDecode(response.body);
         if((responseData['tickets_count']) != null){
           setState(() {
