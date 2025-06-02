@@ -33,12 +33,15 @@ class TicketType2 {
 class EditEventPage extends StatefulWidget {
   final Event event;
   final int userId;
+  final  Map<String, dynamic> ticketTypesTicketsCount;
   final Function refreshMethod;
+
 
   const EditEventPage({
     super.key,
     required this.event,
     required this.userId,
+    required this.ticketTypesTicketsCount,
     required this.refreshMethod,
   });
 
@@ -54,6 +57,7 @@ class _EditEventPageState extends State<EditEventPage> {
   final _descriptionController = TextEditingController();
   final _scrollController = ScrollController();
   DateTime? _selectedDate;
+  DateTime _selectedDate2 = DateTime.now();
   TimeOfDay? _selectedTime;
   String? _selectedCategory;
   XFile? _eventImage;
@@ -61,6 +65,9 @@ class _EditEventPageState extends State<EditEventPage> {
   bool _isLoading = false;
   bool _isPaidEvent = true;
   bool _isDailyEvent = false;
+  int eventTicketsCount = 0;
+  Map<String, dynamic> ticketTypesTicketsCount = {};
+
 
   // Ticket type controllers
   final List<TicketType2> _ticketTypes = [];
@@ -82,6 +89,7 @@ class _EditEventPageState extends State<EditEventPage> {
   @override
   void initState() {
     super.initState();
+    getTicketsCountByDate();
     _addExistingTicketType(widget.event.ticketTypes);
     _nameController.text = widget.event.name;
     _venueController.text = widget.event.venue;
@@ -123,6 +131,54 @@ class _EditEventPageState extends State<EditEventPage> {
         isCustom: false,
       ));
     });
+  }
+
+  Future<void> getTicketsCountByDate({bool useDNS = true}) async {
+
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/event_tickets_count_by_date/${widget.event.id}/${DateFormat('d-M-yyyy').format(_selectedDate2)}') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}api/event_tickets_count_by_date/${widget.event.id}/${DateFormat('d-M-yyyy').format(_selectedDate2)}'); // Use IP
+
+    try {
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+
+        if((responseData['tickets_count']) != null){
+          setState(() {
+            eventTicketsCount = responseData['tickets_count'];
+            ticketTypesTicketsCount = responseData['ticket_types'];
+          });
+        }
+        
+      }
+    }on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if (e.osError!.errorCode == 7 && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await getTicketsCountByDate(useDNS: false); // Recursive retry
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching check tickets scan status: $e');
+    }
+  }
+
+  int getTicketTypesTicketsCount (Map<String, dynamic> ticketTypesTicketsCount, String name) {
+
+    if (ticketTypesTicketsCount.isNotEmpty) {
+      return ticketTypesTicketsCount[name];
+    }
+    return 0;
   }
 
   void _addExistingTicketType(List<TicketType> ticketTypes) {
@@ -208,7 +264,9 @@ class _EditEventPageState extends State<EditEventPage> {
     if (picked != null) {
       setState(() {
         _selectedDate = picked;
+        _selectedDate2 = picked;
       });
+      getTicketsCountByDate();
     }
   }
 
@@ -248,11 +306,12 @@ class _EditEventPageState extends State<EditEventPage> {
         return false;
       }
 
-      if (ticketType.soldTickets > ticketType.numberOfTickets) {
+
+      if (getTicketTypesTicketsCount(ticketTypesTicketsCount, ticketType.name) > ticketType.numberOfTickets) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text(
-                  'Number of tickets for ${ticketType.name} must be greater than number of sold tickets, ${ticketType.soldTickets}')),
+            content: Text('Number of tickets for ${ticketType.name} must be greater than number of sold tickets, ${getTicketTypesTicketsCount(ticketTypesTicketsCount, ticketType.name)}')
+          ),
         );
         return false;
       }

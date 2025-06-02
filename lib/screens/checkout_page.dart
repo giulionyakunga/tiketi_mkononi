@@ -46,6 +46,9 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
   bool _isAppActive = true;
   final _formKey = GlobalKey<FormState>();
   DateTime? _selectedDate;
+  DateTime _selectedDate2 = DateTime.now();
+  int eventTicketsCount = 0;
+  Map<String, dynamic> ticketTypesTicketsCount = {};
 
   @override
   void initState() {
@@ -71,14 +74,71 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
     }
   }
 
+  
+  Future<void> getTicketsCountByDate({bool useDNS = true}) async {
+
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/event_tickets_count_by_date/${widget.event.id}/${DateFormat('d-M-yyyy').format(_selectedDate2)}') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}api/event_tickets_count_by_date/${widget.event.id}/${DateFormat('d-M-yyyy').format(_selectedDate2)}'); // Use IP
+
+    try {
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+
+        if((responseData['tickets_count']) != null){
+          setState(() {
+            eventTicketsCount = responseData['tickets_count'];
+            ticketTypesTicketsCount = responseData['ticket_types'];
+          });
+        }
+        
+      }
+    }on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if (e.osError!.errorCode == 7 && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await getTicketsCountByDate(useDNS: false); // Recursive retry
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching check tickets scan status: $e');
+    }
+  }
+
+  int getTicketTypesTicketsCount (Map<String, dynamic> ticketTypesTicketsCount, String name) {
+
+    if (ticketTypesTicketsCount.isNotEmpty) {
+      return ticketTypesTicketsCount[name];
+    }
+    return 0;
+  }
+
+
   bool checkTicketAvailability() {
     for (var ticketType in widget.event.ticketTypes) {
       if(ticketType.name == ticketTypeName){
-        if( (ticketType.soldTickets + quantity) > ticketType.numberOfTickets ){
-          int remainingTickets = ticketType.numberOfTickets - ticketType.soldTickets;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('We currently have only $remainingTickets $ticketTypeName ticket(s) remaining')),
-          );
+        if( ( getTicketTypesTicketsCount(ticketTypesTicketsCount, ticketType.name) + quantity) > ticketType.numberOfTickets ){
+          int remainingTickets = ticketType.numberOfTickets - getTicketTypesTicketsCount(ticketTypesTicketsCount, ticketType.name);
+          
+          if(widget.event.daily_event == 'yes') {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Only $remainingTickets $ticketTypeName tickets remain for ${DateFormat('EEE, MMM d, yyyy').format(_selectedDate2)}')),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Only $remainingTickets $ticketTypeName tickets available')),
+            );
+          }
           return false;
         }
       }
@@ -645,14 +705,16 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
-      firstDate: DateTime(2025),    // Allow dates as early as year 2000
+      firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365)),
     );
     if (picked != null) {
       if((picked != _selectedDate)) {
         setState(() {
           _selectedDate = picked;
+          _selectedDate2 = picked;
         });
+        getTicketsCountByDate();
         fetchTickets();
       }
     }

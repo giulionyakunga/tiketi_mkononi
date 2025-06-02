@@ -44,11 +44,12 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
   String organiser_name = "";
   String organiser_phone_number = "";
   int eventTicketsCount = 0;
+  Map<String, dynamic> ticketTypesTicketsCount = {};
 
   @override
   void initState() {
     super.initState();
-    checkTicketsScanStatus();
+    getTicketsCount();
     fetchEvent();
     _loadImageDimensions();
     _connectWebSocket();
@@ -76,7 +77,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
     }
   }
 
-  Future<void> checkTicketsScanStatus({bool useDNS = true}) async {
+  Future<void> getTicketsCount({bool useDNS = true}) async {
 
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/event_tickets_count/${widget.event.id}') // Original URL 
     : Uri.parse('${backend_url_with_fallback_ip}api/event_tickets_count/${widget.event.id}'); // Use IP
@@ -86,9 +87,11 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
 
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body);
+
         if((responseData['tickets_count']) != null){
           setState(() {
             eventTicketsCount = responseData['tickets_count'];
+            ticketTypesTicketsCount = responseData['ticket_types'];
           });
         }
         
@@ -105,7 +108,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if (e.osError!.errorCode == 7 && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await checkTicketsScanStatus(useDNS: false); // Recursive retry
+          await getTicketsCount(useDNS: false); // Recursive retry
           return;
         }
       }
@@ -114,7 +117,13 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
     }
   }
 
+  int getTicketTypesTicketsCount (Map<String, dynamic> ticketTypesTicketsCount, String name) {
 
+    if (ticketTypesTicketsCount.isNotEmpty) {
+      return ticketTypesTicketsCount[name];
+    }
+    return 0;
+  }
 
   void _handleWebSocketUpdate() async {
     if (!mounted) return;
@@ -588,7 +597,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Text(
-                                      '${NumberFormat('#,##0').format(ticketType.soldTickets)}/${NumberFormat('#,##0').format(ticketType.numberOfTickets)}',
+                                      '${NumberFormat('#,##0').format(getTicketTypesTicketsCount(ticketTypesTicketsCount, ticketType.name))}/${NumberFormat('#,##0').format(ticketType.numberOfTickets)}',
                                       style: const TextStyle(
                                         fontSize: 8,
                                         color: Colors.white,
@@ -713,6 +722,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                 builder: (context) => EditEventPage(
                   event: event,
                   userId: widget.userId,
+                  ticketTypesTicketsCount: ticketTypesTicketsCount,
                   refreshMethod: fetchEvent,
                 ),
               ),
