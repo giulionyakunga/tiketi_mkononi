@@ -26,7 +26,7 @@ class CheckoutPage extends StatefulWidget {
 
 class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver {
   int userId = 0;
-  int trials = 15;
+  int trials = 10;
   late final StorageService _storageService;
   int eventId = 0; 
   int quantity = 1;
@@ -223,7 +223,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
 
     if(trials <= 0){
       setState(() {
-        trials = 15;
+        trials = 10;
         __processing_payment = false;
       });
     }
@@ -243,7 +243,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
           if(__processing_payment) {
             _showSnackBar("Muamala Haujakamilika: Hauna salio la kutosha, Unaweza kuweka namba yenye salio hapo juu");
             setState(() {
-              trials = 15;
+              trials = 10;
               __processing_payment = false;
             });
           }
@@ -252,7 +252,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
           if(__processing_payment) {
             _showSnackBar("Muamala Haujakamilika: Mfumo hauruhusu malipo kwa M-Pesa, Weka namba ya mtandao mwingine yenye salio hapo juu");
             setState(() {
-              trials = 15;
+              trials = 10;
               __processing_payment = false;
             });
           }
@@ -261,7 +261,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
           if(__processing_payment) {
             _showSnackBar("Muamala Haujakamilika: PIN uliyoingiza sio sahihi");
             setState(() {
-              trials = 15;
+              trials = 10;
               __processing_payment = false;
             });
           }
@@ -270,7 +270,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
           if(__processing_payment) {
             _showSnackBar("Muamala Haujakamilika: Akaunti yako imezuiliwa");
             setState(() {
-              trials = 15;
+              trials = 10;
               __processing_payment = false;
             });
           }
@@ -279,7 +279,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
           if(__processing_payment) {
             _showSnackBar("Muamala Haujakamilika: Failed in Min and Max Amount");
             setState(() {
-              trials = 15;
+              trials = 10;
               __processing_payment = false;
             });
           }
