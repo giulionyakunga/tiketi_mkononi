@@ -246,8 +246,6 @@ class _QRScannerPageState extends State<QRScannerPage> {
         debugPrint('- Message: ${e.message}');
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         
-        debugPrint('EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE');
-
         if (e.osError != null) {
           debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
           debugPrint('  - OS message: ${e.osError!.message}');
