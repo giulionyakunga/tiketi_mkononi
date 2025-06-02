@@ -275,6 +275,15 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
             });
           }
           return;
+        }  else if (transactionDesc == "Failed in Min and Max Amount") {
+          if(__processing_payment) {
+            _showSnackBar("Muamala Haujakamilika: Failed in Min and Max Amount");
+            setState(() {
+              trials = 15;
+              __processing_payment = false;
+            });
+          }
+          return;
         }
 
         bool hasTicket = responseData['has_ticket'];
@@ -848,7 +857,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
       height: 50,
       child: (_payed || soldOut) ?
       ElevatedButton(
-        onPressed: null,
+        onPressed: _isLoading ? null : _handlePaying,
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.orange[800],
           shape: RoundedRectangleBorder(
