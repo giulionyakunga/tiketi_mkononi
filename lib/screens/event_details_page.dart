@@ -838,7 +838,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                     : null,
                                   child: const Icon(
                                     Icons.assignment_ind,
-                                    size: 16,
+                                    size: 18,
                                     color: Colors.green
                                   ),
                                 ),
@@ -856,7 +856,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                   },
                                   child: const Icon(
                                     Icons.qr_code_scanner,
-                                    size: 16,
+                                    size: 18,
                                     color: Colors.green
                                   ),
                                 ),
@@ -1030,7 +1030,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                               : null,
                             child: const Icon(
                               Icons.assignment_ind,
-                              size: 16,
+                              size: 18,
                               color: Colors.green
                             ),
                           ),
@@ -1055,7 +1055,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                             },
                             child: const Icon(
                               Icons.qr_code_scanner,
-                              size: 16,
+                              size: 18,
                               color: Colors.green
                             ),
                           ),
