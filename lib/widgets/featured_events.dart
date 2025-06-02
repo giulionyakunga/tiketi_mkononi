@@ -140,6 +140,7 @@ class FeaturedEvents extends StatelessWidget {
                                                 color: Colors.white,
                                               ),
                                               const SizedBox(width: 4),
+                                              if (event.daily_event == 'no')
                                               Text(
                                                 (event.type == 'paid') ? '${formatNumber(event.soldTickets)} sold' : '${formatNumber(event.soldTickets)} confirmed',
                                                 style: const TextStyle(

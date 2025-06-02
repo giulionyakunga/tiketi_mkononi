@@ -833,10 +833,20 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                           );
                                         }
                                       : null,
-                                  child: Text(
+                                  child: 
+                                  (event.daily_event == 'no') ?
+                                  Text(
                                     event.type == 'free'
                                         ? '🎟️ ${formatNumber(event.soldTickets)} Confirmed'
                                         : '🎟️ ${formatNumber(event.soldTickets)} Sold',
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.orange[800]),
+                                  ) :
+                                  Text(
+                                    event.type == 'free'
+                                        ? 'Confirmations'
+                                        : 'Ticket Sales',
                                     style: TextStyle(
                                         fontSize: 11,
                                         color: Colors.orange[800]),
@@ -1039,7 +1049,9 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                     );
                                   }
                                 : null,
-                            child: Text(
+                            child:
+                            (event.daily_event == 'no') ?
+                            Text(
                               event.type == 'free'
                                   ? '🎟️ ${formatNumber(event.soldTickets)} Confirmed'
                                   : '🎟️ ${formatNumber(event.soldTickets)} Sold',
@@ -1048,7 +1060,18 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                   color: Colors.orange[800],
                                   overflow: TextOverflow.ellipsis
                                 ),
+                            ) : 
+                            Text(
+                              event.type == 'free'
+                                  ? 'Confirmations'
+                                  : 'Ticket Sales',
+                              style: TextStyle(
+                                  fontSize: 11, 
+                                  color: Colors.orange[800],
+                                  overflow: TextOverflow.ellipsis
+                                ),
                             ),
+
                           ),
                         ),
                       ],

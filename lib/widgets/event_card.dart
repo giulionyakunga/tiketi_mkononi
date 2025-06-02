@@ -235,10 +235,11 @@ class EventCard extends StatelessWidget {
 
                       Row( 
                         children: [
+                          if (event.daily_event == 'no')
                           Text(
                             (event.type == 'paid') ? '🎟️ ${formatNumber(event.soldTickets)} Sold' : '🎟️ ${formatNumber(event.soldTickets)} Confirmed',
                             style: TextStyle(fontSize: 12, color: Colors.orange[800]),
-                          ),
+                          )
                         ],
                       ),
                     ],
