@@ -560,10 +560,9 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                 style: const TextStyle(
                                     fontSize: 18, color: Colors.black),
                               ),
-                              if (event.status == "active" &&
-                                  (ticketType.numberOfTickets -
-                                          ticketType.soldTickets) <=
-                                      0)
+
+
+                              if ((event.daily_event == 'no') && (event.status == "active") && (ticketType.numberOfTickets - (getTicketTypesTicketsCount(ticketTypesTicketsCount, ticketType.name)) <= 0))
                                 WidgetSpan(
                                   alignment: PlaceholderAlignment.middle,
                                   child: Container(
@@ -573,8 +572,8 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                       color: const Color(0xFFFFD700),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
-                                    child: const Text(
-                                      'Sold Out',
+                                    child: Text(
+                                      'Sold Out (${NumberFormat('#,##0').format(getTicketTypesTicketsCount(ticketTypesTicketsCount, ticketType.name))})',  
                                       style: TextStyle(
                                         fontSize: 8,
                                         color: Colors.white,
@@ -583,10 +582,8 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                     ),
                                   ),
                                 ),
-                              if (event.status == "active" &&
-                                  !((ticketType.numberOfTickets -
-                                          ticketType.soldTickets) <=
-                                      0))
+
+                              if ((event.daily_event == 'yes') || ((event.daily_event == 'no') && (event.status == "active") && !(ticketType.numberOfTickets - (getTicketTypesTicketsCount(ticketTypesTicketsCount, ticketType.name)) <= 0)))
                                 WidgetSpan(
                                   alignment: PlaceholderAlignment.middle,
                                   child: Container(
@@ -597,7 +594,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Text(
-                                      '${NumberFormat('#,##0').format(getTicketTypesTicketsCount(ticketTypesTicketsCount, ticketType.name))}/${NumberFormat('#,##0').format(ticketType.numberOfTickets)}',
+                                      'Tickets: ${NumberFormat('#,##0').format(getTicketTypesTicketsCount(ticketTypesTicketsCount, ticketType.name))}/${NumberFormat('#,##0').format(ticketType.numberOfTickets)}',
                                       style: const TextStyle(
                                         fontSize: 8,
                                         color: Colors.white,

@@ -274,12 +274,11 @@ class EventCard extends StatelessWidget {
                                           style: TextStyle(
                                             fontSize: 18, 
                                             fontWeight: FontWeight.bold,                               
-                                            color: (ticketType.numberOfTickets - ticketType.soldTickets) <= 0 ? Colors.grey : Colors.orange,
+                                            color: ( (event.daily_event == 'no') && ((ticketType.numberOfTickets - ticketType.soldTickets) <= 0)) ? Colors.grey : Colors.orange,
                                           )
                                         ),
 
-                                        if (event.status == "active" &&
-                                            (ticketType.numberOfTickets - ticketType.soldTickets) <= 0)
+                                        if ((event.daily_event == 'no') && (event.status == "active") && ((ticketType.numberOfTickets - ticketType.soldTickets) <= 0))
                                           WidgetSpan(
                                             alignment: PlaceholderAlignment.middle,
                                             child: Container(
@@ -298,8 +297,7 @@ class EventCard extends StatelessWidget {
                                               ),
                                             ),
                                           ),
-                                        if (event.status == "active" &&
-                                            !((ticketType.numberOfTickets - ticketType.soldTickets) <= 0))
+                                        if ((event.daily_event == 'yes') || ((event.daily_event == 'no') && (event.status == "active") && !((ticketType.numberOfTickets - ticketType.soldTickets) <= 0)))
                                           WidgetSpan(
                                             alignment: PlaceholderAlignment.middle,
                                             child: Container(
@@ -309,7 +307,8 @@ class EventCard extends StatelessWidget {
                                                 borderRadius: BorderRadius.circular(8),
                                               ),
                                               child: Text(
-                                                '${NumberFormat('#,##0').format(ticketType.soldTickets)}/${NumberFormat('#,##0').format(ticketType.numberOfTickets)}',
+                                                (event.daily_event == 'yes') ? 'Tickets: ${NumberFormat('#,##0').format(ticketType.numberOfTickets)}' :
+                                                'Tickets: ${NumberFormat('#,##0').format(ticketType.soldTickets)}/${NumberFormat('#,##0').format(ticketType.numberOfTickets)}',
                                                 style: const TextStyle(
                                                   fontSize: 8,
                                                   color: Colors.white,
@@ -403,7 +402,7 @@ class EventCard extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(8),
                               ),
                             ),
-                            child: checkSoldOut() ? Text(
+                            child: ((event.daily_event == 'no') && checkSoldOut()) ? Text(
                               (event.type == 'paid') ? 'Sold Out' : "Full",
                               style: const TextStyle(
                                 fontSize: 16,
