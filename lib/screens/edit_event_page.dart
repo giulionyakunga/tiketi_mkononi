@@ -374,6 +374,18 @@ class _EditEventPageState extends State<EditEventPage> {
         return false;
       }
 
+      if (getTicketTypesTicketsCount(ticketTypesTicketsCount, ticketType.name) > ticketType.numberOfTickets) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Number of tickets for ${ticketType.name} must be greater than number of sold tickets, ${getTicketTypesTicketsCount(ticketTypesTicketsCount, ticketType.name)}')
+          ),
+        );
+        debugPrint("KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK ${getTicketTypesTicketsCount(ticketTypesTicketsCount, ticketType.name)} >>> ${ticketType.numberOfTickets} ");
+        return false;
+      }else {
+        debugPrint("VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV ${getTicketTypesTicketsCount(ticketTypesTicketsCount, ticketType.name)} >>> ${ticketType.numberOfTickets} ");
+      }
+
       if (ticketType.name.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Ticket names cannot be empty')),
