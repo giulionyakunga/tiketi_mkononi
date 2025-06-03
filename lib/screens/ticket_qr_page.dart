@@ -450,6 +450,12 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
                             Expanded(
                               child: Column(
                                 children: [
+                                  Text("Ticket ID: ${widget.ticketId}",
+                                  style: TextStyle(
+                                    fontSize: isLargeScreen ? 28 : 18,
+                                    fontWeight: FontWeight.normal,
+                                  ),
+                                  ),
                                   _buildQRCodeSection(isLargeScreen),
                                   const SizedBox(height: 20),
                                   _buildStatusSection(),
@@ -464,6 +470,12 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
                         )
                       : Column(
                           children: [
+                            Text("Ticket ID: ${widget.ticketId}",
+                              style: TextStyle(
+                                fontSize: isLargeScreen ? 28 : 18,
+                                fontWeight: FontWeight.normal,
+                              ),
+                            ),
                             _buildQRCodeSection(isLargeScreen),
                             const SizedBox(height: 1),
                             _buildEventInfoSection(isLargeScreen),
