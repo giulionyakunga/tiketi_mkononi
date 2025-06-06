@@ -241,7 +241,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
       _handleSocketException(e);
     } catch (e) {
-      if (mounted) _showSnackBar('Google sign in failed: $e');
+      debugPrint('Google sign in failed: $e');
+      if (mounted) _showSnackBar('Google sign in failed, Plz try another way');
     }
   }
 
