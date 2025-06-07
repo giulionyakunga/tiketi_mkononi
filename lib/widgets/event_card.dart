@@ -211,6 +211,12 @@ class EventCard extends StatelessWidget {
                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap, // ← Makes chip tighter
                       ),
 
+                      
+
+                      const SizedBox(width: 4),
+
+
+
                       const Spacer(),
 
                       (event.hasTicket) ?
