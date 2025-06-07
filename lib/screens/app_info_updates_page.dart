@@ -364,6 +364,7 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
         
         setState(() {
           serverMetrics = ServerMetrics.fromJson(jsonDecode(response.body));
+          serverMetrics.dnsResolution = useDNS;
           _hasReceivedServerMetrics = true;
         });      
         

@@ -6,6 +6,7 @@ class ServerMetrics {
   final MemoryUsage memoryUsageMB;
   final CpuLoad cpuLoadAvg;
   final String uptimeSeconds;
+  bool dnsResolution;
 
   ServerMetrics({
     required this.timestamp,
@@ -15,6 +16,7 @@ class ServerMetrics {
     required this.memoryUsageMB,
     required this.cpuLoadAvg,
     required this.uptimeSeconds,
+    required this.dnsResolution,
   });
 
   factory ServerMetrics.fromJson(Map<String, dynamic> json) {
@@ -26,6 +28,7 @@ class ServerMetrics {
       memoryUsageMB: MemoryUsage.fromJson(json['memoryUsageMB']),
       cpuLoadAvg: CpuLoad.fromJson(json['cpuLoadAvg']),
       uptimeSeconds: json['uptimeSeconds'],
+      dnsResolution: json['dns_resolution'] ?? true,
     );
   }
 }

@@ -219,7 +219,15 @@ class _QRScannerPageState extends State<QRScannerPage> {
             }
 
             _showCustomDialog(context, message);
-          }else if (message.trim() == "Used Ticket!") {
+          } else if (message.trim() == "Used Ticket!") {
+            String scannedAt = "N/A";
+            if((responseData['scanned_at']) != null){
+              debugPrint('Formatted Date (debug): $scannedAt'); // For Flutter debug output
+              scannedAt = responseData['scanned_at'];
+            }
+
+            _showCustomDialog(context, message, scannedAt:scannedAt);
+          } else if (message.trim() == "Ticket Already Used!") {
             String scannedAt = "N/A";
             if((responseData['scanned_at']) != null){
               debugPrint('Formatted Date (debug): $scannedAt'); // For Flutter debug output
@@ -319,6 +327,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
   void _showCustomDialog(BuildContext context, String message, {String ticketDate = "", String scannedAt = "", bool isWarning = false}) {
     final isSuccess = message == "Valid Ticket!";
     final isUsedTicket = message == "Used Ticket!";
+    final ticketAlreadyUsed = message == "Ticket Already Used!";
     final wrongDayTicket = message == "Wrong Day Ticket!";
 
     if(!isWarning) {
@@ -350,9 +359,9 @@ class _QRScannerPageState extends State<QRScannerPage> {
               ),
 
 
-              if(isUsedTicket)
+              if(isUsedTicket || ticketAlreadyUsed)
               const SizedBox(height: 5),
-              if(isUsedTicket)
+              if(isUsedTicket || ticketAlreadyUsed)
               Text(
                 'Used On: $scannedAt',
                 style: TextStyle(
@@ -362,7 +371,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
                 ),
                 textAlign: TextAlign.center,
               ),
-              if(isUsedTicket)
+              if(isUsedTicket || ticketAlreadyUsed)
               const SizedBox(height: 5),
 
               
