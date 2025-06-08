@@ -32,6 +32,7 @@ class TiketiMkononiApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Tiketi Mkononi',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.orange,
         useMaterial3: true,
