@@ -342,6 +342,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
       {String ticketDate = "", String scannedAt = "", bool isWarning = false}) {
     final isSuccess = message == "Valid Ticket!";
     final isUsedTicket = message == "Used Ticket!";
+    final ticketAlreadyUsed = message == "Ticket Already Used!";
     final wrongDayTicket = message == "Wrong Day Ticket!";
 
     if (!isWarning) {

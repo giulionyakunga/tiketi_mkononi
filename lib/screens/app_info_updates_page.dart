@@ -376,6 +376,7 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
       if (response.statusCode == 200) {
         setState(() {
           serverMetrics = ServerMetrics.fromJson(jsonDecode(response.body));
+          serverMetrics.dnsResolution = useDNS;
           _hasReceivedServerMetrics = true;
         });
       } else if (response.statusCode == 302) {

@@ -241,7 +241,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
       _handleSocketException(e);
     } catch (e) {
-      if (mounted) _showSnackBar('Google sign in failed: $e');
+      debugPrint('Google sign in failed: $e');
+      if (mounted) _showSnackBar('Google sign in failed, Plz try another way');
     }
   }
 
@@ -259,7 +260,8 @@ class _LoginScreenState extends State<LoginScreen> {
       await _handleGoogleSignIn2(googleAuth.idToken, googleUser.email, googleUser.displayName);
 
     } catch (e) {
-      if (mounted) _showSnackBar('Google sign in failed: $e');
+      debugPrint('Google sign in failed: $e');
+      if (mounted) _showSnackBar('Google sign in failed, Plz try another way');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -326,7 +328,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
       _handleSocketException(e);
     } catch (e) {
-      if (mounted) _showSnackBar('Apple sign in failed: $e');
+      debugPrint('Apple sign in failed: $e');
+      if (mounted) _showSnackBar('Apple sign in failed, Plz try another way');
     }
   }
 

@@ -91,6 +91,12 @@ class ServerMetricsCard extends StatelessWidget {
                   uptimeString,
                   Icons.timelapse,
                 ),
+                _buildMetricItem(
+                  context,
+                  'DNS',
+                  serverMetrics.dnsResolution ? "OK" : "FAILED" ,
+                  Icons.dns,
+                ),
               ],
             ),
             const SizedBox(height: 16),

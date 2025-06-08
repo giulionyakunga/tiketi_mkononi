@@ -14,11 +14,27 @@
       },
       "oauth_client": [
         {
+          "client_id": "428664067417-07askcdmpsegqus6ipn1atc25knt6he1.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.telabs.tiketi_mkononi",
+            "certificate_hash": "8c80b90bc2a9a79d79720b29a72f19bb59c92e21"
+          }
+        },
+        {
           "client_id": "428664067417-71g1c7isferckpl3aaf0oikmejdaud24.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.telabs.tiketimkononi",
             "certificate_hash": "bc0e200bf6b6ffc7c7b127f4cdf1221577779189"
+          }
+        },
+        {
+          "client_id": "428664067417-pslukbh4kvcpi7n00ugbdefc6mfsuj96.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.telabs.tiketi_mkononi",
+            "certificate_hash": "c3c7de1b9e07fe03a51d32249d0d0398fd54d9ae"
           }
         },
         {
