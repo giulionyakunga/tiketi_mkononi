@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:428664067417:android:288560ea3657f715062848",
         "android_client_info": {
-          "package_name": "com.telabs.tiketi_mkononi"
+          "package_name": "com.telabs.tiketimkononi"
         }
       },
       "oauth_client": [
@@ -25,7 +25,7 @@
           "client_id": "428664067417-71g1c7isferckpl3aaf0oikmejdaud24.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.telabs.tiketi_mkononi",
+            "package_name": "com.telabs.tiketimkononi",
             "certificate_hash": "bc0e200bf6b6ffc7c7b127f4cdf1221577779189"
           }
         },
