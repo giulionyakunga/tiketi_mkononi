@@ -808,12 +808,12 @@ class QrScannerOverlayShape extends ShapeBorder {
   final double cutOutSize;
 
   const QrScannerOverlayShape({
-    this.borderColor = Colors.white,
-    this.borderWidth = 3.0,
-    this.overlayColor = const Color.fromRGBO(0, 0, 0, 80),
-    this.borderRadius = 0,
+    this.borderColor = Colors.orange[800]!,
+    this.borderWidth = 8,
+    this.overlayColor = Colors.black.withOpacity(0.5),
+    this.borderRadius = 15,
     this.borderLength = 40,
-    this.cutOutSize = 250,
+    this.cutOutSize = 280,
   });
 
   @override
