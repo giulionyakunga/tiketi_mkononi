@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:tiketi_mkononi/models/event.dart';
+import 'package:tiketi_mkononi/screens/auth/login_screen.dart';
 import 'package:tiketi_mkononi/screens/confirm_page.dart';
 import 'package:tiketi_mkononi/screens/event_details_page.dart';
 import 'package:tiketi_mkononi/screens/checkout_page.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:tiketi_mkononi/screens/event_providers.dart';
+import 'package:tiketi_mkononi/screens/theater_checkout_page.dart';
+import 'package:tiketi_mkononi/screens/theater_confirm_page.dart';
 
 class EventCard extends StatelessWidget {
   final Event event;
@@ -384,20 +389,54 @@ class EventCard extends StatelessWidget {
                           child: (event.userId == userId) ? null :
                           ElevatedButton(
                             onPressed: checkSoldOut() ? null : () {
-                              if(event.type == 'paid') {
+                              if(!(userId > 0)) {
+                                final container = ProviderScope.containerOf(context);
+                                container.read(selectedEventProvider.notifier).state = event;
+
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => CheckoutPage(event: event, refreshMethod: refreshMethod,),
+                                    builder: (context) => LoginScreen(),
                                   ),
                                 );
+                              } else if(event.type == 'paid') {
+                                if(event.category.toUpperCase() == "THEATER") {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => TheaterCheckoutPage(
+                                        event: event,
+                                        refreshMethod: refreshMethod,
+                                      ),
+                                    ),
+                                  );
+                                } else {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => CheckoutPage(event: event, refreshMethod: refreshMethod,),
+                                    ),
+                                  );
+                                }
                               }else {
-                                 Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => ConfirmPage(event: event, refreshMethod: refreshMethod,),
-                                  ),
-                                );
+                                if(event.category.toUpperCase() == "THEATER") {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => TheaterConfirmPage(
+                                        event: event,
+                                        refreshMethod: refreshMethod,
+                                      ),
+                                    ),
+                                  );
+                                } else {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => ConfirmPage(event: event, refreshMethod: refreshMethod,),
+                                    ),
+                                  );
+                                }
                               }
                             },
                             style: ElevatedButton.styleFrom(
