@@ -9,6 +9,7 @@ import 'package:tiketi_mkononi/services/storage_service.dart';
 import 'package:tiketi_mkononi/widgets/event_card.dart';
 import 'package:tiketi_mkononi/screens/post_event_page.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
+import 'package:tiketi_mkononi/widgets/event_card2.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 class EventsPage extends StatefulWidget {
@@ -255,8 +256,6 @@ class _EventsPageState extends State<EventsPage> {
     return filtered;
   }
 
-
-
   void _handleHTTPRedirect() {
     showDialog(
       context: context,
@@ -277,83 +276,139 @@ class _EventsPageState extends State<EventsPage> {
     _searchController.dispose();
     super.dispose();
   }
+ 
+  Widget _buildSearchBar(bool isDarkMode, bool isLargeScreen) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
-  Widget _buildSearchBar(bool isDarkMode) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(15),
-        color: isDarkMode
-            ? Colors.black.withOpacity(0.3)
-            : Colors.white.withOpacity(0.8),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            spreadRadius: 2,
-          ),
-        ],
-        border: Border.all(
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        vertical: 8,
+        horizontal: isLargeScreen ? 200 : 16,
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
           color: isDarkMode
-              ? Colors.white.withOpacity(0.2)
-              : Colors.grey.withOpacity(0.3),
+              ? colorScheme.surfaceVariant.withOpacity(0.8)
+              : colorScheme.surface.withOpacity(0.9),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.1),
+              blurRadius: 12,
+              spreadRadius: 1,
+              offset: const Offset(0, 3),
+            ),
+          ],
+          border: Border.all(
+            color: isDarkMode
+                ? colorScheme.outline.withOpacity(0.3)
+                : colorScheme.outline.withOpacity(0.2),
+            width: 1,
+          ),
+        ),
+        child: TextField(
+          controller: _searchController,
+          decoration: InputDecoration(
+            hintText: 'Search events...',
+            hintStyle: TextStyle(
+              fontSize: isLargeScreen ? 16 : 14,
+              color: colorScheme.onSurface.withOpacity(0.6),
+            ),
+            border: InputBorder.none,
+            prefixIcon: Padding(
+              padding: const EdgeInsets.only(left: 16, right: 8),
+              child: Icon(
+                Icons.search_rounded,
+                size: isLargeScreen ? 24 : 20,
+                color: colorScheme.primary,
+              ),
+            ),
+            suffixIcon: _searchQuery.isNotEmpty
+                ? Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.close_rounded,
+                        size: isLargeScreen ? 24 : 20,
+                        color: colorScheme.onSurface.withOpacity(0.6),
+                      ),
+                      onPressed: () {
+                        _searchController.clear();
+                        _onSearchChanged();
+                        FocusScope.of(context).unfocus();
+                      },
+                    ),
+                  )
+                : null,
+            contentPadding: EdgeInsets.symmetric(
+              vertical: isLargeScreen ? 18 : 14,
+              horizontal: 16,
+            ),
+            isDense: true,
+          ),
+          style: TextStyle(
+            fontSize: isLargeScreen ? 16 : 14,
+            color: colorScheme.onSurface,
+          ),
+          cursorColor: colorScheme.primary,
+          cursorWidth: 1.5,
+          cursorHeight: isLargeScreen ? 20 : 18,
+          onChanged: (value) => _onSearchChanged(),
         ),
       ),
-      child: SearchBar(
-        controller: _searchController,
-        hintText: 'Search events...',
-        hintStyle: WidgetStateTextStyle.resolveWith(
-          (states) => TextStyle(
-            color: isDarkMode ? Colors.white70 : Colors.grey[600],
-          ),
+    );
+  }
+
+  Widget _buildCategoryChip(String category) {
+    final isSelected = _selectedCategory == category || 
+                      (category == 'All' && _selectedCategory == null);
+    final colorScheme = Theme.of(context).colorScheme;
+    
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: ChoiceChip(
+        label: Text(category),
+        selected: isSelected,
+        onSelected: (selected) {
+          setState(() {
+            _selectedCategory = selected ? (category == 'All' ? null : category) : null;
+          });
+          _pagingController.itemList = _filterEvents(fetchedEvents);
+        },
+        selectedColor: Colors.orange[800],
+        checkmarkColor: Colors.white,
+        labelStyle: TextStyle(
+          color: isSelected ? Colors.white : colorScheme.onSurface,
         ),
-        backgroundColor: WidgetStateProperty.all(
-          isDarkMode ? Colors.transparent : Colors.white.withOpacity(0.7),
+        backgroundColor: colorScheme.surfaceVariant,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
         ),
-        elevation: WidgetStateProperty.all(0),
-        side: WidgetStateProperty.all(BorderSide.none),
-        shape: WidgetStateProperty.all(
-          RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
-          ),
-        ),
-        padding: WidgetStateProperty.all(
-          const EdgeInsets.symmetric(horizontal: 16),
-        ),
-        leading: Icon(
-          Icons.search,
-          color: isDarkMode ? Colors.white70 : Colors.orange[800],
-        ),
-        trailing: [
-          if (_searchQuery.isNotEmpty)
-            IconButton(
-              icon: Icon(
-                Icons.close,
-                color: isDarkMode ? Colors.white70 : Colors.orange[800],
-              ),
-              onPressed: () {
-                _searchController.clear();
-                _onSearchChanged();
-              },
-            ),
-        ],
-        onChanged: (value) => _onSearchChanged(),
+        side: BorderSide.none,
+        visualDensity: VisualDensity.compact,
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final isLargeScreen = MediaQuery.of(context).size.width > 768;
+
     return Scaffold(
       appBar: AppBar(
-        title: Text('Events($numberOfActiveEvents)'),
-        backgroundColor: const Color.fromARGB(255, 240, 244, 247),
+        title: Text('Events ($numberOfActiveEvents)'),
+        backgroundColor: colorScheme.surface,
+        elevation: 1,
         actions: [
           IconButton(
-            icon: const Icon(Icons.search),
-            color: isDarkMode ? Colors.white70 : Colors.orange[800],
+            icon: Icon(
+              Icons.search,
+              color: Colors.orange[800],
+            ),
             onPressed: () {
               setState(() {
                 _isSearchBarVisible = !_isSearchBarVisible;
@@ -362,81 +417,307 @@ class _EventsPageState extends State<EventsPage> {
               });
             },
           ),
-
-          PopupMenuButton<String>(
-            icon: Icon(Icons.filter_list, color: Colors.orange[800]),
-            onSelected: (String category) {
-              setState(() {
-                _selectedCategory = category == 'All' ? null : category;
-              });
-              _pagingController.itemList = _filterEvents(fetchedEvents);
-            },
-            itemBuilder: (BuildContext context) {
-              return _categories.map((String category) {
-                return PopupMenuItem<String>(
-                  value: category,
-                  child: Row(
-                    children: [
-                      if (category == _selectedCategory ||
-                          (category == 'All' && _selectedCategory == null))
-                        Icon(Icons.check, color: Colors.orange[800]),
-                      const SizedBox(width: 8),
-                      Text(category),
-                    ],
-                  ),
-                );
-              }).toList();
-            },
-          ),
+          if (!isLargeScreen)
+            PopupMenuButton<String>(
+              icon: Icon(
+                Icons.filter_list,
+                color: colorScheme.primary,
+              ),
+              onSelected: (String category) {
+                setState(() {
+                  _selectedCategory = category == 'All' ? null : category;
+                });
+                _pagingController.itemList = _filterEvents(fetchedEvents);
+              },
+              itemBuilder: (BuildContext context) {
+                return _categories.map((String category) {
+                  return PopupMenuItem<String>(
+                    value: category,
+                    child: Row(
+                      children: [
+                        if (category == _selectedCategory ||
+                            (category == 'All' && _selectedCategory == null))
+                          Icon(
+                            Icons.check,
+                            color: colorScheme.onPrimary,
+                          ),
+                        const SizedBox(width: 8),
+                        Text(category),
+                      ],
+                    ),
+                  );
+                }).toList();
+              },
+            ),
         ],
       ),
       body: Column(
         children: [
-          _isSearchBarVisible ?
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: _buildSearchBar(isDarkMode),
-          ) : 
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
-          ),
+          // Search Bar
+          if (_isSearchBarVisible) _buildSearchBar(isDarkMode, isLargeScreen),
+
+          // Category Chips (for large screens)
+          if (isLargeScreen)
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: _categories
+                    .map((category) => _buildCategoryChip(category))
+                    .toList(),
+              ),
+            ),
+
+          // Event List
+          if(!isLargeScreen)
           Expanded(
-            child: PagedListView<int, Event>(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              pagingController: _pagingController,
-              builderDelegate: PagedChildBuilderDelegate<Event>(
-                itemBuilder: (context, event, index) {
-                  return EventCard(
-                    event: event, 
-                    userId: userId, 
-                    refreshMethod: _handleWebSocketUpdate,
-                    useDNS: useDNS_2,
-                  );
-                },
-                noItemsFoundIndicatorBuilder: (_) =>
-                    const Center(child: Text('No events found')),
-                firstPageErrorIndicatorBuilder: (_) => Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text('Error loading events'),
-                    ElevatedButton(
-                      onPressed: () {
-                        setState(() {
-                          _isReloading = true;
-                        });
-                        _fetchPage(1);
-                        _pagingController.refresh();
-                      },
-                      child: const Text('Reload'),
-                    ),
-                  ],
+            child: RefreshIndicator(
+              onRefresh: () async {
+                setState(() {
+                  _isReloading = true;
+                });
+                await _fetchPage(1);
+              },
+              child: PagedListView<int, Event>(
+                padding: EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
                 ),
-                newPageErrorIndicatorBuilder: (_) => const Center(
-                  child: Text('Error loading more events'),
+                pagingController: _pagingController,
+                builderDelegate: PagedChildBuilderDelegate<Event>(
+                  itemBuilder: (context, event, index) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: EventCard(
+                        event: event,
+                        userId: userId,
+                        refreshMethod: _handleWebSocketUpdate,
+                        useDNS: useDNS_2,
+                      ),
+                    );
+                  },
+                  noItemsFoundIndicatorBuilder: (_) => Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.event_available,
+                          size: 48,
+                          color: colorScheme.primary.withOpacity(0.5),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No events found',
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: colorScheme.onSurface.withOpacity(0.7),
+                          ),
+                        ),
+                        if (_selectedCategory != null || _searchQuery.isNotEmpty)
+                          TextButton(
+                            onPressed: () {
+                              setState(() {
+                                _selectedCategory = null;
+                                _searchQuery = '';
+                                _searchController.clear();
+                              });
+                              _pagingController.refresh();
+                            },
+                            child: const Text('Clear filters'),
+                          ),
+                      ],
+                    ),
+                  ),
+                  firstPageErrorIndicatorBuilder: (_) => Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          size: 48,
+                          color: colorScheme.error,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Error loading events',
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: colorScheme.error,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: colorScheme.primary,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 24, vertical: 12),
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _isReloading = true;
+                            });
+                            _fetchPage(1);
+                            _pagingController.refresh();
+                          },
+                          child: const Text('Reload'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  newPageErrorIndicatorBuilder: (_) => Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          color: colorScheme.error,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Error loading more events',
+                          style: TextStyle(color: colorScheme.error),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
           ),
+          if(isLargeScreen)
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () async {
+                setState(() {
+                  _isReloading = true;
+                });
+                await _fetchPage(1);
+              },
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final crossAxisCount = _calculateCrossAxisCount(constraints.maxWidth);
+                  final aspectRatio = _calculateAspectRatio(constraints.maxWidth);
+
+                  return PagedGridView<int, Event>(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 8,
+                    ),
+                    pagingController: _pagingController,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: crossAxisCount,
+                      crossAxisSpacing: 20,
+                      mainAxisSpacing: 20,
+                      childAspectRatio: aspectRatio,
+                    ),
+                    builderDelegate: PagedChildBuilderDelegate<Event>(
+                      itemBuilder: (context, event, index) {
+                        return EventCard2(
+                          event: event,
+                          userId: userId,
+                          refreshMethod: _handleWebSocketUpdate,
+                          useDNS: useDNS_2,
+                        );
+                      },
+                      noItemsFoundIndicatorBuilder: (_) => Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.event_available,
+                              size: 48,
+                              color: colorScheme.primary.withOpacity(0.5),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No events found',
+                              style: TextStyle(
+                                fontSize: 18,
+                                color: colorScheme.onSurface.withOpacity(0.7),
+                              ),
+                            ),
+                            if (_selectedCategory != null || _searchQuery.isNotEmpty)
+                              TextButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _selectedCategory = null;
+                                    _searchQuery = '';
+                                    _searchController.clear();
+                                  });
+                                  _pagingController.refresh();
+                                },
+                                child: const Text('Clear filters'),
+                              ),
+                          ],
+                        ),
+                      ),
+                      firstPageErrorIndicatorBuilder: (_) => Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              size: 48,
+                              color: colorScheme.error,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Error loading events',
+                              style: TextStyle(
+                                fontSize: 18,
+                                color: colorScheme.error,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: colorScheme.primary,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24, vertical: 12),
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _isReloading = true;
+                                });
+                                _fetchPage(1);
+                                _pagingController.refresh();
+                              },
+                              child: const Text('Reload'),
+                            ),
+                          ],
+                        ),
+                      ),
+                      newPageErrorIndicatorBuilder: (_) => Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              color: colorScheme.error,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Error loading more events',
+                              style: TextStyle(color: colorScheme.error),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+
+
+          
         ],
       ),
       floatingActionButton: ((userRole == "admin") || (userRole == "organizer"))
@@ -445,15 +726,32 @@ class _EventsPageState extends State<EventsPage> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => PostEventPage(refreshMethod: _handleWebSocketUpdate),
+                    builder: (context) => PostEventPage(
+                        refreshMethod: _handleWebSocketUpdate),
                   ),
                 );
               },
               backgroundColor: Colors.orange[800],
-              child: const Icon(Icons.add, color: Colors.white),
+              child: Icon(
+                Icons.add,
+                color: colorScheme.onPrimary,
+              ),
             )
           : null,
     );
+  }
+
+  int _calculateCrossAxisCount(double screenWidth) {
+    if (screenWidth > 1000) return 4;
+    if (screenWidth > 768) return 3;
+    if (screenWidth > 480) return 2;
+    return 2;
+  }
+
+  double _calculateAspectRatio(double screenWidth) {
+    if (screenWidth > 1000) return 0.65;
+    if (screenWidth > 768) return 0.6;
+    return 0.8;
   }
 }
 
@@ -473,14 +771,14 @@ class WebSocketService {
     _channel = WebSocketChannel.connect(Uri.parse(url));
 
     // Send subscription message
-      final subscriptionMessage = jsonEncode({
-        "user_id": userId,
-        "type": "subscribe",
-        "data": "events_update"
-      });
-      
-      debugPrint("[WebSocket] Sending subscription: $subscriptionMessage");
-      _channel.sink.add(subscriptionMessage);
+    final subscriptionMessage = jsonEncode({
+      "user_id": userId,
+      "type": "subscribe",
+      "data": "events_update"
+    });
+    
+    debugPrint("[WebSocket] Sending subscription: $subscriptionMessage");
+    _channel.sink.add(subscriptionMessage);
     
     _channel.stream.listen(
       (message) {
@@ -494,18 +792,15 @@ class WebSocketService {
       },
       onError: (error) {
         debugPrint('WebSocket error: $error');
-        // Implement reconnection logic here if needed
       },
       onDone: () {
         debugPrint('WebSocket connection closed');
-        // Implement reconnection logic here if needed
       },
     );
   }
 
   void disconnect() {
     _channel.sink.close(1000); // Normal closure
-    // _channel.sink.close();
   }
 
   void sendMessage(Map<String, dynamic> message) {
