@@ -53,6 +53,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
   @override
   void initState() {
     super.initState();
+    getTicketsCount();
     WidgetsBinding.instance.addObserver(this);
     _initializeServices();
     _startFetchingEventPaymentStatus();
@@ -73,7 +74,46 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
       });
     }
   }
+  
+  Future<void> getTicketsCount({bool useDNS = true}) async {
 
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/event_tickets_count/${widget.event.id}') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}api/event_tickets_count/${widget.event.id}'); // Use IP
+
+    try {
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+
+        if((responseData['tickets_count']) != null){
+          setState(() {
+            eventTicketsCount = responseData['tickets_count'];
+            ticketTypesTicketsCount = responseData['ticket_types'];
+          });
+        }
+        
+      }
+    }on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if (e.osError!.errorCode == 7 && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await getTicketsCount(useDNS: false); // Recursive retry
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching check tickets scan status: $e');
+    }
+  }
   
   Future<void> getTicketsCountByDate({bool useDNS = true}) async {
 
@@ -499,19 +539,32 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
         title: const Text('Checkout'),
         backgroundColor: const Color.fromARGB(255, 240, 244, 247),
         actions: [
-          TextButton(
-            child: _payed ? Text(
-              "Tickets($quantity)",
-              style: TextStyle(fontSize: 14, color: Colors.green),
-            ) : Text(""),
-            onPressed: _payed ? () {
+          if(_payed)
+          ElevatedButton.icon(
+            icon: Icon(
+              Icons.logout,
+            ),
+            label: Text('Tickets($quantity)', style: TextStyle(
+              fontSize: 14,
+            )
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.orange[800],
+              padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 5),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              elevation: 2,
+            ),
+            onPressed: () {
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
                   builder: (context) => TicketsPage(eventId: widget.event.id),
                 ),
               );
-            } : null,
+            },
           ),
         ],
       ),
@@ -569,10 +622,16 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 fontSize: isLargeScreen ? 22 : 18,
               )
-            ),
+            ), 
             const SizedBox(height: 12),
+            (widget.event.daily_event == 'yes') ? 
+            _buildDetailRow('📅', '', 'Everyday') :
             _buildDetailRow('📅', 'Date:', widget.event.date),
-            _buildDetailRow('⏰', 'Time:', widget.event.time),
+            
+            (widget.event.time.contains(":")) ?
+            _buildDetailRow('⏰', 'Time:', widget.event.time) :
+            _buildDetailRow('⏰', '', 'Everytime'),
+
             _buildDetailRow('📍', 'Venue:', widget.event.venue),
           ],
         ),
