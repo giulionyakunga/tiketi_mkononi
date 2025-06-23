@@ -26,6 +26,18 @@ class TicketType {
   });
 }
 
+class Venue {
+  String name;
+  int rows;
+  int seats;
+
+  Venue({
+    required this.name,
+    required this.rows,
+    required this.seats,
+  });
+}
+
 class PostEventPage extends StatefulWidget {
   final Function refreshMethod;
 
@@ -42,6 +54,8 @@ class _PostEventPageState extends State<PostEventPage> {
   final _nameController = TextEditingController();
   final _venueController = TextEditingController();
   final _descriptionController = TextEditingController();
+  TextEditingController _rowsController = TextEditingController();
+  TextEditingController _seatsController = TextEditingController();
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
   String? _selectedCategory;
@@ -64,11 +78,15 @@ class _PostEventPageState extends State<PostEventPage> {
     'Training',
   ];
 
+  List<Venue> venueSuggestions = [];
+
   @override
   void initState() {
     super.initState();
     _initializeServices();
     _addTicketType();
+    _rowsController = TextEditingController(text: '0');
+    _seatsController = TextEditingController(text: '0');
   }
 
   Future<void> _initializeServices() async {
@@ -83,6 +101,8 @@ class _PostEventPageState extends State<PostEventPage> {
       setState(() {
         userId = profile.id;
       });
+
+      getVenues();
     }
   }
 
@@ -178,6 +198,7 @@ class _PostEventPageState extends State<PostEventPage> {
       return false;
     }
 
+    int totalNumberOfTickets = 0;
     for (var i = 0; i < _ticketTypes.length; i++) {
       final ticketType = _ticketTypes[i];
       
@@ -194,6 +215,8 @@ class _PostEventPageState extends State<PostEventPage> {
         );
         return false;
       }
+
+      totalNumberOfTickets = totalNumberOfTickets +  ticketType.numberOfTickets;
 
       if (ticketType.name.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -216,6 +239,24 @@ class _PostEventPageState extends State<PostEventPage> {
           );
           return false;
         }
+      }
+    }
+
+    if (_selectedCategory == "Theater"){
+      try {
+        int rows = int.parse(_rowsController.text.trim());
+        int seats = int.parse(_seatsController.text.trim());
+        int totalNumberOfSeats = rows * seats;
+        if(totalNumberOfSeats !=  totalNumberOfTickets) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Number of tickets should be equal to number of seats')
+            ),
+          );
+          return false;
+        }
+      } catch (e) {
+        debugPrint("$e");
       }
     }
 
@@ -284,6 +325,8 @@ class _PostEventPageState extends State<PostEventPage> {
       'date': _isDailyEvent ? '' : _selectedDate?.toIso8601String(),
       'time': '${_selectedTime!.hour}:${_selectedTime!.minute}',
       'venue': _venueController.text.trim(),
+      'rows': (_selectedCategory == "Theater") ?    int.tryParse(_rowsController.text.trim()) ?? 0 : 0,
+      'seats': (_selectedCategory == "Theater") ? int.tryParse(_seatsController.text.trim()) ?? 0 : 0,
       'description': _descriptionController.text.trim(),
       'type': _isPaidEvent ? "paid" : "free",
       'daily_event': _isDailyEvent ? "yes" : "no",
@@ -392,11 +435,53 @@ class _PostEventPageState extends State<PostEventPage> {
     );
   }
 
+  
+  Future<void> getVenues({bool useDNS = true}) async {
+    try {
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/venues/$userId') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}api/venues/$userId'); // Use IP
+
+      final response = await http.get(uri);
+    
+      if (response.statusCode == 200) {
+        final venues = jsonDecode(response.body);
+
+        venues.forEach((venue) {
+          setState(() {
+            venueSuggestions.add(
+              Venue(name: venue['name'], rows: venue['rows'], seats: venue['seats_per_row'])
+            );
+          });
+        });
+      }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if (e.osError!.errorCode == 7 && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await getVenues(useDNS: false); // Recursive retry
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error getting notification preferences: $e');
+    }
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
     _venueController.dispose();
     _descriptionController.dispose();
+    _rowsController.dispose();
+    _seatsController.dispose();
     super.dispose();
   }
 
@@ -446,7 +531,7 @@ class _PostEventPageState extends State<PostEventPage> {
               color: Colors.grey[600],
               fontSize: 14,
             ),
-            hintText: 'Enter icket information...', // Optional hint text
+            hintText: 'Enter ticket information...', // Optional hint text
             hintStyle: TextStyle(
               color: Colors.grey[500], // Lighter color for hint text
             ),
@@ -829,6 +914,75 @@ class _PostEventPageState extends State<PostEventPage> {
     );
   }
 
+  Widget _buildRowsAndSeatsField() {
+   
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Theater Layout Configuration',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _buildRowsField(),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildSeatsField(),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Example: 8 rows × 12 seats = 96 total seats',
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey[600],
+            fontStyle: FontStyle.italic,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Helper method to calculate total seats
+  String _calculateTotalSeats(String rows, String seatsPerRow) {
+    final rowCount = int.tryParse(rows) ?? 0;
+    final seatCount = int.tryParse(seatsPerRow) ?? 0;
+    return (rowCount * seatCount).toString();
+  }
+
+  Widget _buildRowsField() {
+    return TextFormField(
+      controller: _rowsController,
+      decoration: _buildInputDecoration('Rows'),
+      keyboardType: TextInputType.number,
+      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+      style: const TextStyle(fontSize: 14),
+    );
+  }
+
+  Widget _buildSeatsField() {
+    return TextFormField(
+      controller: _seatsController,
+      decoration: _buildInputDecoration('Seats'),
+      keyboardType: TextInputType.number,
+      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+      style: const TextStyle(fontSize: 14),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isLargeScreen = _isLargeScreen(context);
@@ -898,17 +1052,72 @@ class _PostEventPageState extends State<PostEventPage> {
                   const SizedBox(height: 16),
                   _buildDateTimePickers(isLargeScreen),
                   const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _venueController,
-                    maxLength: 100,
-                    decoration: _buildInputDecoration('Location/Venue', prefixIcon: Icons.location_on),
-                    style: const TextStyle(fontSize: 16),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) return 'Please enter location';
-                      if (value.length > 100) return 'Location must be 100 characters or less';
-                      return null;
+                  Autocomplete<Venue>( 
+                    optionsBuilder: (TextEditingValue textEditingValue) {
+                      if (textEditingValue.text.isEmpty) {
+                        return const Iterable<Venue>.empty();
+                      }
+                      return venueSuggestions.where((venue) => 
+                        venue.name.toLowerCase().contains(textEditingValue.text.toLowerCase())
+                      );
+                    },
+                    displayStringForOption: (Venue venue) => venue.name,
+                    onSelected: (Venue selection) {
+                      _venueController.text = selection.name;
+                      setState(() {
+                        _rowsController.text = '${selection.rows}';
+                        _seatsController.text = '${selection.seats}';
+                      });
+                    },
+                    fieldViewBuilder: (
+                      BuildContext context,
+                      TextEditingController fieldController,
+                      FocusNode fieldFocusNode,
+                      VoidCallback onFieldSubmitted,
+                    ) {
+                      return TextFormField(
+                        controller: fieldController,
+                        focusNode: fieldFocusNode,
+                        maxLength: 100,
+                        decoration: (_selectedCategory == "Theater") ? _buildInputDecoration('Theater', prefixIcon: Icons.location_on) : _buildInputDecoration('Location/Venue', prefixIcon: Icons.location_on),
+                        style: const TextStyle(fontSize: 16),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) return (_selectedCategory == "Theater") ? 'Please enter theater name' : 'Please enter location/venue name';
+                          if (value.length > 100) return (_selectedCategory == "Theater") ? 'Theater name must be 100 characters or less' : 'Location/Venue name must be 100 characters or less';
+                          _venueController.text = value;
+                          return null;
+                        },
+                      );
+                    },
+                    optionsViewBuilder: (context, onSelected, options) {
+                      return Align(
+                        alignment: Alignment.topLeft,
+                        child: Material(
+                          elevation: 4.0,
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxHeight: 200),
+                            child: ListView.builder(
+                              padding: EdgeInsets.zero,
+                              shrinkWrap: true,
+                              itemCount: options.length,
+                              itemBuilder: (BuildContext context, int index) {
+                                final option = options.elementAt(index);
+                                return ListTile(
+                                  title: Text(option.name),
+                                  onTap: () {
+                                    onSelected(option);
+                                  },
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      );
                     },
                   ),
+                  const SizedBox(height: 16),
+                  if(_selectedCategory == "Theater")
+                  _buildRowsAndSeatsField(),
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _descriptionController,
