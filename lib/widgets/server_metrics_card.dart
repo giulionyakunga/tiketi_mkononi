@@ -97,6 +97,12 @@ class ServerMetricsCard extends StatelessWidget {
                   serverMetrics.dnsResolution ? "OK" : "FAILED" ,
                   Icons.dns,
                 ),
+                _buildMetricItem(
+                  context,
+                  'Active Users',
+                  '${serverMetrics.dailyActiveUsers}',
+                  Icons.people,
+                ),
               ],
             ),
             const SizedBox(height: 16),
