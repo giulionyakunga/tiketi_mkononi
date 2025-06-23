@@ -51,6 +51,7 @@ class Event {
   final String date;
   final String time;
   final String venue;
+  final int venueId;
   final String imageUrl;
   final String category;
   final String type;
@@ -72,6 +73,7 @@ class Event {
     required this.date,
     required this.time,
     required this.venue,
+    required this.venueId,
     required this.imageUrl,
     required this.category,
     required this.type,
@@ -96,12 +98,13 @@ class Event {
       date: json['date'] ?? '',
       time: json['time'] ?? '',
       venue: json['venue'] ?? '',
+      venueId: json['venue_id'] ?? 0,
       imageUrl: json['imageUrl'] ?? '',
       category: json['category'] ?? '',
       type: json['type'] ?? '',
       daily_event: json['daily_event'] ?? '',
       description: json['description'] ?? '',
-      soldTickets: json['soldTickets'] ?? 0,
+      soldTickets: json['ticket_count'] ?? 0,
       status: json['status'] ?? '',
       ticketScannerId: json['ticket_scanner_id'] ?? 0,
       createdAt: DateTime.parse(json['createdAt']),
