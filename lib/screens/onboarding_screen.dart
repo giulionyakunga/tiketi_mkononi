@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -228,7 +229,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             } else {
               final prefs = await SharedPreferences.getInstance();
               await prefs.setBool('first_launch', false);
-              Navigator.pushReplacementNamed(context, '/login');
+              context.go('/login');
             }
           },
           child: Text(

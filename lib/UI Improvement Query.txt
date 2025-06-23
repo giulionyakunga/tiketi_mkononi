@@ -1,1 +1,4 @@
+
+
+make this EditProfilePage responsive for different screen sizes, phone, tablets and desktop also improve these widgets with a more professional and colorful design, to give a nice and professional look, give full code,
 improve these widgets with a more professional and colorful design:

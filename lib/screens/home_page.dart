@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
@@ -38,7 +39,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _initializeServices();
     
     _startFetchingEvents();
-    checkForUpdates(context);
+    if (!kIsWeb) checkForUpdates(context);
   }
 
   Future<void> _initializeServices() async {
@@ -57,6 +58,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       setState(() {
         userId = profile.id;
       });
+      fetchEvents();
+    }else {
       fetchEvents();
     }
   }

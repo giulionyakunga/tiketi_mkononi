@@ -162,12 +162,8 @@ class _QRScannerPageState extends State<QRScannerPage> {
       
       try {
 
-        String url = '${backend_url}api/check_ticket/${widget.userId}';
-
         // Include event ID if provided
-        if (_eventIdController.text.isNotEmpty) {
-          url += '?event_id=${_eventIdController.text}';
-        }else {
+        if (_eventIdController.text.isEmpty) {
           _showErrorSnackbar(context, 
             'Please enter event ID'
           );
@@ -190,15 +186,8 @@ class _QRScannerPageState extends State<QRScannerPage> {
           return;
         }
 
-
-        // Invalid day ticket
-        // Wrong event day
-        // Ticket expired
-        // Not today's ticket
-        // Wrong day ticket
-
-
-
+        String url = '${backend_url}api/check_ticket/${widget.userId}';
+        url += '?event_id=${_eventIdController.text}';
 
         final response = await http.post(
           Uri.parse(url),
@@ -253,6 +242,8 @@ class _QRScannerPageState extends State<QRScannerPage> {
         debugPrint('- Exception type: ${e.runtimeType}');
         debugPrint('- Message: ${e.message}');
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+
+        bool showSocketException = true;
         
         if (e.osError != null) {
           debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
@@ -263,15 +254,66 @@ class _QRScannerPageState extends State<QRScannerPage> {
             debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
 
             String url = '${backend_url_with_fallback_ip}api/check_ticket/${widget.userId}';
+            url += '?event_id=${_eventIdController.text}';
 
+            final response = await http.post(
+              Uri.parse(url),
+              headers: {'Content-Type': 'application/json'},
+              body: barcode.rawValue,
+            );
 
+            if (response.statusCode == 200) {
+              final responseData = jsonDecode(response.body);
+              String message = responseData['message'];
+
+              if (message.trim() == "Valid Ticket!") {
+
+                if((responseData['scanned_today']) != null){
+                  setState(() {
+                    scannnedToday = responseData['scanned_today'];
+                  });
+                }
+
+                _showCustomDialog(context, message);
+              } else if (message.trim() == "Used Ticket!") {
+                String scannedAt = "N/A";
+                if((responseData['scanned_at']) != null){
+                  debugPrint('Formatted Date (debug): $scannedAt'); // For Flutter debug output
+                  scannedAt = responseData['scanned_at'];
+                }
+
+                _showCustomDialog(context, message, scannedAt:scannedAt);
+              } else if (message.trim() == "Ticket Already Used!") {
+                String scannedAt = "N/A";
+                if((responseData['scanned_at']) != null){
+                  debugPrint('Formatted Date (debug): $scannedAt'); // For Flutter debug output
+                  scannedAt = responseData['scanned_at'];
+                }
+
+                _showCustomDialog(context, message, scannedAt:scannedAt);
+              } else {
+                _showCustomDialog(context, message);
+              }
+
+              showSocketException = false;
+            } else if (response.statusCode == 302) {
+              _handleHTTPRedirect();
+              showSocketException = false;
+            } else {
+              if((response.body.contains("Unexpected token")) || (response.body.contains("Unexpected character"))) {
+                _showCustomDialog(context, "Invalid Ticket!");
+                showSocketException = false;
+              } else {
+                _showErrorSnackbar(context, 'Request failed with status: ${response.statusCode}');
+              }
+            }
           }
         }
 
         Future.delayed(const Duration(seconds: 10), () {
           if (mounted) setState(() => _isScanning = true);
         });
-        _handleSocketException(e);
+        if(showSocketException) _handleSocketException(e);
       } catch (e) {
         debugPrint('An error occurred: ${e.toString()}');
 

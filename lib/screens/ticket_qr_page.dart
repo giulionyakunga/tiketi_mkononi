@@ -145,6 +145,7 @@ class TicketQRPage extends ConsumerStatefulWidget {
   final String venue;
   final String ticketType;
   final double price;
+  final String seatNumber;
   final int scanStatus;
   final DateTime updatedAt;
   final DateTime createdAt;
@@ -161,6 +162,7 @@ class TicketQRPage extends ConsumerStatefulWidget {
     required this.venue,
     required this.ticketType,
     required this.price,
+    required this.seatNumber,
     required this.scanStatus,
     required this.updatedAt,
     required this.createdAt,
@@ -450,11 +452,12 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
                             Expanded(
                               child: Column(
                                 children: [
-                                  Text("Ticket ID: ${widget.ticketId}",
-                                  style: TextStyle(
-                                    fontSize: isLargeScreen ? 28 : 18,
-                                    fontWeight: FontWeight.normal,
-                                  ),
+                                  Text(
+                                    (widget.seatNumber.contains('--') || widget.seatNumber.isEmpty) ? "Ticket ID: ${widget.ticketId}" : "Seat Number: ${widget.seatNumber}",
+                                    style: TextStyle(
+                                      fontSize: isLargeScreen ? 28 : 18,
+                                      fontWeight: FontWeight.normal,
+                                    ),
                                   ),
                                   _buildQRCodeSection(isLargeScreen),
                                   const SizedBox(height: 20),
@@ -470,7 +473,8 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
                         )
                       : Column(
                           children: [
-                            Text("Ticket ID: ${widget.ticketId}",
+                            Text(
+                              (widget.seatNumber.contains('--') || widget.seatNumber.isEmpty) ? "Ticket ID: ${widget.ticketId}" : "Seat Number: ${widget.seatNumber}",
                               style: TextStyle(
                                 fontSize: isLargeScreen ? 28 : 18,
                                 fontWeight: FontWeight.normal,

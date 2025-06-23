@@ -10,45 +10,62 @@ import 'package:http/http.dart' as http;
 import 'package:tiketi_mkononi/screens/tickets_page.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
 
-class CheckoutPage extends StatefulWidget {
+class Venue {
+  String name;
+  int rows;
+  int seats;
+
+  Venue({
+    required this.name,
+    required this.rows,
+    required this.seats,
+  });
+}
+
+class TheaterConfirmPage extends StatefulWidget {
   final Event event;
   final Function refreshMethod;
 
-  const CheckoutPage({
+  const TheaterConfirmPage({
     super.key, 
     required this.event, 
     required this.refreshMethod
   });
 
   @override
-  State<CheckoutPage> createState() => _CheckoutPageState();
+  State<TheaterConfirmPage> createState() => _TheaterConfirmPageState();
 }
 
-class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver {
+class _TheaterConfirmPageState extends State<TheaterConfirmPage> with WidgetsBindingObserver {
   int userId = 0;
-  int trials = 10;
   late final StorageService _storageService;
-  int eventId = 0; 
+  int eventId = 0;
   int quantity = 1;
   double ticketPrice = 0.0;
   String ticketTypeName = "";
   int numberOfTickets = 0;
   int soldTickets = 0;
   double totalPrice = 0.0;
-  String selectedPaymentMethod = 'MIXX BY YAS';
-  final List<String> paymentMethods = ['MIXX BY YAS', 'AIRTEL MONEY', 'HALOPESA'];
-  final _phoneNumberController = TextEditingController();
   bool _isLoading = false;
-  bool _payed = false;
-  bool soldOut = false;
-  bool __processing_payment = false;
-  Timer? _timer;
+  bool _confirmed = false;
+  bool full = false;
+  bool _processing_confirmation = false;
   bool _isAppActive = true;
-  final _formKey = GlobalKey<FormState>();
+  late Venue _venue;
+  Timer? _timer;
+
   DateTime? _selectedDate;
   DateTime _selectedDate2 = DateTime.now();
   int eventTicketsCount = 0;
   Map<String, dynamic> ticketTypesTicketsCount = {};
+
+  // Variables for multiple seat selection
+  List<String> _selectedSeats = []; // Now a list to hold multiple selections
+  List<String> _bookedSeats = [];
+  List<String> _allSeats = [];
+  
+  // Add this to track max seats user can select (based on quantity)
+  int get _maxSelectableSeats => quantity;
 
   @override
   void initState() {
@@ -56,7 +73,9 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
     getTicketsCount();
     WidgetsBinding.instance.addObserver(this);
     _initializeServices();
-    _startFetchingEventPaymentStatus();
+    getBookedSeats();
+    getVenue();
+    _startFetchingBookedSeats();
   }
 
   Future<void> _initializeServices() async {
@@ -70,12 +89,30 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
     if (profile != null) {
       setState(() {
         userId = profile.id;
-        _phoneNumberController.text = profile.phoneNumber;
       });
     }
   }
-  
-  Future<void> getTicketsCount({bool useDNS = true}) async {
+
+  void _initializeSeats() {
+    // Generate all possible seats (A1-A18, B1-B18, ..., H1-H18)
+    List<String> letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
+    _allSeats = [];
+    for (int row=0; row<_venue.rows; row++) {
+      for (var col = 0; col < _venue.seats; col++) {
+        _allSeats.add('${letters[row]}${col+1}');
+      }
+    }
+  }
+
+  void _startFetchingBookedSeats() {
+    _timer = Timer.periodic(const Duration(seconds: 15), (timer) {
+      if (_isAppActive) {
+        getBookedSeats();
+      }
+    });
+  }
+
+   Future<void> getTicketsCount({bool useDNS = true}) async {
 
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/event_tickets_count/${widget.event.id}') // Original URL 
     : Uri.parse('${backend_url_with_fallback_ip}api/event_tickets_count/${widget.event.id}'); // Use IP
@@ -186,90 +223,101 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
     return true;
   }
 
-  Future<void> _handlePaying({bool useDNS = true}) async {
-    if (_formKey.currentState!.validate() && checkTicketAvailability()){
-      if(widget.event.daily_event == 'yes') {
-        if (_selectedDate == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please select event date')),
-          );
-          return;
-        }
-      }
-
-      final Map<String, dynamic> requestBody = {
-        'user_id': userId,
-        'event_id': eventId,
-        'quantity': quantity,
-        'ticket_price': ticketPrice,
-        'ticket_type': ticketTypeName,
-        'date': (widget.event.daily_event == 'yes') ? _selectedDate?.toIso8601String()  : null ,
-        'selected_payment_method': selectedPaymentMethod,
-        'phone_number': formatPhoneNumber(_phoneNumberController.text),
-      };
-
-      try {
-        setState(() => _isLoading = true);
-
-        final Uri uri = useDNS ? Uri.parse('${backend_url}api/checkout') // Original URL 
-        : Uri.parse('${backend_url_with_fallback_ip}api/checkout'); // Use IP
-
-        final response = await http.post(
-          uri,
-          headers: {'Content-Type': 'application/json; charset=UTF-8'},
-          body: jsonEncode(requestBody),
+  bool checkNumberTickets() {
+    if(_selectedSeats.length < quantity){
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please select more ticket(s)')),
+      );
+      return false;
+    }else if(_selectedSeats.length > quantity){
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please select your ticket(s) again')),
+      );
+      setState(() {
+        _selectedSeats = [];
+      });
+      return false;
+    }else if(quantity > 5){
+        setState(() {
+          quantity = 1;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('You can only book a maximum of 5 tickets at once')),
         );
+        return false;
+    }
+    return true;
+  }
 
-        if (response.statusCode == 200) {
-          if ((response.body == "Payment failed, Plz check your account!") || 
-              (response.body == "Processing payment failed!") || 
-              response.body.contains("We currently have only")) {
-            _showSnackBar(response.body);
+  Future<void> _handleConfirming({bool useDNS = true}) async {
+    if (checkTicketAvailability()){
+      if (checkNumberTickets()){
+
+        final Map<String, dynamic> requestBody = {
+          'user_id': userId,
+          'event_id': eventId,
+          'quantity': quantity,
+          'ticket_price': ticketPrice,
+          'ticket_type': ticketTypeName,
+          "selected_seats":"$_selectedSeats",
+          'date': (widget.event.daily_event == 'yes') ? _selectedDate?.toIso8601String()  : null ,
+        };
+
+        try {
+          setState(() => _isLoading = true);
+
+          final Uri uri = useDNS ? Uri.parse('${backend_url}api/confirm') // Original URL 
+          : Uri.parse('${backend_url_with_fallback_ip}api/confirm'); // Use IP
+
+          final response = await http.post(
+            uri,
+            headers: {'Content-Type': 'application/json; charset=UTF-8'},
+            body: jsonEncode(requestBody),
+          );
+
+          if (response.statusCode == 200) {
+            if ((response.body == "Confirmation failed, Plz check your account!") || 
+                response.body.contains("We currently have only")) {
+              _showSnackBar(response.body);
+            } else if (response.body == "Confirmed!" || response.body == "You have already confirmed for this event!") {
+                _showSnackBar(response.body);
+                setState(() {
+                  _confirmed = true;
+                  _processing_confirmation = false;
+                });
+                widget.refreshMethod();
+                _selectedSeats.clear();
+                getBookedSeats();
+                fetchTickets();
+            }
+          }  else if (response.statusCode == 302) {
+            _handleHTTPRedirect();
+          } else {
+            _showSnackBar('Request failed: ${response.statusCode}');
           }
-          else if (response.body == "Invalid msisdn!") {
-            _showSnackBar("Muamala Haujakamilika: Namba uliyoweka sio sahihi");
+        } on SocketException catch (e) {
+          debugPrint('Network error occurred:');
+          debugPrint('- Exception type: ${e.runtimeType}');
+          debugPrint('- Message: ${e.message}');
+          
+          if (e.osError != null) {
+            debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+            debugPrint('  - OS message: ${e.osError!.message}');
+
+            // Retry with IP if DNS fails (errno = 7) and not already retrying
+            if (e.osError!.errorCode == 7 && useDNS) {
+              debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+              await _handleConfirming(useDNS: false); // Recursive retry
+              return;
+            }
           }
-          else if (response.body == "Processing payment!") {
-            setState(() {
-              __processing_payment = true;
-              _payed = false;
-            });
-          } else if (response.body == "Payed successfully!" || 
-                     response.body == "You have already booked for this event!") {
-            setState(() {
-              _payed = true;
-              __processing_payment = false;
-            });
-            widget.refreshMethod();
-            fetchTickets();
-          }
-        } else if (response.statusCode == 302) {
-          _handleHTTPRedirect();
-        } else {
-          _showSnackBar('Request failed: ${response.statusCode}');
+
+          _handleSocketException(e);
+        } catch (e) {
+          _showSnackBar('An error occurred: $e');
+        } finally {
+          setState(() => _isLoading = false);
         }
-      } on SocketException catch (e) {
-        debugPrint('Network error occurred:');
-        debugPrint('- Exception type: ${e.runtimeType}');
-        debugPrint('- Message: ${e.message}');
-        
-        if (e.osError != null) {
-          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
-          debugPrint('  - OS message: ${e.osError!.message}');
-
-          // Retry with IP if DNS fails (errno = 7) and not already retrying
-          if (e.osError!.errorCode == 7 && useDNS) {
-            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-            await _handlePaying(useDNS: false); // Recursive retry
-            return;
-          }
-        }
-
-        _handleSocketException(e);
-      } catch (e) {
-        _showSnackBar('An error occurred: $e');
-      } finally {
-        setState(() => _isLoading = false);
       }
     }
   }
@@ -308,94 +356,24 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
     );
   }
 
-  void _startFetchingEventPaymentStatus() {
-    _timer = Timer.periodic(const Duration(seconds: 3), (timer) {
-      if (_isAppActive) {
-        fetchEventPaymentStatus();
-      }
+  Future<void> getBookedSeats({bool useDNS = true}) async {
+    setState(() {
+      _isLoading = true;
     });
-  }
-
-  Future<void> fetchEventPaymentStatus({bool useDNS = true}) async {
-    if (!_isAppActive || !__processing_payment) return;
-
-    setState(() => trials--);
-
-    if(trials <= 0){
-      setState(() {
-        trials = 10;
-        __processing_payment = false;
-      });
-    }
-
-    final Uri uri = useDNS ? Uri.parse('${backend_url}api/event/$eventId/$userId') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}api/event/$eventId/$userId'); // Use IP
 
     try {
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/booked_seats/${widget.event.id}') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}api/booked_seats/${widget.event.id}'); // Use IP
+
       final response = await http.get(uri);
-
+    
       if (response.statusCode == 200) {
-        debugPrint('response.body : ${response.body}');
-        final responseData = jsonDecode(response.body);
-        final transactionDesc = responseData['transaction_description'];
-
-        if (transactionDesc == "SENDER_NOT_ENOUGH_FUND" || transactionDesc == "Please Confirm to submit the loan request") {
-          if(__processing_payment) {
-            _showSnackBar("Muamala Haujakamilika: Hauna salio la kutosha, Unaweza kuweka namba yenye salio hapo juu");
-            setState(() {
-              trials = 10;
-              __processing_payment = false;
-            });
-          }
-          return;
-        } else if (transactionDesc == "Not routed") {
-          if(__processing_payment) {
-            _showSnackBar("Muamala Haujakamilika: Mfumo hauruhusu malipo kwa M-Pesa, Weka namba ya mtandao mwingine yenye salio hapo juu");
-            setState(() {
-              trials = 10;
-              __processing_payment = false;
-            });
-          }
-          return;
-        } else if ((transactionDesc == "Invalid PIN.") || transactionDesc.contains("wrong PIN") ) {
-          if(__processing_payment) {
-            _showSnackBar("Muamala Haujakamilika: PIN uliyoingiza sio sahihi");
-            setState(() {
-              trials = 10;
-              __processing_payment = false;
-            });
-          }
-          return;
-        } else if (transactionDesc == "User is Barred.") {
-          if(__processing_payment) {
-            _showSnackBar("Muamala Haujakamilika: Akaunti yako imezuiliwa");
-            setState(() {
-              trials = 10;
-              __processing_payment = false;
-            });
-          }
-          return;
-        }  else if (transactionDesc == "Failed in Min and Max Amount") {
-          if(__processing_payment) {
-            _showSnackBar("Muamala Haujakamilika: Failed in Min and Max Amount");
-            setState(() {
-              trials = 10;
-              __processing_payment = false;
-            });
-          }
-          return;
-        }
-
-        bool hasTicket = responseData['has_ticket'];
-
-        if(hasTicket && (transactionDesc == "Success")) {
+        final bookedSeats = jsonDecode(response.body);
+        bookedSeats.forEach((bookedSeat) {
           setState(() {
-            _payed = true;
-            __processing_payment = false;
+            _bookedSeats.add(bookedSeat);
           });
-        }
-      } else {
-        throw Exception('Failed to load event');
+        });
       }
     } on SocketException catch (e) {
       debugPrint('Network error occurred:');
@@ -409,21 +387,26 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if (e.osError!.errorCode == 7 && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await fetchEventPaymentStatus(useDNS: false); // Recursive retry
+          await getBookedSeats(useDNS: false); // Recursive retry
           return;
         }
       }
     } catch (e) {
-      debugPrint('Error fetching event: $e');
+      debugPrint('Error getting notification preferences: $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
+
 
   Future<void> fetchTickets({bool useDNS = true}) async {
     if (!_isAppActive) return;
 
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/tickets/$userId') // Original URL 
     : Uri.parse('${backend_url_with_fallback_ip}api/tickets/$userId'); // Use IP
-
+        
     try {
       final response = await http.get(uri);
       if (response.statusCode == 200) {
@@ -452,14 +435,6 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
     } catch (e) {
       debugPrint('Error fetching tickets: $e');
     }
-  }
-
-  String formatPhoneNumber(String rawNumber) {
-    rawNumber = rawNumber.trim();
-    if (rawNumber.startsWith('0')) {
-      return '255${rawNumber.substring(1)}';
-    }
-    return rawNumber; 
   }
 
   Widget _buildPoweredByLabel() {
@@ -495,6 +470,238 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
     );
   }
 
+  Widget _buildSeatSelection() {
+    // Group seats by row
+    final seatsByRow = <String, List<String>>{};
+    for (var seat in _allSeats) {
+      final row = seat.substring(0, 1); // Get the row letter
+      seatsByRow.putIfAbsent(row, () => []).add(seat);
+    }
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  "Select Your Seats",
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  '${_selectedSeats.length}/$quantity selected',
+                  style: TextStyle(
+                    color: _selectedSeats.length == quantity 
+                      ? Colors.green 
+                      : Colors.orange[800],
+                  ),
+                ),
+              ],
+            ),
+            const Divider(),
+            const SizedBox(height: 10),
+            // Screen representation (optional)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Center(
+                child: Text(
+                  'SCREEN',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey,
+                  ),
+                ),
+              ),
+            ), 
+            const SizedBox(height: 20),
+            // Entire seat selection area as horizontal scroll
+            SizedBox(
+              height: seatsByRow.length * 48.0, // Adjust based on number of rows
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: seatsByRow.entries.map((entry) {
+                    final row = entry.key;
+                    final seats = entry.value;
+                    
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12.0),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 20,
+                            child: Text(
+                              '$row',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          const SizedBox(width: 2),
+                          // Seat buttons for this row
+                          Row(
+                            children: seats.map((seat) {
+                              final isBooked = _bookedSeats.contains(seat);
+                              final isSelected = _selectedSeats.contains(seat);
+                              
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 8.0),
+                                child: GestureDetector(
+                                  onTap: isBooked 
+                                    ? null 
+                                    : () {
+                                        setState(() {
+                                          if (isSelected) {
+                                            _selectedSeats.remove(seat);
+                                          } else {
+                                            if (_selectedSeats.length < _maxSelectableSeats) {
+                                              _selectedSeats.add(seat);
+                                            } else {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(
+                                                  content: Text('You can only select $quantity seats'),
+                                                  duration: const Duration(seconds: 2),
+                                                ),
+                                              );
+                                            }
+                                          }
+                                        });
+                                      },
+                                  child: Container(
+                                    width: 36,
+                                    height: 36,
+                                    decoration: BoxDecoration(
+                                      color: isBooked 
+                                        ? Colors.black 
+                                        : isSelected 
+                                          ? Colors.orange[800] 
+                                          : Colors.white,
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                        color: isBooked 
+                                          ? Colors.grey 
+                                          : Colors.grey[400]!,
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        seat.substring(1), // Show just the number
+                                        style: TextStyle(
+                                          color: isBooked || isSelected 
+                                            ? Colors.white 
+                                            : Colors.black,
+                                          fontWeight: isSelected 
+                                            ? FontWeight.bold 
+                                            : FontWeight.normal,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(width: 2),
+                          SizedBox(
+                            width: 16,
+                            child: Text(
+                              '$row',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Selected seats display
+            if (_selectedSeats.isNotEmpty)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Selected Seats:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: _selectedSeats.map((seat) => Chip(
+                      label: Text(seat),
+                      backgroundColor: Colors.orange[100],
+                      deleteIcon: const Icon(Icons.close, size: 16),
+                      onDeleted: () {
+                        setState(() {
+                          _selectedSeats.remove(seat);
+                        });
+                      },
+                    )).toList(),
+                  ),
+                ],
+              ),
+            if (_selectedSeats.isEmpty)
+              const Text(
+                'No seats selected',
+                style: TextStyle(color: Colors.grey),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> getVenue({bool useDNS = true}) async {
+    try {
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/venue/${widget.event.venueId}') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}api/venue/${widget.event.venueId}'); // Use IP
+
+      final response = await http.get(uri);
+    
+      if (response.statusCode == 200) {
+
+        final venue = jsonDecode(response.body);
+        setState(() {
+          _venue = Venue(name: venue['name'], rows: venue['rows'], seats: venue['seats_per_row']);
+        });
+        _initializeSeats(); // Initialize seat data
+      }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if (e.osError!.errorCode == 7 && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await getVenue(useDNS: false); // Recursive retry
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error getting notification preferences: $e');
+    }
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -515,7 +722,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
 
     eventId = widget.event.id;
 
-    if (ticketPrice == 0.0) {
+    if (ticketTypeName == "") {
       var availableTickets = widget.event.ticketTypes.where((ticket) => ticket.soldTickets < ticket.numberOfTickets).toList();
       if (availableTickets.isNotEmpty) {
         var cheapestTicket = availableTickets.reduce(
@@ -528,7 +735,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
         soldTickets = cheapestTicket.soldTickets;
       }
       else {
-        soldOut = true;
+        full = true;
       }
     }
 
@@ -536,10 +743,10 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Checkout'),
+        title: const Text('Confirm'),
         backgroundColor: const Color.fromARGB(255, 240, 244, 247),
         actions: [
-          if(_payed)
+          if(_confirmed)
           ElevatedButton.icon(
             icon: Icon(
               Icons.logout,
@@ -587,15 +794,13 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
                 const SizedBox(height: 20),
                 _buildQuantitySelector(),
                 const SizedBox(height: 20),
+                _buildSeatSelection(),
+                const SizedBox(height: 20),
                 if(widget.event.daily_event == 'yes')
                 _buildDateSelector(),
                 if(widget.event.daily_event == 'yes')
                 const SizedBox(height: 20),
-                _buildPaymentMethodSelector(isLargeScreen),
-                const SizedBox(height: 20),
-                _buildPhoneNumberInput(),
-                const SizedBox(height: 20),
-                _buildSummaryCard(isVeryLargeScreen),
+                _buildSummaryCard(isLargeScreen),
                 const SizedBox(height: 20),
                 _buildCheckoutButton(),
                 const SizedBox(height: 10),
@@ -621,8 +826,8 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
               widget.event.name, 
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 fontSize: isLargeScreen ? 22 : 18,
-              )
-            ), 
+              ) 
+            ),
             const SizedBox(height: 12),
             (widget.event.daily_event == 'yes') ? 
             _buildDetailRow('📅', '', 'Everyday') :
@@ -679,17 +884,17 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
             Column(
               children: widget.event.ticketTypes.map((ticketType) {
                 if (ticketType.soldTickets < ticketType.numberOfTickets) {
-                  return RadioListTile<double>(
+                  return RadioListTile<String>(
                     title: Text(
-                      '${ticketType.name} - TSH${NumberFormat('#,##0').format(ticketType.price.toInt())}',
+                      '${ticketType.name} - Free', 
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
-                    value: ticketType.price,
-                    groupValue: ticketPrice,
+                    value: ticketType.name,
+                    groupValue: ticketTypeName,
                     onChanged: (value) {
                       setState(() {
-                        ticketPrice = value!;
                         ticketTypeName = ticketType.name;
+                        ticketPrice = ticketType.price;
                         numberOfTickets = ticketType.numberOfTickets;
                         soldTickets = ticketType.soldTickets;
                       });
@@ -811,112 +1016,6 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
     );
   }
 
-  Widget _buildPaymentMethodSelector(bool isLargeScreen) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Column(
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 16, left: 16),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                "Payment Method",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ),
-          const Divider(),
-          if (isLargeScreen)
-            Row(
-              children: paymentMethods.map((method) {
-                return Expanded(
-                  child: RadioListTile(
-                    title: Text(method),
-                    value: method,
-                    groupValue: selectedPaymentMethod,
-                    onChanged: (value) {
-                      setState(() => selectedPaymentMethod = value.toString());
-                    },
-                  ),
-                );
-              }).toList(),
-            )
-          else
-            Column(
-              children: paymentMethods.map((method) {
-                return RadioListTile(
-                  title: Text(method),
-                  value: method,
-                  groupValue: selectedPaymentMethod,
-                  onChanged: (value) {
-                    setState(() => selectedPaymentMethod = value.toString());
-                  },
-                );
-              }).toList(),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPhoneNumberInput() {
-    return Form(
-      key: _formKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(bottom: 8),
-            child: Text(
-              'Phone Number',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-          ),
-          TextFormField(
-            controller: _phoneNumberController,
-            decoration: InputDecoration(
-              hintText: '255xxxxxxxxx',
-              prefixIcon: const Icon(Icons.phone),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey[400]!),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey[400]!),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.orange[800]!, width: 2.0),
-              ),
-              filled: true,
-              fillColor: Colors.grey[200],
-              contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-            ),
-            style: const TextStyle(fontSize: 16),
-            keyboardType: TextInputType.phone,
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return null;
-              } else {
-                if (value.length > 15) {
-                  return 'Invalid phone number';
-                }
-                final regex = RegExp(r'^\d{1,3}\d{9}$'); 
-                if (!regex.hasMatch(value.trim())) {
-                  return 'Invalid number, Number format: 255xxxxxxxxxx';
-                }
-              }
-              return null;
-            },
-          )
-        ]
-      )
-    );
-  }
-
   Widget _buildSummaryCard(final isLargeScreen) {
     return Card(
       elevation: 3,
@@ -948,24 +1047,6 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
               )
             ),
             const SizedBox(height: 12), // Add some spacing
-            // Total price row
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  '💰 Total',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                Text(              
-                  'TSH${NumberFormat('#,##0').format(totalPrice.toInt())}',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.orange[800],
-                  ),
-                ),
-              ],
-            )
           ],
         ),
       ),
@@ -976,24 +1057,25 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
     return SizedBox(
       width: double.infinity,
       height: 50,
-      child: (_payed || soldOut) ?
+      child: (_confirmed || full) ?
       ElevatedButton(
-        onPressed: _isLoading ? null : _handlePaying,
+        onPressed: null,
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.orange[800],
+          disabledBackgroundColor: Colors.orange[800],
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
         ),
         child: Text(
-          soldOut ? "Sold Out" : 'Booked',
+          full ? "Full" : 'Confirmed',
           style: const TextStyle(
             fontSize: 16,
             color: Colors.white,
           ),
         ),
       ) :
-      __processing_payment ? 
+      _processing_confirmation ? 
       ElevatedButton(
         onPressed: null,
         style: ElevatedButton.styleFrom(
@@ -1002,16 +1084,16 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
             borderRadius: BorderRadius.circular(12),
           ),
         ),
-        child: Text(
-          'Please wait...$trials',
-          style: const TextStyle(
+        child: const Text(
+          'Please wait...',
+          style: TextStyle(
             fontSize: 16,
             color: Colors.white,
           ),
         ),
       ) :
       ElevatedButton(
-        onPressed: _isLoading ? null : _handlePaying,
+        onPressed: _isLoading ? null : _handleConfirming,
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.orange[800],
           shape: RoundedRectangleBorder(
@@ -1021,7 +1103,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
         child: _isLoading 
           ? const CircularProgressIndicator(color: Colors.white)
           : const Text(
-              'Pay Now', 
+              'Confirm', 
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.white,

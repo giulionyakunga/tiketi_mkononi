@@ -10,21 +10,33 @@ import 'package:http/http.dart' as http;
 import 'package:tiketi_mkononi/screens/tickets_page.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
 
-class CheckoutPage extends StatefulWidget {
+class Venue {
+  String name;
+  int rows;
+  int seats;
+
+  Venue({
+    required this.name,
+    required this.rows,
+    required this.seats,
+  });
+}
+
+class TheaterCheckoutPage extends StatefulWidget {
   final Event event;
   final Function refreshMethod;
 
-  const CheckoutPage({
+  const TheaterCheckoutPage({
     super.key, 
     required this.event, 
     required this.refreshMethod
   });
 
   @override
-  State<CheckoutPage> createState() => _CheckoutPageState();
+  State<TheaterCheckoutPage> createState() => _TheaterCheckoutPageState();
 }
 
-class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver {
+class _TheaterCheckoutPageState extends State<TheaterCheckoutPage> with WidgetsBindingObserver {
   int userId = 0;
   int trials = 10;
   late final StorageService _storageService;
@@ -45,10 +57,20 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
   Timer? _timer;
   bool _isAppActive = true;
   final _formKey = GlobalKey<FormState>();
+  late Venue _venue;
+
   DateTime? _selectedDate;
   DateTime _selectedDate2 = DateTime.now();
   int eventTicketsCount = 0;
   Map<String, dynamic> ticketTypesTicketsCount = {};
+
+  // Variables for multiple seat selection
+  List<String> _selectedSeats = []; // Now a list to hold multiple selections
+  List<String> _bookedSeats = [];
+  List<String> _allSeats = [];
+  
+  // Add this to track max seats user can select (based on quantity)
+  int get _maxSelectableSeats => quantity;
 
   @override
   void initState() {
@@ -57,6 +79,9 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
     WidgetsBinding.instance.addObserver(this);
     _initializeServices();
     _startFetchingEventPaymentStatus();
+    getBookedSeats();
+    getVenue();
+    _startFetchingBookedSeats();
   }
 
   Future<void> _initializeServices() async {
@@ -74,7 +99,26 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
       });
     }
   }
-  
+
+  void _initializeSeats() {
+    // Generate all possible seats (A1-A18, B1-B18, ..., H1-H18)
+    List<String> letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
+    _allSeats = [];
+    for (int row=0; row<_venue.rows; row++) {
+      for (var col = 0; col < _venue.seats; col++) {
+        _allSeats.add('${letters[row]}${col+1}');
+      }
+    }
+  }
+
+  void _startFetchingBookedSeats() {
+    _timer = Timer.periodic(const Duration(seconds: 15), (timer) {
+      if (_isAppActive) {
+        getBookedSeats();
+      }
+    });
+  }
+
   Future<void> getTicketsCount({bool useDNS = true}) async {
 
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/event_tickets_count/${widget.event.id}') // Original URL 
@@ -186,8 +230,26 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
     return true;
   }
 
+  bool checkNumberTickets() {
+    if(_selectedSeats.length < quantity){
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please select more ticket(s)')),
+      );
+      return false;
+    }else if(_selectedSeats.length > quantity){
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please select your ticket(s) again')),
+      );
+      setState(() {
+        _selectedSeats = [];
+      });
+      return false;
+    }
+    return true;
+  }
+
   Future<void> _handlePaying({bool useDNS = true}) async {
-    if (_formKey.currentState!.validate() && checkTicketAvailability()){
+    if (_formKey.currentState!.validate() && checkTicketAvailability() && checkNumberTickets()){
       if(widget.event.daily_event == 'yes') {
         if (_selectedDate == null) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -203,6 +265,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
         'quantity': quantity,
         'ticket_price': ticketPrice,
         'ticket_type': ticketTypeName,
+        "selected_seats":"$_selectedSeats",
         'date': (widget.event.daily_event == 'yes') ? _selectedDate?.toIso8601String()  : null ,
         'selected_payment_method': selectedPaymentMethod,
         'phone_number': formatPhoneNumber(_phoneNumberController.text),
@@ -234,13 +297,14 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
               __processing_payment = true;
               _payed = false;
             });
-          } else if (response.body == "Payed successfully!" || 
-                     response.body == "You have already booked for this event!") {
+          } else if (response.body == "Payed successfully!" || response.body == "You have already booked for this event!") {
             setState(() {
               _payed = true;
               __processing_payment = false;
             });
             widget.refreshMethod();
+            _selectedSeats.clear();
+            getBookedSeats();
             fetchTickets();
           }
         } else if (response.statusCode == 302) {
@@ -393,6 +457,10 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
             _payed = true;
             __processing_payment = false;
           });
+          widget.refreshMethod();
+          _selectedSeats.clear();
+          getBookedSeats();
+          fetchTickets();
         }
       } else {
         throw Exception('Failed to load event');
@@ -415,6 +483,50 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
       }
     } catch (e) {
       debugPrint('Error fetching event: $e');
+    }
+  }
+
+  Future<void> getBookedSeats({bool useDNS = true}) async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/booked_seats/${widget.event.id}') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}api/booked_seats/${widget.event.id}'); // Use IP
+
+      final response = await http.get(uri);
+    
+      if (response.statusCode == 200) {
+        final bookedSeats = jsonDecode(response.body);
+        bookedSeats.forEach((bookedSeat) {
+          setState(() {
+            _bookedSeats.add(bookedSeat);
+          });
+        });       
+      }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if (e.osError!.errorCode == 7 && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await getBookedSeats(useDNS: false); // Recursive retry
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error getting notification preferences: $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -493,6 +605,238 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
         ],
       ),
     );
+  }
+
+  Widget _buildSeatSelection() {
+    // Group seats by row
+    final seatsByRow = <String, List<String>>{};
+    for (var seat in _allSeats) {
+      final row = seat.substring(0, 1); // Get the row letter
+      seatsByRow.putIfAbsent(row, () => []).add(seat);
+    }
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  "Select Your Seats",
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  '${_selectedSeats.length}/$quantity selected',
+                  style: TextStyle(
+                    color: _selectedSeats.length == quantity 
+                      ? Colors.green 
+                      : Colors.orange[800],
+                  ),
+                ),
+              ],
+            ),
+            const Divider(),
+            const SizedBox(height: 10),
+            // Screen representation (optional)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Center(
+                child: Text(
+                  'SCREEN',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey,
+                  ),
+                ),
+              ),
+            ), 
+            const SizedBox(height: 20),
+            // Entire seat selection area as horizontal scroll
+            SizedBox(
+              height: seatsByRow.length * 48.0, // Adjust based on number of rows
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: seatsByRow.entries.map((entry) {
+                    final row = entry.key;
+                    final seats = entry.value;
+                    
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12.0),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 20,
+                            child: Text(
+                              '$row',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          const SizedBox(width: 2),
+                          // Seat buttons for this row
+                          Row(
+                            children: seats.map((seat) {
+                              final isBooked = _bookedSeats.contains(seat);
+                              final isSelected = _selectedSeats.contains(seat);
+                              
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 8.0),
+                                child: GestureDetector(
+                                  onTap: isBooked 
+                                    ? null 
+                                    : () {
+                                        setState(() {
+                                          if (isSelected) {
+                                            _selectedSeats.remove(seat);
+                                          } else {
+                                            if (_selectedSeats.length < _maxSelectableSeats) {
+                                              _selectedSeats.add(seat);
+                                            } else {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(
+                                                  content: Text('You can only select $quantity seats'),
+                                                  duration: const Duration(seconds: 2),
+                                                ),
+                                              );
+                                            }
+                                          }
+                                        });
+                                      },
+                                  child: Container(
+                                    width: 36,
+                                    height: 36,
+                                    decoration: BoxDecoration(
+                                      color: isBooked 
+                                        ? Colors.black 
+                                        : isSelected 
+                                          ? Colors.orange[800] 
+                                          : Colors.white,
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                        color: isBooked 
+                                          ? Colors.grey 
+                                          : Colors.grey[400]!,
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        seat.substring(1), // Show just the number
+                                        style: TextStyle(
+                                          color: isBooked || isSelected 
+                                            ? Colors.white 
+                                            : Colors.black,
+                                          fontWeight: isSelected 
+                                            ? FontWeight.bold 
+                                            : FontWeight.normal,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(width: 2),
+                          SizedBox(
+                            width: 16,
+                            child: Text(
+                              '$row',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Selected seats display
+            if (_selectedSeats.isNotEmpty)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Selected Seats:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: _selectedSeats.map((seat) => Chip(
+                      label: Text(seat),
+                      backgroundColor: Colors.orange[100],
+                      deleteIcon: const Icon(Icons.close, size: 16),
+                      onDeleted: () {
+                        setState(() {
+                          _selectedSeats.remove(seat);
+                        });
+                      },
+                    )).toList(),
+                  ),
+                ],
+              ),
+            if (_selectedSeats.isEmpty)
+              const Text(
+                'No seats selected',
+                style: TextStyle(color: Colors.grey),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Future<void> getVenue({bool useDNS = true}) async {
+    try {
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/venue/${widget.event.venueId}') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}api/venue/${widget.event.venueId}'); // Use IP
+
+      final response = await http.get(uri);
+    
+      if (response.statusCode == 200) {
+
+        final venue = jsonDecode(response.body);
+        setState(() {
+          _venue = Venue(name: venue['name'], rows: venue['rows'], seats: venue['seats_per_row']);
+        });
+        _initializeSeats(); // Initialize seat data
+      }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if (e.osError!.errorCode == 7 && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await getVenue(useDNS: false); // Recursive retry
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error getting notification preferences: $e');
+    }
   }
 
   @override
@@ -587,6 +931,8 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
                 const SizedBox(height: 20),
                 _buildQuantitySelector(),
                 const SizedBox(height: 20),
+                _buildSeatSelection(),
+                const SizedBox(height: 20),
                 if(widget.event.daily_event == 'yes')
                 _buildDateSelector(),
                 if(widget.event.daily_event == 'yes')
@@ -622,7 +968,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 fontSize: isLargeScreen ? 22 : 18,
               )
-            ), 
+            ),
             const SizedBox(height: 12),
             (widget.event.daily_event == 'yes') ? 
             _buildDetailRow('📅', '', 'Everyday') :
@@ -631,7 +977,6 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
             (widget.event.time.contains(":")) ?
             _buildDetailRow('⏰', 'Time:', widget.event.time) :
             _buildDetailRow('⏰', '', 'Everytime'),
-
             _buildDetailRow('📍', 'Venue:', widget.event.venue),
           ],
         ),

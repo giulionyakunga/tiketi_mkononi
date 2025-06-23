@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:http/http.dart' as http;
+import 'package:tiketi_mkononi/screens/privacy_security_page.dart';
 
 class ApplyToBeOrganizerPage extends StatefulWidget {
   final int userId;
@@ -301,12 +302,36 @@ class _ApplyToBeOrganizerPageState extends State<ApplyToBeOrganizerPage> {
                   ),
                 ),
                 SizedBox(height: isLargeScreen ? 32 : 20),
-                Text(
-                  'By applying, you agree to our Terms of Service',
-                  style: TextStyle(
-                    color: Colors.grey, 
-                    fontSize: isLargeScreen ? 14 : 12,
-                  ),
+                TextButton(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const PrivacySecurityPage(),
+                    ),
+                  ),                
+                  child: 
+                    RichText(
+                      text: TextSpan(
+                        children: [
+                          TextSpan(
+                            text: 'By applying, you agree to ',
+                            style: const TextStyle(
+                              fontSize: 22,
+                              color: Colors.black,
+                              fontWeight: FontWeight.normal
+                            ),
+                          ),
+                          TextSpan(
+                            text: 'Our Terms of Service',
+                            style: TextStyle(
+                              fontSize: 22,
+                              color: Colors.blue,
+                              fontWeight: FontWeight.normal
+                            ),
+                          ),
+                        ]
+                      )
+                    ),
                 ),
               ],
             ),

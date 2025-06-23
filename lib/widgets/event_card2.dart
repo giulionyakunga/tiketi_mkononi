@@ -12,13 +12,13 @@ import 'package:tiketi_mkononi/screens/event_providers.dart';
 import 'package:tiketi_mkononi/screens/theater_checkout_page.dart';
 import 'package:tiketi_mkononi/screens/theater_confirm_page.dart';
 
-class EventCard extends StatelessWidget {
+class EventCard2 extends StatelessWidget {
   final Event event;
   final int userId;
   final Function refreshMethod;
   final bool useDNS;
 
-  const EventCard({super.key, required this.event, required this.userId, required this.refreshMethod, required this.useDNS});
+  const EventCard2({super.key, required this.event, required this.userId, required this.refreshMethod, required this.useDNS});
 
   String _formatDate(String date) {
     final DateFormat inputFormat = DateFormat('dd-MM-yyyy');
@@ -68,17 +68,32 @@ class EventCard extends StatelessWidget {
           children: [
             Hero(
               tag: 'event-image-${event.id}',
-              child: CachedNetworkImage(
-                imageUrl: '${backend_url}api/image/${event.imageUrl}',
-                // imageUrl: useDNS ? '${backend_url}api/image/${event.imageUrl}' : '${backend_url_with_fallback_ip}api/image/${event.imageUrl}',
-                width: double.infinity,
-                fit: BoxFit.cover,
-                placeholder: (context, url) => const Center(
-                  child: CircularProgressIndicator(),
+              child: Container(
+                  // height: 160,
+                  // decoration: BoxDecoration(
+                  // CachedNetworkImage(
+                  //   imageUrl: '${backend_url}api/image/${event.imageUrl}',
+                  //   // imageUrl: useDNS ? '${backend_url}api/image/${event.imageUrl}' : '${backend_url_with_fallback_ip}api/image/${event.imageUrl}',
+                  //   width: double.infinity,
+                  //   fit: BoxFit.cover,
+                  //   placeholder: (context, url) => const Center(
+                  //     child: CircularProgressIndicator(),
+                  //   ),
+                  //   errorWidget: (context, url, error) => const Icon(Icons.error),
+                  // ),
+
+                  height: 160,
+                  decoration: BoxDecoration(
+                    image: DecorationImage(
+                      image: CachedNetworkImageProvider(
+                        '${backend_url}api/image/${event.imageUrl}',
+                        // useDNS ? '${backend_url}api/image/${event.imageUrl}' : '${backend_url_with_fallback_ip}api/image/${event.imageUrl}',
+                      ),
+                      fit: BoxFit.contain,
+                    ),
+                  ),
                 ),
-                errorWidget: (context, url, error) => const Icon(Icons.error),
               ),
-            ),
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -263,6 +278,7 @@ class EventCard extends StatelessWidget {
                     '📍 ${event.venue}',
                   ),
                   const SizedBox(height: 16),
+                  (event.ticketTypes.length < 3) ?
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: event.ticketTypes.map((ticketType) =>
@@ -338,8 +354,26 @@ class EventCard extends StatelessWidget {
                             ),
                       ),
                     ).toList(),
+                  ) :
+                  TextButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => EventDetailsPage(event: event, userId: userId, refreshMethod: refreshMethod, useDNS: useDNS,),
+                        ),
+                      );
+                    },
+                    child: Text(
+                      'See more details',
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: Colors.orange[800],
+                      ),
+                    ),
                   ),
-                  const SizedBox(height: 16),
+
+                  (event.ticketTypes.length == 1) ? const SizedBox(height: 45) : const SizedBox(height: 16),
                   event.hasTicket
                       ? SizedBox(
                           width: double.infinity,

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:tiketi_mkononi/models/event.dart';
@@ -39,10 +40,15 @@ class _ConfirmPageState extends State<ConfirmPage> with WidgetsBindingObserver {
   bool full = false;
   bool _processing_confirmation = false;
   bool _isAppActive = true;
+  DateTime? _selectedDate;
+  DateTime _selectedDate2 = DateTime.now();
+  int eventTicketsCount = 0;
+  Map<String, dynamic> ticketTypesTicketsCount = {};
 
   @override
   void initState() {
     super.initState();
+    getTicketsCount();
     WidgetsBinding.instance.addObserver(this);
     _initializeServices();
   }
@@ -63,14 +69,109 @@ class _ConfirmPageState extends State<ConfirmPage> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> getTicketsCount({bool useDNS = true}) async {
+
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/event_tickets_count/${widget.event.id}') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}api/event_tickets_count/${widget.event.id}'); // Use IP
+
+    try {
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+
+        if((responseData['tickets_count']) != null){
+          setState(() {
+            eventTicketsCount = responseData['tickets_count'];
+            ticketTypesTicketsCount = responseData['ticket_types'];
+          });
+        }
+        
+      }
+    }on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if (e.osError!.errorCode == 7 && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await getTicketsCount(useDNS: false); // Recursive retry
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching check tickets scan status: $e');
+    }
+  }
+
+  Future<void> getTicketsCountByDate({bool useDNS = true}) async {
+
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/event_tickets_count_by_date/${widget.event.id}/${DateFormat('d-M-yyyy').format(_selectedDate2)}') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}api/event_tickets_count_by_date/${widget.event.id}/${DateFormat('d-M-yyyy').format(_selectedDate2)}'); // Use IP
+
+    try {
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+
+        if((responseData['tickets_count']) != null){
+          setState(() {
+            eventTicketsCount = responseData['tickets_count'];
+            ticketTypesTicketsCount = responseData['ticket_types'];
+          });
+        }
+        
+      }
+    }on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if (e.osError!.errorCode == 7 && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await getTicketsCountByDate(useDNS: false); // Recursive retry
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching check tickets scan status: $e');
+    }
+  }
+
+  int getTicketTypesTicketsCount (Map<String, dynamic> ticketTypesTicketsCount, String name) {
+
+    if (ticketTypesTicketsCount.isNotEmpty) {
+      return ticketTypesTicketsCount[name];
+    }
+    return 0;
+  }
+
   bool checkTicketAvailability() {
     for (var ticketType in widget.event.ticketTypes) {
       if(ticketType.name == ticketTypeName){
-        if( (ticketType.soldTickets + quantity) > ticketType.numberOfTickets ){
-          int remainingTickets = ticketType.numberOfTickets - ticketType.soldTickets;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('We currently have only $remainingTickets $ticketTypeName ticket(s) remaining')),
-          );
+        if( ( getTicketTypesTicketsCount(ticketTypesTicketsCount, ticketType.name) + quantity) > ticketType.numberOfTickets ){
+          int remainingTickets = ticketType.numberOfTickets - getTicketTypesTicketsCount(ticketTypesTicketsCount, ticketType.name);
+          
+          if(widget.event.daily_event == 'yes') {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Only $remainingTickets $ticketTypeName tickets remain for ${DateFormat('EEE, MMM d, yyyy').format(_selectedDate2)}')),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Only $remainingTickets $ticketTypeName tickets available')),
+            );
+          }
           return false;
         }
       }
@@ -298,19 +399,32 @@ class _ConfirmPageState extends State<ConfirmPage> with WidgetsBindingObserver {
         title: const Text('Confirm'),
         backgroundColor: const Color.fromARGB(255, 240, 244, 247),
         actions: [
-          TextButton(
-            child: _confirmed ? Text(
-              "Tickets($quantity)",
-              style: TextStyle(fontSize: 14, color: Colors.green),
-            ) : Text(""),
-            onPressed: _confirmed ? () {
+          if(_confirmed)
+          ElevatedButton.icon(
+            icon: Icon(
+              Icons.logout,
+            ),
+            label: Text('Tickets($quantity)', style: TextStyle(
+              fontSize: 14,
+            )
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.orange[800],
+              padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 5),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              elevation: 2,
+            ),
+            onPressed: () {
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
                   builder: (context) => TicketsPage(eventId: widget.event.id),
                 ),
               );
-            } : null,
+            },
           ),
         ],
       ),
@@ -332,6 +446,10 @@ class _ConfirmPageState extends State<ConfirmPage> with WidgetsBindingObserver {
                 _buildTicketSelectionCard(),
                 const SizedBox(height: 20),
                 _buildQuantitySelector(),
+                const SizedBox(height: 20),
+                if(widget.event.daily_event == 'yes')
+                _buildDateSelector(),
+                if(widget.event.daily_event == 'yes')
                 const SizedBox(height: 20),
                 _buildSummaryCard(isLargeScreen),
                 const SizedBox(height: 20),
@@ -359,11 +477,17 @@ class _ConfirmPageState extends State<ConfirmPage> with WidgetsBindingObserver {
               widget.event.name, 
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 fontSize: isLargeScreen ? 22 : 18,
-              )
+              ) 
             ),
             const SizedBox(height: 12),
+            (widget.event.daily_event == 'yes') ? 
+            _buildDetailRow('📅', '', 'Everyday') :
             _buildDetailRow('📅', 'Date:', widget.event.date),
-            _buildDetailRow('⏰', 'Time:', widget.event.time),
+            
+            (widget.event.time.contains(":")) ?
+            _buildDetailRow('⏰', 'Time:', widget.event.time) :
+            _buildDetailRow('⏰', '', 'Everytime'),
+
             _buildDetailRow('📍', 'Venue:', widget.event.venue),
           ],
         ),
@@ -468,6 +592,78 @@ class _ConfirmPageState extends State<ConfirmPage> with WidgetsBindingObserver {
       onPressed: onPressed,
       icon: Icon(icon),
       color: Colors.orange[800],
+    );
+  }
+
+  Widget _buildDateSelector() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('📅 Date', style: TextStyle(fontSize: 16)),
+            Row(
+              children: [
+                _buildDatePicker()
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked != null) {
+      if((picked != _selectedDate)) {
+        setState(() {
+          _selectedDate = picked;
+          _selectedDate2 = picked;
+        });
+        getTicketsCountByDate();
+        fetchTickets();
+      }
+    }
+  }
+
+  Widget _buildDatePicker() {
+    return TextButton.icon(
+      onPressed: () => _selectDate(context),
+      icon: Icon(Icons.calendar_today, size: 18, color: Colors.orange[800]), // Optional: Adjust icon size
+      label: Text(
+        _selectedDate == null
+            ? 'Select Date'
+            : '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}',
+        style: const TextStyle(
+          color: Colors.black,
+          fontWeight: FontWeight.w500,
+          fontSize: 14, // Smaller font size for compactness
+        ),
+      ),
+      style: TextButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0), // Near-zero vertical padding
+        minimumSize: const Size(0, 30), // Set a small fixed height (e.g., 30 logical pixels)
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap, // Reduces touch target to content size
+        visualDensity: VisualDensity.compact, // Squeezes elements closer
+        backgroundColor: Colors.grey[200],
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: const BorderSide(color: Colors.black, width: 1.5),
+        ),
+        side: BorderSide(
+          color: _selectedDate == null ? Colors.grey[400]! : Colors.orange[800]!,
+          width: 1.5,
+        ),
+      ),
     );
   }
 
