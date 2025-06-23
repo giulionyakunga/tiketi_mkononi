@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/screens/app_info_updates_page.dart';
 import 'package:tiketi_mkononi/screens/apply_to_be_organizer_page.dart';
@@ -398,6 +400,19 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  void _handleQRCodeScannerUnavailablility () {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('QR Code Scanning Unavailable'),
+        content: const Text('This feature is only supported in the Tiketi Mkononi mobile app. Please download and open the application on your smartphone to scan QR codes'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+    );
+  }
+
   Widget _buildSettingsMenu(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -434,7 +449,9 @@ class _ProfilePageState extends State<ProfilePage> {
           iconColor: Colors.purple,
           title: 'QR Code Scanner',
           onTap: () {
-            Navigator.pop(context);
+            (kIsWeb) ? 
+            _handleQRCodeScannerUnavailablility()
+            :
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -500,8 +517,7 @@ class _ProfilePageState extends State<ProfilePage> {
           TextButton(
             onPressed: () {
               _clearUserProfile();
-              Navigator.pop(context);
-              Navigator.pushReplacementNamed(context, '/login');
+              context.go('/login');
             },
             child: const Text('Logout', style: TextStyle(color: Colors.red)),
           ),
@@ -522,6 +538,7 @@ class _ProfilePageState extends State<ProfilePage> {
         centerTitle: false,
         backgroundColor: const Color.fromARGB(255, 240, 244, 247),
         actions: [
+          if(userId > 0)
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () {
@@ -538,7 +555,8 @@ class _ProfilePageState extends State<ProfilePage> {
         ],
       ),
       body: Center(
-        child: ConstrainedBox(
+        child: (userId > 0) ?
+        ConstrainedBox(
           constraints: BoxConstraints(
             maxWidth: isLargeScreen ? 1000 : double.infinity,
           ),
@@ -575,6 +593,24 @@ class _ProfilePageState extends State<ProfilePage> {
               ],
             ),
           ),
+        )
+        :
+        Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('Please Login'),
+            ElevatedButton(
+              onPressed: () {
+                context.push('/login');
+              },
+              child: const Text(
+                'Login',
+                style: TextStyle(
+                  color: Colors.green
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
