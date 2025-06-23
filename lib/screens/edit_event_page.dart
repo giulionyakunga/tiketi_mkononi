@@ -30,6 +30,18 @@ class TicketType2 {
   });
 }
 
+class Venue {
+  String name;
+  int rows;
+  int seats;
+
+  Venue({
+    required this.name,
+    required this.rows,
+    required this.seats,
+  });
+}
+
 class EditEventPage extends StatefulWidget {
   final Event event;
   final int userId;
@@ -55,6 +67,8 @@ class _EditEventPageState extends State<EditEventPage> {
   final _nameController = TextEditingController();
   final _venueController = TextEditingController();
   final _descriptionController = TextEditingController();
+  TextEditingController _rowsController = TextEditingController(text: '0');
+  TextEditingController _seatsController = TextEditingController(text: '0');
   final _scrollController = ScrollController();
   DateTime? _selectedDate;
   DateTime _selectedDate2 = DateTime.now();
@@ -86,9 +100,12 @@ class _EditEventPageState extends State<EditEventPage> {
     'Training',
   ];
 
+  List<Venue> venueSuggestions = [];
+
   @override
   void initState() {
     super.initState();
+    getVenues();
     getTicketsCountByDate();
     _addExistingTicketType(widget.event.ticketTypes);
     _nameController.text = widget.event.name;
@@ -102,11 +119,59 @@ class _EditEventPageState extends State<EditEventPage> {
     if((widget.event.time.contains(":"))) _selectedTime = parseTime(widget.event.time);
     _selectedCategory = widget.event.category;
   }
+  
+  Future<void> getVenues({bool useDNS = true}) async {
+    try {
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/venues/${widget.userId}') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}api/venues/${widget.userId}'); // Use IP
+
+      final response = await http.get(uri);
+    
+      if (response.statusCode == 200) {
+        final venues = jsonDecode(response.body);
+
+        venues.forEach((venue) {
+          setState(() {
+            venueSuggestions.add(
+              Venue(name: venue['name'], rows: venue['rows'], seats: venue['seats_per_row'])
+            );
+          });
+          if(venue['name'] == widget.event.venue) {
+            setState(() {
+              _rowsController.text = '${venue['rows']}';
+              _seatsController.text = '${venue['seats_per_row']}';
+            });
+          }
+        });
+      }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if (e.osError!.errorCode == 7 && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await getVenues(useDNS: false); // Recursive retry
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error getting notification preferences: $e');
+    }
+  }
+
 
   @override
   void dispose() {
     _nameController.dispose();
     _venueController.dispose();
+    _rowsController.dispose();
+    _seatsController.dispose();
     _descriptionController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -176,7 +241,11 @@ class _EditEventPageState extends State<EditEventPage> {
   int getTicketTypesTicketsCount (Map<String, dynamic> ticketTypesTicketsCount, String name) {
 
     if (ticketTypesTicketsCount.isNotEmpty) {
-      return ticketTypesTicketsCount[name];
+      if(ticketTypesTicketsCount[name] != null) {
+        return ticketTypesTicketsCount[name];
+      }else {
+        return 0;
+      }
     }
     return 0;
   }
@@ -290,6 +359,7 @@ class _EditEventPageState extends State<EditEventPage> {
       return false;
     }
 
+    int totalNumberOfTickets = 0;
     int index = 0;
     for (var ticketType in _ticketTypes) {
       if (ticketType.price <= 0) {
@@ -306,6 +376,7 @@ class _EditEventPageState extends State<EditEventPage> {
         return false;
       }
 
+      totalNumberOfTickets = totalNumberOfTickets +  ticketType.numberOfTickets;
 
       if (getTicketTypesTicketsCount(ticketTypesTicketsCount, ticketType.name) > ticketType.numberOfTickets) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -346,6 +417,24 @@ class _EditEventPageState extends State<EditEventPage> {
       index++;
     }
 
+    if (_selectedCategory == "Theater"){
+      try {
+        int rows = int.parse(_rowsController.text.trim());
+        int seats = int.parse(_seatsController.text.trim());
+        int totalNumberOfSeats = rows * seats;
+        if(totalNumberOfSeats !=  totalNumberOfTickets) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Number of tickets should be equal to number of seats')
+            ),
+          );
+          return false;
+        }
+      } catch (e) {
+        debugPrint("$e");
+      }
+    }
+
     return true;
   }
 
@@ -357,6 +446,7 @@ class _EditEventPageState extends State<EditEventPage> {
       return false;
     }
 
+    int totalNumberOfTickets = 0;
     int index = 0;
     for (var ticketType in _ticketTypes) {
       if ((ticketType.price < 0) || (ticketType.price > 0)) {
@@ -374,16 +464,15 @@ class _EditEventPageState extends State<EditEventPage> {
         return false;
       }
 
+      totalNumberOfTickets = totalNumberOfTickets +  ticketType.numberOfTickets;
+
       if (getTicketTypesTicketsCount(ticketTypesTicketsCount, ticketType.name) > ticketType.numberOfTickets) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Number of tickets for ${ticketType.name} must be greater than number of sold tickets, ${getTicketTypesTicketsCount(ticketTypesTicketsCount, ticketType.name)}')
           ),
         );
-        debugPrint("KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK ${getTicketTypesTicketsCount(ticketTypesTicketsCount, ticketType.name)} >>> ${ticketType.numberOfTickets} ");
         return false;
-      }else {
-        debugPrint("VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV ${getTicketTypesTicketsCount(ticketTypesTicketsCount, ticketType.name)} >>> ${ticketType.numberOfTickets} ");
       }
 
       if (ticketType.name.isEmpty) {
@@ -414,6 +503,24 @@ class _EditEventPageState extends State<EditEventPage> {
         index_2++;
       }
       index++;
+    }
+
+    if (_selectedCategory == "Theater"){
+      try {
+        int rows = int.parse(_rowsController.text.trim());
+        int seats = int.parse(_seatsController.text.trim());
+        int totalNumberOfSeats = rows * seats;
+        if(totalNumberOfSeats !=  totalNumberOfTickets) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Number of tickets should be equal to number of seats')
+            ),
+          );
+          return false;
+        }
+      } catch (e) {
+        debugPrint("$e");
+      }
     }
 
     return true;
@@ -484,6 +591,8 @@ class _EditEventPageState extends State<EditEventPage> {
       'date': _isDailyEvent ? '' : _selectedDate?.toIso8601String(),
       'time': '${_selectedTime!.hour}:${_selectedTime!.minute}',
       'venue': eventVenue,
+      'rows': (_selectedCategory == "Theater") ?    int.tryParse(_rowsController.text.trim()) ?? 0 : 0,
+      'seats': (_selectedCategory == "Theater") ? int.tryParse(_seatsController.text.trim()) ?? 0 : 0,
       'description': eventDescription,
       if (_isPaidEvent) 'type': "paid",
       if (!_isPaidEvent) 'type': "free",
@@ -1137,6 +1246,94 @@ class _EditEventPageState extends State<EditEventPage> {
     );
   }
 
+  InputDecoration _buildInputDecoration(String label, {String? prefixText, IconData? prefixIcon}) {
+    return InputDecoration(
+      labelText: label,
+      prefixText: prefixText,
+      prefixIcon: (prefixIcon != null) ? Icon(
+        prefixIcon,
+        color: Colors.grey[600],
+      ) : null,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(color: Colors.grey[400]!),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(color: Colors.grey[400]!),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(color: Colors.orange[800]!, width: 2),
+      ),
+      filled: true,
+      fillColor: Colors.grey[200],
+      contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+    );
+  }
+
+  Widget _buildRowsAndSeatsField() {
+   
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Theater Layout Configuration',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _buildRowsField(),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildSeatsField(),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Example: 8 rows × 12 seats = 96 total seats',
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey[600],
+            fontStyle: FontStyle.italic,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRowsField() {
+    return TextFormField(
+      controller: _rowsController,
+      decoration: _buildInputDecoration('Rows'),
+      keyboardType: TextInputType.number,
+      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+      style: const TextStyle(fontSize: 14),
+    );
+  }
+
+  Widget _buildSeatsField() {
+    return TextFormField(
+      controller: _seatsController,
+      decoration: _buildInputDecoration('Seats'),
+      keyboardType: TextInputType.number,
+      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+      style: const TextStyle(fontSize: 14),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -1612,56 +1809,86 @@ class _EditEventPageState extends State<EditEventPage> {
                 ],
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _venueController,
-                maxLength: 100, // Added max length limit
-                decoration: InputDecoration(
-                  labelText: 'Location/Venue',
-                  labelStyle: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 16,
-                  ),
-                  prefixIcon: Icon(
-                    Icons.location_on,
-                    color: Colors.grey[600],
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8.0),
-                    borderSide: BorderSide(
-                      color: Colors.grey[400]!,
-                    ),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8.0),
-                    borderSide: BorderSide(
-                      color: Colors.grey[400]!,
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8.0),
-                    borderSide: BorderSide(
-                      color: Colors.orange[800]!, // Highlight color when focused
-                      width: 2.0,
-                    ),
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey[200], // Light background color
-                  contentPadding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
-                ),
-                style: const TextStyle(
-                  color: Colors.black87,
-                  fontSize: 16,
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter location or venue';
+              Autocomplete<Venue>(
+               
+
+                optionsBuilder: (TextEditingValue textEditingValue) {
+                  // Show initial options if text is empty and we have an initial value
+                  if (textEditingValue.text.isEmpty && _venueController.text.isNotEmpty) {
+                    return venueSuggestions.where((venue) => 
+                      venue.name.toLowerCase().contains(_venueController.text.toLowerCase())
+                    );
                   }
-                  if (value.length > 100) {
-                    return 'Location or venue must be 100 characters or less';
+                  if (textEditingValue.text.isEmpty) {
+                    return const Iterable<Venue>.empty();
                   }
-                  return null;
+                  return venueSuggestions.where((venue) => 
+                    venue.name.toLowerCase().contains(textEditingValue.text.toLowerCase())
+                  );
+                },
+
+                displayStringForOption: (Venue venue) => venue.name,
+                onSelected: (Venue selection) {
+                  _venueController.text = selection.name;
+                  setState(() {
+                    _rowsController.text = '${selection.rows}';
+                    _seatsController.text = '${selection.seats}';
+                  });
+                },
+                fieldViewBuilder: (
+                  BuildContext context,
+                  TextEditingController fieldController,
+                  FocusNode fieldFocusNode,
+                  VoidCallback onFieldSubmitted,
+                ) {
+                  // Sync the field controller with your main controller
+                  if (_venueController.text != fieldController.text) {
+                    fieldController.text = _venueController.text;
+                  }
+                  
+                  return TextFormField(
+                    controller: fieldController,
+                    focusNode: fieldFocusNode,
+                    maxLength: 100,
+                    decoration: (_selectedCategory == "Theater") ? _buildInputDecoration('Theater', prefixIcon: Icons.location_on) : _buildInputDecoration('Location/Venue', prefixIcon: Icons.location_on),
+                    style: const TextStyle(fontSize: 16),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) return (_selectedCategory == "Theater") ? 'Please enter theater name' : 'Please enter location/venue name';
+                      if (value.length > 100) return (_selectedCategory == "Theater") ? 'Theater name must be 100 characters or less' : 'Location/Venue name must be 100 characters or less';
+                      _venueController.text = value;
+                      return null;
+                    },
+                  );
+                },
+                optionsViewBuilder: (context, onSelected, options) {
+                  return Align(
+                    alignment: Alignment.topLeft,
+                    child: Material(
+                      elevation: 4.0,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxHeight: 200),
+                        child: ListView.builder(
+                          padding: EdgeInsets.zero,
+                          shrinkWrap: true,
+                          itemCount: options.length,
+                          itemBuilder: (BuildContext context, int index) {
+                            final option = options.elementAt(index);
+                            return ListTile(
+                              title: Text(option.name),
+                              onTap: () {
+                                onSelected(option);
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  );
                 },
               ),
+              const SizedBox(height: 16),
+              if(_selectedCategory == "Theater")
+              _buildRowsAndSeatsField(),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _descriptionController,
