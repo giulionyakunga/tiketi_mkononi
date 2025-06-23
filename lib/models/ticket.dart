@@ -14,6 +14,7 @@ class Ticket {
   final int numberOfTickets;
   final String status;
   final String transactionId;
+  final String seatNumber;
   final int scanStatus;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -34,6 +35,7 @@ class Ticket {
     required this.numberOfTickets,
     required this.status,
     required this.transactionId,
+    required this.seatNumber,
     required this.scanStatus,
     required this.createdAt,
     required this.updatedAt,
@@ -57,6 +59,7 @@ class Ticket {
       numberOfTickets: (json['number_of_tickets'] ?? 0).toInt(),
       status: json['status'] ?? '',
       transactionId: json['transaction_id'] ?? '',
+      seatNumber: json['seat_number'] ?? '',
       scanStatus: (json['scan_status'] ?? 0).toInt(),
       createdAt: DateTime.parse(json['createdAt']),
       updatedAt: DateTime.parse(json['updatedAt']),
