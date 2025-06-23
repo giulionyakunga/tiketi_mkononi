@@ -1,6 +1,7 @@
 class ServerMetrics {
   final String timestamp;
   final int requestCount;
+  final int dailyActiveUsers;
   final String avgRequestDurationMs;
   final int errorCount;
   final MemoryUsage memoryUsageMB;
@@ -11,6 +12,7 @@ class ServerMetrics {
   ServerMetrics({
     required this.timestamp,
     required this.requestCount,
+    required this.dailyActiveUsers,
     required this.avgRequestDurationMs,
     required this.errorCount,
     required this.memoryUsageMB,
@@ -23,6 +25,7 @@ class ServerMetrics {
     return ServerMetrics(
       timestamp: json['timestamp'],
       requestCount: json['requestCount'],
+      dailyActiveUsers: json['daily_active_users'],
       avgRequestDurationMs: json['avgRequestDurationMs'],
       errorCount: json['errorCount'],
       memoryUsageMB: MemoryUsage.fromJson(json['memoryUsageMB']),
