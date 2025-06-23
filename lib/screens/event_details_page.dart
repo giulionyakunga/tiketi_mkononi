@@ -2,19 +2,27 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:tiketi_mkononi/models/event.dart';
 import 'package:intl/intl.dart';
+import 'package:tiketi_mkononi/screens/auth/login_screen.dart';
 import 'package:tiketi_mkononi/screens/checkout_page.dart';
 import 'package:tiketi_mkononi/screens/confirm_page.dart';
 import 'package:tiketi_mkononi/screens/edit_event_page.dart';
 import 'package:http/http.dart' as http;
+import 'package:tiketi_mkononi/screens/event_providers.dart';
 import 'package:tiketi_mkononi/screens/event_tickets_page.dart';
 import 'package:tiketi_mkononi/screens/qr_scanner_page.dart';
 import 'package:tiketi_mkononi/screens/set_scanner_page.dart';
+import 'package:tiketi_mkononi/screens/theater_checkout_page.dart';
+import 'package:tiketi_mkononi/screens/theater_confirm_page.dart';
 import 'package:tiketi_mkononi/screens/tickets_page.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/foundation.dart';
+import 'package:share_plus/share_plus.dart';
+
 
 class EventDetailsPage extends StatefulWidget {
   final Event event;
@@ -58,6 +66,9 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
   @override
   void dispose() {
     _webSocketService.disconnect();
+    final container = ProviderScope.containerOf(context);
+    container.read(selectedEventProvider.notifier).state = null;
+
     super.dispose();
   }
 
@@ -129,6 +140,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
     if (!mounted) return;
     try {
       fetchEvent();
+      getTicketsCount();
     } catch (e) {
       debugPrint('Silent update error: $e');
     }
@@ -235,6 +247,19 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
           : DateTime.parse(ticket['updatedAt'] as String);
       return ticketUpdatedAt.isAfter(event.updatedAt);
     });
+  }
+
+  void _handleQRCodeScannerUnavailablility () {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('QR Code Scanning Unavailable'),
+        content: const Text('This feature is only supported in the Tiketi Mkononi mobile app. Please download and open the application on your smartphone to scan QR codes'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+    );
   }
 
   Widget _buildCategoryChip(String category) {
@@ -641,16 +666,40 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => CheckoutPage(
-                              event: event,
-                              refreshMethod: fetchEvent,
-                            ),
+                  if(!(widget.userId > 0)) {
+                    final container = ProviderScope.containerOf(context);
+                    container.read(selectedEventProvider.notifier).state = event;
+
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => LoginScreen(),
+                      ),
+                    );
+                  }else { 
+                    if(event.category.toUpperCase() == "THEATER") {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => TheaterCheckoutPage(
+                            event: event,
+                            refreshMethod: fetchEvent,
                           ),
-                        );
-                      },
+                        ),
+                      );
+                    } else {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => CheckoutPage(
+                            event: event,
+                            refreshMethod: fetchEvent,
+                          ),
+                        ),
+                      );
+                    }
+                  }
+                },
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   backgroundColor:
@@ -677,15 +726,39 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                 onPressed: 
                 // (existsTicketUpdatedAfterEvent(event)) ? null :
                 () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ConfirmPage(
-                        event: event,
-                        refreshMethod: fetchEvent,
+                  if(!(widget.userId > 0)) {
+                    final container = ProviderScope.containerOf(context);
+                    container.read(selectedEventProvider.notifier).state = event;
+
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => LoginScreen(),
                       ),
-                    ),
-                  );
+                    );
+                  }else {
+                    if(event.category.toUpperCase() == "THEATER") {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => TheaterConfirmPage(
+                            event: event,
+                            refreshMethod: fetchEvent,
+                          ),
+                        ),
+                      );
+                    } else {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ConfirmPage(
+                            event: event,
+                            refreshMethod: fetchEvent,
+                          ),
+                        ),
+                      );
+                    }
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -830,7 +903,20 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                   ),
                                 ),
                                 const SizedBox(width: 1),
+                                TextButton(
+                                  onPressed: () {
+                                    final eventId = event.id;
+                                    final link = "https://tiketimkononi.telabs.co.tz/event/$eventId";
 
+                                    Share.share("Check out this event! 🎟️\n$link");
+                                  },
+                                  child: const Icon(
+                                    Icons.share,
+                                    size: 18,
+                                    color: Colors.blue,
+                                  ),
+                                ),
+                                const SizedBox(width: 2),
                                 if (widget.userId == event.userId)
                                 TextButton(
                                   onPressed: (widget.userId == event.userId)
@@ -851,9 +937,12 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                 ),
                                 const SizedBox(width: 1),
 
-                                if ((widget.userId == event.userId) || (widget.userId == event.ticketScannerId))
+                                if ((widget.userId == event.userId) || ((widget.userId != 0) && (widget.userId == event.ticketScannerId)))
                                 TextButton(
                                   onPressed: () {
+                                    (kIsWeb) ? 
+                                    _handleQRCodeScannerUnavailablility()
+                                    :
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
@@ -1043,7 +1132,24 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                           ),
                         ),
                         const SizedBox(height: 50),
-                        if ((widget.userId == event.userId) || (widget.userId == event.ticketScannerId))
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: TextButton(
+                            onPressed: () {
+                              final eventId = event.id;
+                              final link = "https://tiketimkononi.telabs.co.tz/event/$eventId";
+
+                              Share.share("Check out this event! 🎟️\n$link");
+                            },
+                            child: const Icon(
+                              Icons.share,
+                              size: 18,
+                              color: Colors.blue,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        if ((widget.userId == event.userId) || ((widget.userId != 0) && (widget.userId == event.ticketScannerId)))
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                           child: TextButton(
@@ -1053,6 +1159,9 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
                             onPressed: () {
+                              (kIsWeb) ? 
+                              _handleQRCodeScannerUnavailablility()
+                              :
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
