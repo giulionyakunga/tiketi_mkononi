@@ -323,6 +323,17 @@ class _ConfirmPageState extends State<ConfirmPage> with WidgetsBindingObserver {
     }
   }
 
+  String _formatDate(String date) {
+    try {
+      final DateFormat inputFormat = DateFormat('dd-MM-yyyy');
+      final DateTime dateTime = inputFormat.parse(date);
+      final DateFormat outputFormat = DateFormat('EEEE, MMMM d, yyyy');
+      return outputFormat.format(dateTime);
+    } catch (e) {
+      return date;
+    }
+  }
+
   Widget _buildPoweredByLabel() {
     return Container(
       margin: const EdgeInsets.only(top: 20),
@@ -676,6 +687,35 @@ class _ConfirmPageState extends State<ConfirmPage> with WidgetsBindingObserver {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: Text(
+                'SUMMARY',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+            RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'Event: ',
+                    style: const TextStyle(
+                      fontSize: 18, 
+                      color: Colors.grey
+                    ),
+                  ),
+                  TextSpan(
+                    text: '${widget.event.name}',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ]
+              )
+            ),
+            const SizedBox(height: 12),
             RichText(
               text: TextSpan(
                 children: [
@@ -698,6 +738,68 @@ class _ConfirmPageState extends State<ConfirmPage> with WidgetsBindingObserver {
               )
             ),
             const SizedBox(height: 12), // Add some spacing
+            RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'Date: ',
+                    style: const TextStyle(
+                      fontSize: 18, 
+                      color: Colors.grey
+                    ),
+                  ),
+                  TextSpan(
+                    text: ((widget.event.daily_event == 'yes') && (_selectedDate != null)) ? '${_formatDate('${_selectedDate!.day}-${_selectedDate!.month}-${_selectedDate!.year}')}' : '${_formatDate(widget.event.date)}',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ]
+              )
+            ),
+            const SizedBox(height: 12),
+            RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'Time: ',
+                    style: const TextStyle(
+                      fontSize: 18, 
+                      color: Colors.grey
+                    ),
+                  ),
+                  TextSpan(
+                    text: '${widget.event.time}',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ]
+              )
+            ),
+            const SizedBox(height: 12),
+            // Total price row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  '💰 Total',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                Text(              
+                  'TSH${NumberFormat('#,##0').format(totalPrice.toInt())}',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.orange[800],
+                  ),
+                ),
+              ],
+            )
           ],
         ),
       ),
