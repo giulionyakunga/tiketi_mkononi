@@ -322,7 +322,7 @@ class _OrganizerRequestsPageState extends State<OrganizerRequestsPage> {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
-              // Add refresh functionality
+              fetchOrganizerRequests();
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Refreshing requests...')),
               );
