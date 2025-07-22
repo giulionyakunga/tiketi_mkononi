@@ -290,7 +290,7 @@ class _EventsPageState extends State<EventsPage> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           color: isDarkMode
-              ? colorScheme.surfaceVariant.withOpacity(0.8)
+              ? colorScheme.surfaceContainerHighest.withOpacity(0.8)
               : colorScheme.surface.withOpacity(0.9),
           boxShadow: [
             BoxShadow(
@@ -321,7 +321,7 @@ class _EventsPageState extends State<EventsPage> {
               child: Icon(
                 Icons.search_rounded,
                 size: isLargeScreen ? 24 : 20,
-                color: colorScheme.primary,
+                color: isDarkMode ? Colors.white70 : Colors.orange[800]
               ),
             ),
             suffixIcon: _searchQuery.isNotEmpty
@@ -381,7 +381,7 @@ class _EventsPageState extends State<EventsPage> {
         labelStyle: TextStyle(
           color: isSelected ? Colors.white : colorScheme.onSurface,
         ),
-        backgroundColor: colorScheme.surfaceVariant,
+        backgroundColor: colorScheme.surfaceContainerHighest,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
@@ -421,7 +421,7 @@ class _EventsPageState extends State<EventsPage> {
             PopupMenuButton<String>(
               icon: Icon(
                 Icons.filter_list,
-                color: colorScheme.primary,
+                color: Colors.orange[800],
               ),
               onSelected: (String category) {
                 setState(() {
@@ -439,7 +439,7 @@ class _EventsPageState extends State<EventsPage> {
                             (category == 'All' && _selectedCategory == null))
                           Icon(
                             Icons.check,
-                            color: colorScheme.onPrimary,
+                            color: colorScheme.primary,
                           ),
                         const SizedBox(width: 8),
                         Text(category),
@@ -478,6 +478,7 @@ class _EventsPageState extends State<EventsPage> {
                 });
                 await _fetchPage(1);
               },
+              color: Colors.orange[800],
               child: PagedListView<int, Event>(
                 padding: EdgeInsets.symmetric(
                   horizontal: 16,

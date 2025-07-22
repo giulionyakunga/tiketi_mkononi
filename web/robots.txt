@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://tiketimkononi.telabs.co.tz/sitemap.xml

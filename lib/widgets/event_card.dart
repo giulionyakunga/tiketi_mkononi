@@ -406,6 +406,7 @@ class EventCard extends StatelessWidget {
                                     MaterialPageRoute(
                                       builder: (context) => TheaterCheckoutPage(
                                         event: event,
+                                        theaterName: 'Checkout',
                                         refreshMethod: refreshMethod,
                                       ),
                                     ),
@@ -425,6 +426,7 @@ class EventCard extends StatelessWidget {
                                     MaterialPageRoute(
                                       builder: (context) => TheaterConfirmPage(
                                         event: event,
+                                        theaterName: 'Confirm',
                                         refreshMethod: refreshMethod,
                                       ),
                                     ),

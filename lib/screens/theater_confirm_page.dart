@@ -9,6 +9,7 @@ import 'package:tiketi_mkononi/models/event.dart';
 import 'package:http/http.dart' as http;
 import 'package:tiketi_mkononi/screens/tickets_page.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
+import 'package:tiketi_mkononi/widgets/other_events.dart';
 
 class Venue {
   String name;
@@ -24,11 +25,13 @@ class Venue {
 
 class TheaterConfirmPage extends StatefulWidget {
   final Event event;
+  final String theaterName;
   final Function refreshMethod;
 
   const TheaterConfirmPage({
     super.key, 
-    required this.event, 
+    required this.event,
+    required this.theaterName,
     required this.refreshMethod
   });
 
@@ -40,6 +43,7 @@ class _TheaterConfirmPageState extends State<TheaterConfirmPage> with WidgetsBin
   int userId = 0;
   late final StorageService _storageService;
   int eventId = 0;
+  int eventUserId = 0; 
   int quantity = 1;
   double ticketPrice = 0.0;
   String ticketTypeName = "";
@@ -53,6 +57,7 @@ class _TheaterConfirmPageState extends State<TheaterConfirmPage> with WidgetsBin
   bool _isAppActive = true;
   late Venue _venue;
   Timer? _timer;
+  List<Event> eventsList = [];
 
   DateTime? _selectedDate;
   DateTime _selectedDate2 = DateTime.now();
@@ -226,7 +231,7 @@ class _TheaterConfirmPageState extends State<TheaterConfirmPage> with WidgetsBin
   bool checkNumberTickets() {
     if(_selectedSeats.length < quantity){
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please select more ticket(s)')),
+        SnackBar(content: Text('Please select more seat(s)')),
       );
       return false;
     }else if(_selectedSeats.length > quantity){
@@ -250,12 +255,15 @@ class _TheaterConfirmPageState extends State<TheaterConfirmPage> with WidgetsBin
   }
 
   Future<void> _handleConfirming({bool useDNS = true}) async {
+    if(_isLoading) return;
+
     if (checkTicketAvailability()){
       if (checkNumberTickets()){
 
         final Map<String, dynamic> requestBody = {
           'user_id': userId,
           'event_id': eventId,
+          'event_user_id': eventUserId,
           'quantity': quantity,
           'ticket_price': ticketPrice,
           'ticket_type': ticketTypeName,
@@ -277,7 +285,11 @@ class _TheaterConfirmPageState extends State<TheaterConfirmPage> with WidgetsBin
 
           if (response.statusCode == 200) {
             if ((response.body == "Confirmation failed, Plz check your account!") || 
-                response.body.contains("We currently have only")) {
+                response.body.contains("We currently have only") || response.body.contains("Samahani: Someone is already booking seat")) {
+              _selectedSeats.clear();
+              setState(() {
+                quantity = 1;
+              });
               _showSnackBar(response.body);
             } else if (response.body == "Confirmed!" || response.body == "You have already confirmed for this event!") {
                 _showSnackBar(response.body);
@@ -287,6 +299,9 @@ class _TheaterConfirmPageState extends State<TheaterConfirmPage> with WidgetsBin
                 });
                 widget.refreshMethod();
                 _selectedSeats.clear();
+                setState(() {
+                  quantity = 1;
+                });
                 getBookedSeats();
                 fetchTickets();
             }
@@ -357,10 +372,6 @@ class _TheaterConfirmPageState extends State<TheaterConfirmPage> with WidgetsBin
   }
 
   Future<void> getBookedSeats({bool useDNS = true}) async {
-    setState(() {
-      _isLoading = true;
-    });
-
     try {
       final Uri uri = useDNS ? Uri.parse('${backend_url}api/booked_seats/${widget.event.id}') // Original URL 
       : Uri.parse('${backend_url_with_fallback_ip}api/booked_seats/${widget.event.id}'); // Use IP
@@ -393,10 +404,6 @@ class _TheaterConfirmPageState extends State<TheaterConfirmPage> with WidgetsBin
       }
     } catch (e) {
       debugPrint('Error getting notification preferences: $e');
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
     }
   }
 
@@ -434,6 +441,17 @@ class _TheaterConfirmPageState extends State<TheaterConfirmPage> with WidgetsBin
       }
     } catch (e) {
       debugPrint('Error fetching tickets: $e');
+    }
+  }
+
+  String _formatDate(String date) {
+    try {
+      final DateFormat inputFormat = DateFormat('dd-MM-yyyy');
+      final DateTime dateTime = inputFormat.parse(date);
+      final DateFormat outputFormat = DateFormat('EEEE, MMMM d, yyyy');
+      return outputFormat.format(dateTime);
+    } catch (e) {
+      return date;
     }
   }
 
@@ -714,13 +732,35 @@ class _TheaterConfirmPageState extends State<TheaterConfirmPage> with WidgetsBin
     _isAppActive = state == AppLifecycleState.resumed;
   }
 
+    List<Event> _getFilteredEvents() {
+    return eventsList.where((event) =>
+            ((event.userId == userId) && (event.category.toUpperCase() == "THEATER") && (event.status.toUpperCase() == "ACTIVE") && (event.id != widget.event.id)))
+            .toList();
+  }
+
+  Future<void> _loadCachedEvents() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? cachedData = prefs.getString('cached_events');
+
+    if (cachedData != null) {
+      List<dynamic> dataList = jsonDecode(cachedData);
+      setState(() {
+        eventsList = dataList.map((json) => Event.fromJson(json)).toList();
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final filteredEvents = _getFilteredEvents();
     final screenWidth = MediaQuery.of(context).size.width;
     final isLargeScreen = screenWidth > 600;
     final isVeryLargeScreen = screenWidth > 1200;
 
     eventId = widget.event.id;
+    eventUserId = widget.event.userId;
 
     if (ticketTypeName == "") {
       var availableTickets = widget.event.ticketTypes.where((ticket) => ticket.soldTickets < ticket.numberOfTickets).toList();
@@ -743,7 +783,8 @@ class _TheaterConfirmPageState extends State<TheaterConfirmPage> with WidgetsBin
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Confirm'),
+        title: (userId == widget.event.userId) ? Text('${widget.theaterName}') : const Text('Confirm'),
+        centerTitle: ((userId == widget.event.userId) && isLargeScreen) ? true : false,
         backgroundColor: const Color.fromARGB(255, 240, 244, 247),
         actions: [
           if(_confirmed)
@@ -751,7 +792,7 @@ class _TheaterConfirmPageState extends State<TheaterConfirmPage> with WidgetsBin
             icon: Icon(
               Icons.logout,
             ),
-            label: Text('Tickets($quantity)', style: TextStyle(
+            label: Text('Tickets', style: TextStyle(
               fontSize: 14,
             )
             ),
@@ -788,6 +829,8 @@ class _TheaterConfirmPageState extends State<TheaterConfirmPage> with WidgetsBin
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if ((userId == widget.event.userId) && (filteredEvents.isNotEmpty))
+                _buildOtherEventsSection(isDarkMode, filteredEvents, isLargeScreen),
                 _buildEventDetailsCard(isLargeScreen),
                 const SizedBox(height: 20),
                 _buildTicketSelectionCard(),
@@ -802,7 +845,7 @@ class _TheaterConfirmPageState extends State<TheaterConfirmPage> with WidgetsBin
                 const SizedBox(height: 20),
                 _buildSummaryCard(isLargeScreen),
                 const SizedBox(height: 20),
-                _buildCheckoutButton(),
+                _buildConfirmButton(),
                 const SizedBox(height: 10),
                 _buildPoweredByLabel(),
               ],
@@ -810,6 +853,37 @@ class _TheaterConfirmPageState extends State<TheaterConfirmPage> with WidgetsBin
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildOtherEventsSection(bool isDarkMode, List<Event> filteredEvents, bool isWideScreen) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Other Cinemas',
+                style: TextStyle(
+                  fontSize: isWideScreen ? 24 : 20,
+                  fontWeight: FontWeight.bold,
+                  color: isDarkMode ? Colors.white : Colors.black87,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        OtherEvents(
+          events: filteredEvents,
+          userId: userId,
+          refreshMethod: () => {},
+          useDNS: true,
+        ),
+      ],
     );
   }
 
@@ -1025,6 +1099,35 @@ class _TheaterConfirmPageState extends State<TheaterConfirmPage> with WidgetsBin
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: Text(
+                'SUMMARY',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+            RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'Cinema: ',
+                    style: const TextStyle(
+                      fontSize: 18, 
+                      color: Colors.grey
+                    ),
+                  ),
+                  TextSpan(
+                    text: '${widget.event.name}',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ]
+              )
+            ),
+            const SizedBox(height: 12),
             RichText(
               text: TextSpan(
                 children: [
@@ -1047,19 +1150,81 @@ class _TheaterConfirmPageState extends State<TheaterConfirmPage> with WidgetsBin
               )
             ),
             const SizedBox(height: 12), // Add some spacing
+            RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'Date: ',
+                    style: const TextStyle(
+                      fontSize: 18, 
+                      color: Colors.grey
+                    ),
+                  ),
+                  TextSpan(
+                    text: ((widget.event.daily_event == 'yes') && (_selectedDate != null)) ? '${_formatDate('${_selectedDate!.day}-${_selectedDate!.month}-${_selectedDate!.year}')}' : '${_formatDate(widget.event.date)}',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ]
+              )
+            ),
+            const SizedBox(height: 12),
+            RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'Time: ',
+                    style: const TextStyle(
+                      fontSize: 18, 
+                      color: Colors.grey
+                    ),
+                  ),
+                  TextSpan(
+                    text: '${widget.event.time}',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ]
+              )
+            ),
+            const SizedBox(height: 12),
+            // Total price row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  '💰 Total',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                Text(              
+                  'TSH${NumberFormat('#,##0').format(totalPrice.toInt())}',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.orange[800],
+                  ),
+                ),
+              ],
+            )
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCheckoutButton() {
+  Widget _buildConfirmButton() {
     return SizedBox(
       width: double.infinity,
       height: 50,
       child: (_confirmed || full) ?
       ElevatedButton(
-        onPressed: null,
+        onPressed: (full) ? null : _handleConfirming,
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.orange[800],
           disabledBackgroundColor: Colors.orange[800],

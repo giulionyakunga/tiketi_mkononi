@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -72,7 +73,8 @@ class TiketiMkononiApp extends StatelessWidget {
     return MaterialApp.router(
       title: 'Tiketi Mkononi',
       theme: ThemeData(
-        primarySwatch: Colors.orange,
+        primarySwatch: Colors.orange, // Still use the full MaterialColor
+        primaryColor: Colors.orange[800], // But override the primary color
         useMaterial3: true,
       ),
       routerConfig: _router,
@@ -121,23 +123,30 @@ class _MainScreenState extends State<MainScreen> {
         selectedIndex: _selectedIndex,
         onDestinationSelected: (int index) {
           setState(() => _selectedIndex = index);
-          context.go(_routes[index]); // ✅ URL will update
+          if (kIsWeb) context.go(_routes[index]); // ✅ URL will update
         },
-        destinations: const [
+        // This makes the selected icon color change to orange
+        indicatorColor: Colors.orange.withOpacity(0.2), // Optional: adds an orange highlight
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow, // Optional: always show labels
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.home),
+            icon: Icon(Icons.home, color: _selectedIndex == 0 ?Colors.orange[800] : Colors.grey),
+            selectedIcon: Icon(Icons.home, color:Colors.orange[800]),
             label: 'Home',
           ),
           NavigationDestination(
             icon: Icon(Icons.event),
+            selectedIcon: Icon(Icons.event, color: Colors.orange[800]),
             label: 'Events',
           ),
           NavigationDestination(
             icon: Icon(Icons.confirmation_number),
+            selectedIcon: Icon(Icons.confirmation_number, color: Colors.orange[800]),
             label: 'My Tickets',
           ),
           NavigationDestination(
             icon: Icon(Icons.person),
+            selectedIcon: Icon(Icons.person, color: Colors.orange[800]),
             label: 'Profile',
           ),
         ],

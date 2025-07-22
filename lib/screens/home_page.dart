@@ -7,12 +7,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:tiketi_mkononi/screens/events_page.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
-import 'package:tiketi_mkononi/widgets/featured_events.dart';
 import 'package:tiketi_mkononi/widgets/category_grid.dart';
+import 'package:tiketi_mkononi/widgets/category_grid2.dart';
+import 'package:tiketi_mkononi/widgets/featured_events.dart';
 import 'package:tiketi_mkononi/models/event.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'platform_detector.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -170,7 +172,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     String installedVersion = packageInfo.version;
 
     String latestVersion = "";
-    String operatingSystem = Platform.operatingSystem; // Hardcoded for example
+    String operatingSystem = "";
+    if(kIsWeb) {
+      operatingSystem = 'web';
+    } else {
+      operatingSystem = Platform.operatingSystem; // Hardcoded for example
+    }
 
     try {
       final Uri uri = useDNS ? Uri.parse('${backend_url}api/application_information/$userId/$installedVersion/$operatingSystem') // Original URL 
@@ -224,18 +231,25 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-Future<void> _launchStore() async {
-  const appStoreUrl = "https://apps.apple.com/app/id6746575990"; // iOS
-  const playStoreUrl = "https://play.google.com/store/apps/details?id=com.telabs.tiketi_mkononi"; // Android
+  Future<void> _launchStore() async {  
+    const appStoreUrl = "https://apps.apple.com/app/id6746575990"; // iOS
+    const playStoreUrl = "https://play.google.com/store/apps/details?id=com.telabs.tiketi_mkononi"; // Android
 
-  final Uri storeUrl = Uri.parse(
-    Platform.isAndroid ? playStoreUrl : appStoreUrl,
-  );
+    Uri storeUrl;
+    if(kIsWeb) {
+      storeUrl = Uri.parse(
+        isAndroidWeb() ? playStoreUrl : appStoreUrl,
+      );
+    }else {
+      storeUrl = Uri.parse(
+        Platform.isAndroid ? playStoreUrl : appStoreUrl,
+      );
+    }
 
-  if (!await launchUrl(storeUrl, mode: LaunchMode.externalApplication)) {
-    throw Exception("Could not launch $storeUrl");
+    if (!await launchUrl(storeUrl, mode: LaunchMode.externalApplication)) {
+      throw Exception("Could not launch $storeUrl");
+    }
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -247,61 +261,114 @@ Future<void> _launchStore() async {
 
     return Scaffold(
       appBar: isWideScreen
-          ? null // No app bar for wide screens (we'll use our own)
-          : AppBar(
-              title: Text(
-                'Tiketi Mkononi',
-                style: TextStyle(
-                  fontWeight: FontWeight.normal,
-                  fontSize: 24,
-                  color: Colors.orange[800],
-                ),
-              ),
-              centerTitle: false,
-              elevation: 0,
-              flexibleSpace: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Color.fromARGB(255, 240, 244, 247),
-                      Color.fromARGB(255, 240, 244, 247)
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-              ),
-              actions: [
-                _isNewVerionAvailable ?
-                IconButton(
-                  icon: const Icon(Icons.system_update_rounded),
-                  color: Colors.red,
-                  onPressed: () => 
-                  // New update available
-                  showDialog(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: const Text("Update Available"),
-                      content: const Text("A new version of the app is available. Please update to enjoy the latest features."),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text("Later"),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                            _launchStore();
-                          },
-                          child: const Text("Update Now"),
-                        ),
-                      ],
-                    ),
-                  ),
-                ) : 
-                Text("")
+      ? null // No app bar for wide screens (we'll use our own)
+      : AppBar(
+        title: Text(
+          'Tiketi Mkononi',
+          style: TextStyle(
+            fontWeight: FontWeight.normal,
+            fontSize: 24,
+            color: Colors.orange[800],
+          ),
+        ),
+        centerTitle: false,
+        elevation: 0,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Color.fromARGB(255, 240, 244, 247),
+                Color.fromARGB(255, 240, 244, 247)
               ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
+          ),
+        ),
+        actions: [
+          if(!kIsWeb && _isNewVerionAvailable)
+          IconButton(
+            icon: const Icon(Icons.system_update_rounded),
+            color: Colors.blue,
+            onPressed: () => 
+            // New update available
+            showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text("Update Available"),
+                content: const Text("A new version of the app is available. Please update to enjoy the latest features."),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("Later"),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _launchStore();
+                    },
+                    child: const Text("Update Now"),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if(kIsWeb && isAndroidWeb())
+          IconButton(
+            icon: const Icon(Icons.system_update_rounded),
+            color: Colors.blue,
+            onPressed: () => 
+            // New update available
+            showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text("Get App on Google Play"),
+                content: const Text("Get the mobile app for a better experience and more features 🚀"),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("Later"),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _launchStore();
+                    },
+                    child: const Text("Get app"),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if(kIsWeb && isIOSWeb())
+          IconButton(
+            icon: const Icon(Icons.system_update_rounded),
+            color: Colors.green,
+            onPressed: () => 
+            // New update available
+            showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text("Get App on the App Store"),
+                content: const Text("Get the mobile app for a better experience and more features 🚀"),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("Later"),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _launchStore();
+                    },
+                    child: const Text("Get app"),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
       body: RefreshIndicator(
         onRefresh: fetchEvents,
         color: Colors.orange[800],
@@ -494,7 +561,12 @@ Future<void> _launchStore() async {
           ),
         ),
         const SizedBox(height: 12),
-        CategoryGrid(
+        (!isWideScreen) ? CategoryGrid(
+          events: filteredEvents,
+          userId: userId,
+          // isWideScreen: isWideScreen,
+        ) :
+        CategoryGrid2(
           events: filteredEvents,
           userId: userId,
           // isWideScreen: isWideScreen,

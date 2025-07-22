@@ -9,6 +9,7 @@ import 'package:tiketi_mkononi/models/event.dart';
 import 'package:http/http.dart' as http;
 import 'package:tiketi_mkononi/screens/tickets_page.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
+import 'package:tiketi_mkononi/widgets/other_events.dart';
 
 class Venue {
   String name;
@@ -24,11 +25,13 @@ class Venue {
 
 class TheaterCheckoutPage extends StatefulWidget {
   final Event event;
+  final String theaterName;
   final Function refreshMethod;
 
   const TheaterCheckoutPage({
     super.key, 
-    required this.event, 
+    required this.event,
+    required this.theaterName,
     required this.refreshMethod
   });
 
@@ -38,7 +41,7 @@ class TheaterCheckoutPage extends StatefulWidget {
 
 class _TheaterCheckoutPageState extends State<TheaterCheckoutPage> with WidgetsBindingObserver {
   int userId = 0;
-  int trials = 10;
+  int trials = 15;
   late final StorageService _storageService;
   int eventId = 0; 
   int quantity = 1;
@@ -52,12 +55,15 @@ class _TheaterCheckoutPageState extends State<TheaterCheckoutPage> with WidgetsB
   final _phoneNumberController = TextEditingController();
   bool _isLoading = false;
   bool _payed = false;
+  bool _sold = false;
   bool soldOut = false;
   bool __processing_payment = false;
+  bool _processing_selling = false;
   Timer? _timer;
   bool _isAppActive = true;
   final _formKey = GlobalKey<FormState>();
   late Venue _venue;
+  List<Event> eventsList = [];
 
   DateTime? _selectedDate;
   DateTime _selectedDate2 = DateTime.now();
@@ -86,6 +92,7 @@ class _TheaterCheckoutPageState extends State<TheaterCheckoutPage> with WidgetsB
 
   Future<void> _initializeServices() async {
     final prefs = await SharedPreferences.getInstance();
+    await _loadCachedEvents();
     _storageService = StorageService(prefs);
     _loadUserProfile();
   }
@@ -233,7 +240,7 @@ class _TheaterCheckoutPageState extends State<TheaterCheckoutPage> with WidgetsB
   bool checkNumberTickets() {
     if(_selectedSeats.length < quantity){
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please select more ticket(s)')),
+        SnackBar(content: Text('Please select more seat(s)')),
       );
       return false;
     }else if(_selectedSeats.length > quantity){
@@ -249,6 +256,8 @@ class _TheaterCheckoutPageState extends State<TheaterCheckoutPage> with WidgetsB
   }
 
   Future<void> _handlePaying({bool useDNS = true}) async {
+    if(_isLoading) return;
+
     if (_formKey.currentState!.validate() && checkTicketAvailability() && checkNumberTickets()){
       if(widget.event.daily_event == 'yes') {
         if (_selectedDate == null) {
@@ -286,7 +295,11 @@ class _TheaterCheckoutPageState extends State<TheaterCheckoutPage> with WidgetsB
         if (response.statusCode == 200) {
           if ((response.body == "Payment failed, Plz check your account!") || 
               (response.body == "Processing payment failed!") || 
-              response.body.contains("We currently have only")) {
+              response.body.contains("We currently have only") || response.body.contains("Samahani: Someone is already booking seat")) {
+            _selectedSeats.clear();
+            setState(() {
+              quantity = 1;
+            });
             _showSnackBar(response.body);
           }
           else if (response.body == "Invalid msisdn!") {
@@ -297,15 +310,20 @@ class _TheaterCheckoutPageState extends State<TheaterCheckoutPage> with WidgetsB
               __processing_payment = true;
               _payed = false;
             });
-          } else if (response.body == "Payed successfully!" || response.body == "You have already booked for this event!") {
+          } else if (response.body == "Payed successfully!") {
             setState(() {
               _payed = true;
               __processing_payment = false;
             });
             widget.refreshMethod();
             _selectedSeats.clear();
+            setState(() {
+              quantity = 1;
+            });
             getBookedSeats();
             fetchTickets();
+          } else {
+            _showSnackBar(response.body);
           }
         } else if (response.statusCode == 302) {
           _handleHTTPRedirect();
@@ -334,6 +352,90 @@ class _TheaterCheckoutPageState extends State<TheaterCheckoutPage> with WidgetsB
         _showSnackBar('An error occurred: $e');
       } finally {
         setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _handleSelling({bool useDNS = true}) async {
+    if(_isLoading) return;
+
+    if (checkTicketAvailability()){
+      if (checkNumberTickets()){
+
+        final Map<String, dynamic> requestBody = {
+          'user_id': userId,
+          'event_id': eventId,
+          'quantity': quantity,
+          'ticket_price': ticketPrice,
+          'ticket_type': ticketTypeName,
+          "selected_seats":"$_selectedSeats",
+          'date': (widget.event.daily_event == 'yes') ? _selectedDate?.toIso8601String()  : null ,
+        };
+
+        try {
+          setState(() {
+            _isLoading = true;
+            _processing_selling = true;
+          });
+
+          final Uri uri = useDNS ? Uri.parse('${backend_url}api/confirm') // Original URL 
+          : Uri.parse('${backend_url_with_fallback_ip}api/confirm'); // Use IP
+
+          final response = await http.post(
+            uri,
+            headers: {'Content-Type': 'application/json; charset=UTF-8'},
+            body: jsonEncode(requestBody),
+          );
+
+          if (response.statusCode == 200) {
+            if ((response.body == "Confirmation failed, Plz check your account!") || 
+                response.body.contains("We currently have only")) {
+              _showSnackBar(response.body);
+            } else if (response.body == "Confirmed!" || response.body == "You have already confirmed for this event!") {
+                _showSnackBar(response.body);
+                setState(() {
+                  _sold = true;
+                  _processing_selling = false;
+                });
+                widget.refreshMethod();
+                _selectedSeats.clear();
+                setState(() {
+                  quantity = 1;
+                });
+                getBookedSeats();
+                fetchTickets();
+            }
+          }  else if (response.statusCode == 302) {
+            _handleHTTPRedirect();
+          } else {
+            _showSnackBar('Request failed: ${response.statusCode}');
+          }
+        } on SocketException catch (e) {
+          debugPrint('Network error occurred:');
+          debugPrint('- Exception type: ${e.runtimeType}');
+          debugPrint('- Message: ${e.message}');
+          
+          if (e.osError != null) {
+            debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+            debugPrint('  - OS message: ${e.osError!.message}');
+
+            // Retry with IP if DNS fails (errno = 7) and not already retrying
+            if (e.osError!.errorCode == 7 && useDNS) {
+              debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+              await _handleSelling(useDNS: false); // Recursive retry
+              return;
+            }
+          }
+
+          _handleSocketException(e);
+        } catch (e) {
+          _showSnackBar('An error occurred: $e');
+        } finally {
+          setState(() {
+            _isLoading = false;
+            _processing_selling = false;
+          });
+        }
       }
     }
   }
@@ -387,7 +489,7 @@ class _TheaterCheckoutPageState extends State<TheaterCheckoutPage> with WidgetsB
 
     if(trials <= 0){
       setState(() {
-        trials = 10;
+        trials = 15;
         __processing_payment = false;
       });
     }
@@ -407,7 +509,7 @@ class _TheaterCheckoutPageState extends State<TheaterCheckoutPage> with WidgetsB
           if(__processing_payment) {
             _showSnackBar("Muamala Haujakamilika: Hauna salio la kutosha, Unaweza kuweka namba yenye salio hapo juu");
             setState(() {
-              trials = 10;
+              trials = 15;
               __processing_payment = false;
             });
           }
@@ -416,7 +518,7 @@ class _TheaterCheckoutPageState extends State<TheaterCheckoutPage> with WidgetsB
           if(__processing_payment) {
             _showSnackBar("Muamala Haujakamilika: Mfumo hauruhusu malipo kwa M-Pesa, Weka namba ya mtandao mwingine yenye salio hapo juu");
             setState(() {
-              trials = 10;
+              trials = 15;
               __processing_payment = false;
             });
           }
@@ -425,7 +527,7 @@ class _TheaterCheckoutPageState extends State<TheaterCheckoutPage> with WidgetsB
           if(__processing_payment) {
             _showSnackBar("Muamala Haujakamilika: PIN uliyoingiza sio sahihi");
             setState(() {
-              trials = 10;
+              trials = 15;
               __processing_payment = false;
             });
           }
@@ -434,7 +536,7 @@ class _TheaterCheckoutPageState extends State<TheaterCheckoutPage> with WidgetsB
           if(__processing_payment) {
             _showSnackBar("Muamala Haujakamilika: Akaunti yako imezuiliwa");
             setState(() {
-              trials = 10;
+              trials = 15;
               __processing_payment = false;
             });
           }
@@ -443,7 +545,7 @@ class _TheaterCheckoutPageState extends State<TheaterCheckoutPage> with WidgetsB
           if(__processing_payment) {
             _showSnackBar("Muamala Haujakamilika: Failed in Min and Max Amount");
             setState(() {
-              trials = 10;
+              trials = 15;
               __processing_payment = false;
             });
           }
@@ -459,6 +561,9 @@ class _TheaterCheckoutPageState extends State<TheaterCheckoutPage> with WidgetsB
           });
           widget.refreshMethod();
           _selectedSeats.clear();
+          setState(() {
+            quantity = 1;
+          });
           getBookedSeats();
           fetchTickets();
         }
@@ -487,10 +592,6 @@ class _TheaterCheckoutPageState extends State<TheaterCheckoutPage> with WidgetsB
   }
 
   Future<void> getBookedSeats({bool useDNS = true}) async {
-    setState(() {
-      _isLoading = true;
-    });
-
     try {
       final Uri uri = useDNS ? Uri.parse('${backend_url}api/booked_seats/${widget.event.id}') // Original URL 
       : Uri.parse('${backend_url_with_fallback_ip}api/booked_seats/${widget.event.id}'); // Use IP
@@ -523,10 +624,6 @@ class _TheaterCheckoutPageState extends State<TheaterCheckoutPage> with WidgetsB
       }
     } catch (e) {
       debugPrint('Error getting notification preferences: $e');
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
     }
   }
 
@@ -572,6 +669,17 @@ class _TheaterCheckoutPageState extends State<TheaterCheckoutPage> with WidgetsB
       return '255${rawNumber.substring(1)}';
     }
     return rawNumber; 
+  }
+
+  String _formatDate(String date) {
+    try {
+      final DateFormat inputFormat = DateFormat('dd-MM-yyyy');
+      final DateTime dateTime = inputFormat.parse(date);
+      final DateFormat outputFormat = DateFormat('EEEE, MMMM d, yyyy');
+      return outputFormat.format(dateTime);
+    } catch (e) {
+      return date;
+    }
   }
 
   Widget _buildPoweredByLabel() {
@@ -851,8 +959,31 @@ class _TheaterCheckoutPageState extends State<TheaterCheckoutPage> with WidgetsB
     _isAppActive = state == AppLifecycleState.resumed;
   }
 
+  List<Event> _getFilteredEvents() {
+    return eventsList.where((event) =>
+            // ((event.userId == userId)))
+            ((event.userId == userId) && (event.category.toUpperCase() == "THEATER") && (event.status.toUpperCase() == "ACTIVE") && (event.id != widget.event.id)))
+            .toList();
+  }
+
+  Future<void> _loadCachedEvents() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? cachedData = prefs.getString('cached_events');
+
+    if (cachedData != null) {
+      List<dynamic> dataList = jsonDecode(cachedData);
+      setState(() {
+        eventsList = dataList.map((json) => Event.fromJson(json)).toList();
+      });
+    }
+  }
+
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final filteredEvents = _getFilteredEvents();
     final screenWidth = MediaQuery.of(context).size.width;
     final isLargeScreen = screenWidth > 600;
     final isVeryLargeScreen = screenWidth > 1200;
@@ -880,15 +1011,16 @@ class _TheaterCheckoutPageState extends State<TheaterCheckoutPage> with WidgetsB
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Checkout'),
+        title: (userId == widget.event.userId) ? Text('${widget.theaterName}') : const Text('Checkout'),
+        centerTitle: ((userId == widget.event.userId) && isLargeScreen) ? true : false,
         backgroundColor: const Color.fromARGB(255, 240, 244, 247),
         actions: [
-          if(_payed)
+          if(_payed || _sold)
           ElevatedButton.icon(
             icon: Icon(
               Icons.logout,
             ),
-            label: Text('Tickets($quantity)', style: TextStyle(
+            label: Text('Tickets', style: TextStyle(
               fontSize: 14,
             )
             ),
@@ -925,6 +1057,8 @@ class _TheaterCheckoutPageState extends State<TheaterCheckoutPage> with WidgetsB
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if ((userId == widget.event.userId) && (filteredEvents.isNotEmpty))
+                _buildOtherEventsSection(isDarkMode, filteredEvents, isLargeScreen),
                 _buildEventDetailsCard(isLargeScreen),
                 const SizedBox(height: 20),
                 _buildTicketSelectionCard(),
@@ -943,7 +1077,8 @@ class _TheaterCheckoutPageState extends State<TheaterCheckoutPage> with WidgetsB
                 const SizedBox(height: 20),
                 _buildSummaryCard(isVeryLargeScreen),
                 const SizedBox(height: 20),
-                _buildCheckoutButton(),
+                (widget.event.userId == userId) ?
+                _buildSellButton() : _buildCheckoutButton(),
                 const SizedBox(height: 10),
                 _buildPoweredByLabel(),
               ],
@@ -951,6 +1086,37 @@ class _TheaterCheckoutPageState extends State<TheaterCheckoutPage> with WidgetsB
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildOtherEventsSection(bool isDarkMode, List<Event> filteredEvents, bool isWideScreen) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Other Cinemas',
+                style: TextStyle(
+                  fontSize: isWideScreen ? 24 : 20,
+                  fontWeight: FontWeight.bold,
+                  color: isDarkMode ? Colors.white : Colors.black87,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        OtherEvents(
+          events: filteredEvents,
+          userId: userId,
+          refreshMethod: () => {},
+          useDNS: true,
+        ),
+      ],
     );
   }
 
@@ -1271,6 +1437,35 @@ class _TheaterCheckoutPageState extends State<TheaterCheckoutPage> with WidgetsB
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: Text(
+                'SUMMARY',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+            RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'Cinema: ',
+                    style: const TextStyle(
+                      fontSize: 18, 
+                      color: Colors.grey
+                    ),
+                  ),
+                  TextSpan(
+                    text: '${widget.event.name}',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ]
+              )
+            ),
+            const SizedBox(height: 12),
             RichText(
               text: TextSpan(
                 children: [
@@ -1293,6 +1488,50 @@ class _TheaterCheckoutPageState extends State<TheaterCheckoutPage> with WidgetsB
               )
             ),
             const SizedBox(height: 12), // Add some spacing
+            RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'Date: ',
+                    style: const TextStyle(
+                      fontSize: 18, 
+                      color: Colors.grey
+                    ),
+                  ),
+                  TextSpan(
+                    text: ((widget.event.daily_event == 'yes') && (_selectedDate != null)) ? '${_formatDate('${_selectedDate!.day}-${_selectedDate!.month}-${_selectedDate!.year}')}' : '${_formatDate(widget.event.date)}',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ]
+              )
+            ),
+            const SizedBox(height: 12),
+            RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'Time: ',
+                    style: const TextStyle(
+                      fontSize: 18, 
+                      color: Colors.grey
+                    ),
+                  ),
+                  TextSpan(
+                    text: '${widget.event.time}',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ]
+              )
+            ),
+            const SizedBox(height: 12),
             // Total price row
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1338,7 +1577,7 @@ class _TheaterCheckoutPageState extends State<TheaterCheckoutPage> with WidgetsB
           ),
         ),
       ) :
-      __processing_payment ? 
+      (__processing_payment) ? 
       ElevatedButton(
         onPressed: null,
         style: ElevatedButton.styleFrom(
@@ -1367,6 +1606,66 @@ class _TheaterCheckoutPageState extends State<TheaterCheckoutPage> with WidgetsB
           ? const CircularProgressIndicator(color: Colors.white)
           : const Text(
               'Pay Now', 
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.white,
+              ),
+            ),
+      ),
+    );
+  }
+
+  Widget _buildSellButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 50,
+      child: (_sold || soldOut) ?
+      ElevatedButton(
+        onPressed: (soldOut) ? null : _handleSelling,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.orange[800],
+          disabledBackgroundColor: Colors.orange[800],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        child: Text(
+          soldOut ? "Sold Out" : 'Sold',
+          style: const TextStyle(
+            fontSize: 16,
+            color: Colors.white,
+          ),
+        ),
+      ) :
+      _processing_selling ? 
+      ElevatedButton(
+        onPressed: null,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.orange[800],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        child: const Text(
+          'Please wait...',
+          style: TextStyle(
+            fontSize: 16,
+            color: Colors.white,
+          ),
+        ),
+      ) :
+      ElevatedButton(
+        onPressed: _isLoading ? null : _handleSelling,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.orange[800],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        child: _isLoading 
+          ? const CircularProgressIndicator(color: Colors.white)
+          :  Text(
+              'Sell',
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.white,

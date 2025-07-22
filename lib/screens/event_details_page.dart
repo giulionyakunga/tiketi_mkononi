@@ -2,8 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:tiketi_mkononi/models/event.dart';
 import 'package:intl/intl.dart';
@@ -14,11 +15,13 @@ import 'package:tiketi_mkononi/screens/edit_event_page.dart';
 import 'package:http/http.dart' as http;
 import 'package:tiketi_mkononi/screens/event_providers.dart';
 import 'package:tiketi_mkononi/screens/event_tickets_page.dart';
+import 'package:go_router/go_router.dart';
 import 'package:tiketi_mkononi/screens/qr_scanner_page.dart';
 import 'package:tiketi_mkononi/screens/set_scanner_page.dart';
 import 'package:tiketi_mkononi/screens/theater_checkout_page.dart';
 import 'package:tiketi_mkononi/screens/theater_confirm_page.dart';
 import 'package:tiketi_mkononi/screens/tickets_page.dart';
+import 'package:tiketi_mkononi/services/storage_service.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/foundation.dart';
@@ -40,10 +43,11 @@ class EventDetailsPage extends StatefulWidget {
   });
 
   @override
-  State<EventDetailsPage> createState() => _EventDetailsPageState();
+  State<EventDetailsPage> createState() => _EventDetailsPageState(); 
 }
 
 class _EventDetailsPageState extends State<EventDetailsPage> {
+  int userId = 0;
   Event? event2;
   double? _imageHeight;
   double? _imageWidth;
@@ -54,14 +58,49 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
   String organiser_phone_number = "";
   int eventTicketsCount = 0;
   Map<String, dynamic> ticketTypesTicketsCount = {};
+  late final StorageService _storageService;
+  bool isDeepLink = false;
 
   @override
   void initState() {
     super.initState();
+    if(widget.userId > 0) {
+      userId = widget.userId;
+    }else {
+      _initializeServices();
+    }
+    
     getTicketsCount();
     fetchEvent();
     _loadImageDimensions();
     _connectWebSocket();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    try {
+
+      final state = GoRouterState.of(context);
+
+      isDeepLink = ((state.extra == null) && (state.fullPath == '/event/:id'));
+
+      debugPrint("Extra : ${state.extra}");
+      debugPrint("Path : ${state.uri.path}");
+      debugPrint("FullPath : ${state.fullPath}");
+
+      // Optionally: do something once when opened from deep link
+      if (isDeepLink) {
+        debugPrint("This page was opened from a link.");
+      } else {
+        debugPrint("This page was opened via in-app navigation.");
+      }
+    } catch (_) {
+      isDeepLink = false;
+    }
+
+    
   }
 
   @override
@@ -73,13 +112,28 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
     super.dispose();
   }
 
+  Future<void> _initializeServices() async {
+    final prefs = await SharedPreferences.getInstance();
+    _storageService = StorageService(prefs);
+    _loadUserProfile();
+  }
+
+  void _loadUserProfile() {
+    final profile = _storageService.getUserProfile();
+    if (profile != null) {
+      setState(() {
+        userId = profile.id;
+      });
+    }
+  }
+
   void _connectWebSocket() {
     if (_isWebSocketConnected) return;
 
     try {
       final String url = backend_ws_url;
       _webSocketService.connect(
-        widget.userId,
+        userId,
         url,
         onUpdate: _handleWebSocketUpdate,
       );
@@ -152,8 +206,8 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
     widget.refreshMethod();
 
     try {
-      final Uri uri = useDNS ? Uri.parse('${backend_url}api/get_event/${widget.event.id}/${widget.userId}') // Original URL 
-      : Uri.parse('${backend_url_with_fallback_ip}api/get_event/${widget.event.id}/${widget.userId}'); // Use IP
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/get_event/${widget.event.id}/${userId}') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}api/get_event/${widget.event.id}/${userId}'); // Use IP
         
       final response = await http.get(uri);
 
@@ -190,10 +244,14 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
   }
 
   String _formatDate(String date) {
-    final DateFormat inputFormat = DateFormat('dd-MM-yyyy');
-    final DateTime dateTime = inputFormat.parse(date);
-    final DateFormat outputFormat = DateFormat('EEEE, MMMM d, yyyy');
-    return outputFormat.format(dateTime);
+    try {
+      final DateFormat inputFormat = DateFormat('dd-MM-yyyy');
+      final DateTime dateTime = inputFormat.parse(date);
+      final DateFormat outputFormat = DateFormat('EEEE, MMMM d, yyyy');
+      return outputFormat.format(dateTime);
+    } catch (e) {
+      return date;
+    }
   }
 
   String formatNumber(int num) {
@@ -458,107 +516,6 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
     );
   }
 
-  // Widget _buildEventDetailsCard(Event event, BuildContext context) {
-  //   return Card(
-  //     elevation: 2,
-  //     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-  //     child: Padding(
-  //       padding: const EdgeInsets.all(16),
-  //       child: Column(
-  //         crossAxisAlignment: CrossAxisAlignment.start,
-  //         children: [
-  //           Text('📅 ${_formatDate(event.date)}'),
-  //           Text('⏰ ${event.time}'),
-  //           Text('📍 ${event.venue}'),
-  //           const SizedBox(height: 16),
-  //           const Text(
-  //             'Event Details',
-  //             style: TextStyle(
-  //               fontSize: 16,
-  //               fontWeight: FontWeight.bold,
-  //             ),
-  //           ),
-  //           const SizedBox(height: 8),
-  //           Text(event.description),
-  //           const SizedBox(height: 8),
-  //           Row(
-  //             children: [
-  //               const Text(
-  //                 'Event Status: ',
-  //                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-  //               ),
-  //               const SizedBox(width: 8),
-  //               Text(
-  //                 '${event.status[0].toUpperCase()}${event.status.substring(1)}',
-  //                 style: TextStyle(
-  //                   fontSize: 14,
-  //                   fontWeight: FontWeight.normal,
-  //                   color: (event.status == 'active') ? Colors.green : Colors.red,
-  //                 ),
-  //               ),
-  //             ],
-  //           ),
-  //           if(organiser_name != "")
-  //           RichText(
-  //             text: TextSpan(
-  //               children: [
-  //                 TextSpan(
-  //                   text: 'Organized By: ',
-  //                   style: const TextStyle(
-  //                     fontSize: 18,
-  //                     color: Colors.black,
-  //                     fontWeight: FontWeight.bold
-  //                   ),
-  //                 ),
-  //                 TextSpan(
-  //                   text: organiser_name,
-  //                   style: TextStyle(
-  //                     fontSize: 18,
-  //                     color: Colors.black,
-  //                     fontWeight: FontWeight.normal
-  //                   ),
-  //                 ),
-  //               ]
-  //             )
-  //           ),
-  //           const SizedBox(height: 1),
-  //           if(organiser_phone_number != "")
-  //           TextButton(
-  //             onPressed: () => _launchPhoneCall(organiser_phone_number),
-  //             style: TextButton.styleFrom(
-  //               alignment: Alignment.centerLeft, // Force left alignment
-  //               padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 1),
-  //             ),
-  //             child: 
-  //               RichText(
-  //                 text: TextSpan(
-  //                   children: [
-  //                     TextSpan(
-  //                       text: 'Organizer Contact: ',
-  //                       style: const TextStyle(
-  //                         fontSize: 18,
-  //                         color: Colors.black,
-  //                         fontWeight: FontWeight.bold
-  //                       ),
-  //                     ),
-  //                     TextSpan(
-  //                       text: '$organiser_phone_number',
-  //                       style: TextStyle(
-  //                         fontSize: 18,
-  //                         color: Colors.blue,
-  //                         fontWeight: FontWeight.normal
-  //                       ),
-  //                     ),
-  //                   ]
-  //                 )
-  //               ),
-  //           ),
-  //         ],
-  //       ),
-  //     ),
-  //   );
-  // }
-
   Widget _buildTicketsCard(Event event) {
     return Card(
       elevation: 2,
@@ -646,7 +603,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                       ticketType.soldTickets) <=
                                   0
                               ? Colors.grey
-                              : Colors.orange,
+                              : Colors.orange[800],
                         ),
                       ),
                     ],
@@ -658,16 +615,70 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
     );
   }
 
+  void goToCheckoutPage(Event event) {
+    if(event.category.toUpperCase() == "THEATER") {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => TheaterCheckoutPage(
+            event: event,
+            theaterName: organiser_name,
+            refreshMethod: fetchEvent,
+          ),
+        ),
+      );
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CheckoutPage(
+            event: event,
+            refreshMethod: fetchEvent,
+          ),
+        ),
+      );
+    }
+  }
+
+  void goToConfirmPage(Event event) {
+    if(event.category.toUpperCase() == "THEATER") {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => TheaterConfirmPage(
+            event: event,
+            theaterName: 'Confirm',
+            refreshMethod: fetchEvent,
+          ),
+        ),
+      );
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ConfirmPage(
+            event: event,
+            refreshMethod: fetchEvent,
+          ),
+        ),
+      );
+    }
+  }
+
   Widget _buildActionButtons(Event event, BuildContext context) {
-    if (widget.userId != event.userId) {
+    if (userId != event.userId) {
       return Column(
         children: [
           if (event.type == 'paid' && event.status == "active")
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  if(!(widget.userId > 0)) {
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {
+                if(!(userId > 0)) {
+                  debugPrint("userId : $userId");
+                  _loadUserProfile();
+                  debugPrint("userId 2 : $userId");
+                  if(!(userId > 0)) {
                     final container = ProviderScope.containerOf(context);
                     container.read(selectedEventProvider.notifier).state = event;
 
@@ -677,57 +688,43 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                         builder: (context) => LoginScreen(),
                       ),
                     );
-                  }else { 
-                    if(event.category.toUpperCase() == "THEATER") {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => TheaterCheckoutPage(
-                            event: event,
-                            refreshMethod: fetchEvent,
-                          ),
-                        ),
-                      );
-                    } else {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => CheckoutPage(
-                            event: event,
-                            refreshMethod: fetchEvent,
-                          ),
-                        ),
-                      );
-                    }
+                  } else {
+                    goToCheckoutPage(event);
                   }
-                },
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor:
-                      event.hasTicket ? Colors.orange[800] : Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+                }else { 
+                  goToCheckoutPage(event);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                backgroundColor:
+                    event.hasTicket ? Colors.orange[800] : Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: Text(
-                  event.hasTicket ? 'Booked' : 'Buy Tickets',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: event.hasTicket
-                        ? Colors.white
-                        : Theme.of(context).primaryColor,
-                  ),
+              ),
+              child: Text(
+                event.hasTicket ? 'Booked' : 'Buy Tickets',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: event.hasTicket
+                      ? Colors.white
+                      : Theme.of(context).primaryColor,
                 ),
               ),
             ),
+          ),
           if (event.type == 'free' && event.status == "active")
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: 
-                // (existsTicketUpdatedAfterEvent(event)) ? null :
-                () {
-                  if(!(widget.userId > 0)) {
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: 
+              () async {
+                if(!(userId > 0)) {
+                  debugPrint("userId : $userId");
+                  _loadUserProfile();
+                  debugPrint("userId 2 : $userId");
+                  if(!(userId > 0)) {
                     final container = ProviderScope.containerOf(context);
                     container.read(selectedEventProvider.notifier).state = event;
 
@@ -737,49 +734,55 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                         builder: (context) => LoginScreen(),
                       ),
                     );
-                  }else {
-                    if(event.category.toUpperCase() == "THEATER") {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => TheaterConfirmPage(
-                            event: event,
-                            refreshMethod: fetchEvent,
-                          ),
-                        ),
-                      );
-                    } else {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ConfirmPage(
-                            event: event,
-                            refreshMethod: fetchEvent,
-                          ),
-                        ),
-                      );
-                    }
+                  } else {
+                    goToConfirmPage(event);
                   }
-                },
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor:
-                      event.hasTicket ? Colors.orange[800] : Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+                }else {
+                  goToConfirmPage(event);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                backgroundColor:
+                    event.hasTicket ? Colors.orange[800] : Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: Text(
-                  event.hasTicket ? 'Confirmed' : 'Confirm',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: event.hasTicket
-                        ? Colors.white
-                        : Theme.of(context).primaryColor,
-                  ),
+              ),
+              child: Text(
+                event.hasTicket ? 'Confirmed' : 'Confirm',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: event.hasTicket
+                      ? Colors.white
+                      : Theme.of(context).primaryColor,
                 ),
               ),
             ),
+          ),
+          const SizedBox(height: 20),
+
+          if(!(userId > 0) && kIsWeb && isDeepLink)
+          ElevatedButton.icon(
+            icon: const Icon(Icons.logout),
+            label: Text('See Other Events', style: TextStyle(
+              fontSize: 14,
+            )
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.orange[800],
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 2,
+            ),
+            onPressed: () {
+              context.push('/home');
+            },
+          ),
+          const SizedBox(height: 8),
         ],
       );
     } else {
@@ -792,13 +795,13 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
               MaterialPageRoute(
                 builder: (context) => EditEventPage(
                   event: event,
-                  userId: widget.userId,
+                  userId: userId,
                   ticketTypesTicketsCount: ticketTypesTicketsCount,
                   refreshMethod: fetchEvent,
                 ),
               ),
             );
-          },
+          }, 
           style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 16),
             backgroundColor: Colors.white,
@@ -817,28 +820,30 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
 
   Widget _buildDesktopLayout(Event event, BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final maxContentWidth = 1200.0;
-    final contentPadding = screenWidth > maxContentWidth
-        ? (screenWidth - maxContentWidth) / 2
-        : 32.0;
-    return PopScope(
-      canPop: false,
-      onPopInvoked: (didPop) {
-        if (!didPop) {
-          context.go('/home');
-        }
-      },
-      child: Scaffold(
-        backgroundColor: Colors.grey[100],
-        body: CustomScrollView(
-          slivers: [
-            SliverAppBar(
-              expandedHeight: _calculateExpandedHeight(context),
-              pinned: true,
-              flexibleSpace: FlexibleSpaceBar(
-                background: Hero(
+    final isLargeScreen = screenWidth > 600;
+    final isVeryLargeScreen = screenWidth > 1200;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: (event.category.toUpperCase() == "THEATER") ? const Text('Cinema Details') : const Text('Event Details'),
+        backgroundColor: const Color.fromARGB(255, 240, 244, 247),
+      ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: isVeryLargeScreen ? 800 : (isLargeScreen ? 600 : double.infinity),
+          ),
+          child: SingleChildScrollView(
+            padding: EdgeInsets.symmetric(
+              horizontal: isLargeScreen ? 24 : 16,
+              vertical: 16,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Hero(
                   tag: 'event-image-${event.id}',
-                  child: 
+                  child:
                   CachedNetworkImage(
                     imageUrl: '${backend_url}api/image/${event.imageUrl}',
                     // imageUrl: widget.useDNS ? '${backend_url}api/image/${event.imageUrl}' : '${backend_url_with_fallback_ip}api/image/${event.imageUrl}',
@@ -851,40 +856,51 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                       return const Icon(Icons.error);
                     },
                   ),
-
                 ),
-              ),
-            ),
-            SliverPadding(
-              padding: EdgeInsets.symmetric(
-                  horizontal: contentPadding, vertical: 16),
-              sliver: SliverToBoxAdapter(
-                child: Column(
+                Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                event.name,
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
+                    Expanded(
+                      flex: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            event.name,
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 4),
+                                  child: _buildCategoryChip(event.category),
                                 ),
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  _buildCategoryChip(event.category),
-                                  const Spacer(),
-                                  if(event.hasTicket)
-                                  TextButton(
-                                    child: Text(
+                                if(event.hasTicket)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                                  child: TextButton(
+                                    style: TextButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      minimumSize: Size.zero,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    child: (event.tickets.length > 1) ?
+                                    Text(
+                                      "View Tickets",
+                                      style: TextStyle(
+                                        fontSize: 11, 
+                                        color: Colors.green
+                                      ),
+                                    ) : 
+                                    Text(
                                       "View Ticket",
                                       style: TextStyle(
                                         fontSize: 11, 
@@ -900,38 +916,73 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                       );
                                     },
                                   ),
-                                  const SizedBox(width: 2),
-                                  if (widget.userId == event.userId)
-                                  Text(
-                                    'ID: ${event.id}',
-                                    style: TextStyle(
-                                      fontSize: 11, 
-                                      color: Colors.black,
+                                ),
+                                const SizedBox(height: 8),
+                                if((userId == event.userId) && (event.status == "active"))
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  child: TextButton(
+                                    style: TextButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      minimumSize: Size.zero,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                     ),
-                                  ),
-                                  const SizedBox(width: 1),
-                                  TextButton(
                                     onPressed: () {
-                                      final eventId = event.id;
-                                      final link = "https://tiketimkononi.telabs.co.tz/event/$eventId";
-
-                                      Share.share("Check out this event! 🎟️\n$link");
+                                      if(event.category.toUpperCase() == "THEATER") {
+                                        if(event.type == 'paid') { 
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) => TheaterCheckoutPage(
+                                                event: event,
+                                                theaterName: organiser_name,
+                                                refreshMethod: fetchEvent,
+                                              ),
+                                            ),
+                                          );
+                                        } else {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) => TheaterConfirmPage(
+                                                event: event,
+                                                theaterName: 'Confirm',
+                                                refreshMethod: fetchEvent,
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      } else {
+                                        if(event.type == 'paid') {
+                                          goToCheckoutPage(event);
+                                        } else {
+                                          goToConfirmPage(event);
+                                        }
+                                      }
                                     },
                                     child: const Icon(
-                                      Icons.share,
+                                      Icons.sell,
                                       size: 18,
-                                      color: Colors.blue,
+                                      color: Colors.red
                                     ),
                                   ),
-                                  const SizedBox(width: 2),
-                                  if (widget.userId == event.userId)
-                                  TextButton(
-                                    onPressed: (widget.userId == event.userId)
+                                ),
+                                const SizedBox(height: 8),
+                                if (userId == event.userId)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  child: TextButton(
+                                    style: TextButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      minimumSize: Size.zero,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    onPressed: (userId == event.userId)
                                       ? () {
                                           Navigator.push(
                                             context,
                                             MaterialPageRoute(
-                                              builder: (context) => SetScannerPage(userId: widget.userId, eventId: event.id),
+                                              builder: (context) => SetScannerPage(userId: userId, eventId: event.id),
                                             ),
                                           );
                                         }
@@ -942,10 +993,41 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                       color: Colors.green
                                     ),
                                   ),
-                                  const SizedBox(width: 1),
+                                ),
+                                const SizedBox(height: 8),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  child: TextButton(
+                                    onPressed: () async {
+                                      final eventId = event.id;
+                                      final link = "https://tiketimkononi.telabs.co.tz/event/$eventId";
 
-                                  if ((widget.userId == event.userId) || ((widget.userId != 0) && (widget.userId == event.ticketScannerId)))
-                                  TextButton(
+                                      if (kIsWeb) {
+                                        await Clipboard.setData(ClipboardData(text: "Check out this event! 🎟️\n$link"));
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('Link copied to clipboard!')),
+                                        );
+                                      } else {
+                                        Share.share("Check out this event! 🎟️\n$link");
+                                      }
+                                    },
+                                    child: const Icon(
+                                      Icons.share,
+                                      size: 18,
+                                      color: Colors.blue,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                if ((userId == event.userId) || ((userId != 0) && (userId == event.ticketScannerId)))
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  child: TextButton(
+                                    style: TextButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      minimumSize: Size.zero,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    ),
                                     onPressed: () {
                                       (kIsWeb) ? 
                                       _handleQRCodeScannerUnavailablility()
@@ -953,7 +1035,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
-                                          builder: (context) => QRScannerPage(userId: widget.userId, eventId: event.id),
+                                          builder: (context) => QRScannerPage(userId: userId, eventId: event.id),
                                         ),
                                       );
                                     },
@@ -963,15 +1045,22 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                       color: Colors.green
                                     ),
                                   ),
-                                  const SizedBox(width: 2),
-                                  TextButton(
-                                    onPressed: (widget.userId == event.userId)
+                                ),
+                                const SizedBox(height: 8),
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 12),
+                                  child: TextButton(
+                                    style: TextButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      minimumSize: Size.zero,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    onPressed: (userId == event.userId)
                                         ? () {
                                             Navigator.push(
                                               context,
                                               MaterialPageRoute(
-                                                builder: (context) =>
-                                                    EventTicketsPage(
+                                                builder: (context) => EventTicketsPage(
                                                   event: event,
                                                 ),
                                               ),
@@ -983,264 +1072,297 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                           ? '🎟️ $eventTicketsCount Confirmed'
                                           : '🎟️ $eventTicketsCount Sold',
                                       style: TextStyle(
-                                          fontSize: 11,
-                                          color: Colors.orange[800]),
+                                          fontSize: 11, 
+                                          color: Colors.orange[800],
+                                          overflow: TextOverflow.ellipsis
+                                        ),
                                     ),
+
                                   ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              _buildEventDetailsCard(event, context),
-                            ],
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 24),
-                        Expanded(
-                          flex: 1,
-                          child: Column(
-                            children: [
-                              _buildTicketsCard(event),
-                              const SizedBox(height: 16),
-                              _buildActionButtons(event, context),
-                            ],
-                          ),
-                        ),
-                      ],
+                          const SizedBox(height: 16),
+                          _buildEventDetailsCard(event, context),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 24),
+                    Expanded(
+                      flex: 1,
+                      child: Column(
+                        children: [
+                          _buildTicketsCard(event),
+                          const SizedBox(height: 16),
+                          _buildActionButtons(event, context),
+                        ],
+                      ),
                     ),
                   ],
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildMobileLayout(Event event, BuildContext context) {
-    return  PopScope(
-      canPop: false,
-      onPopInvoked: (didPop) {
-        if (!didPop) {
-          context.go('/home');
-        }
-      },
-      child: Scaffold(
-        backgroundColor: Colors.grey[100],
-        body: CustomScrollView(
-          slivers: [
-            SliverAppBar(
-              expandedHeight: _calculateExpandedHeight(context),
-              pinned: true,
-              flexibleSpace: FlexibleSpaceBar(
-                background: Hero(
-                  tag: 'event-image-${event.id}',
-                  child: 
-                  CachedNetworkImage(
-                    imageUrl: widget.useDNS ? '${backend_url}api/image/${event.imageUrl}' : '${backend_url_with_fallback_ip}api/image/${event.imageUrl}',
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      color: Colors.grey[300],
-                      child: const Center(child: CircularProgressIndicator()),
-                    ),
-                    errorWidget: (context, url, error) {
-                      return const Icon(Icons.error);
-                    }
+    return Scaffold(
+      backgroundColor: Colors.grey[100],
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            expandedHeight: _calculateExpandedHeight(context),
+            pinned: true,
+            flexibleSpace: FlexibleSpaceBar(
+              background: Hero(
+                tag: 'event-image-${event.id}',
+                child: 
+                CachedNetworkImage(
+                  imageUrl: widget.useDNS ? '${backend_url}api/image/${event.imageUrl}' : '${backend_url_with_fallback_ip}api/image/${event.imageUrl}',
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => Container(
+                    color: Colors.grey[300],
+                    child: const Center(child: CircularProgressIndicator()),
                   ),
+                  errorWidget: (context, url, error) {
+                    return const Icon(Icons.error);
+                  }
                 ),
               ),
             ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      event.name,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    event.name,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
                     ),
-                    const SizedBox(height: 8),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(right: 4),
-                            child: _buildCategoryChip(event.category),
+                  ),
+                  const SizedBox(height: 8),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(right: 4),
+                          child: _buildCategoryChip(event.category),
+                        ),
+                        if(event.hasTicket)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 2),
+                          child: TextButton(
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: (event.tickets.length > 1) ?
+                            Text(
+                              "View Tickets",
+                              style: TextStyle(
+                                fontSize: 11, 
+                                color: Colors.green
+                              ),
+                            ) : 
+                            Text(
+                              "View Ticket",
+                              style: TextStyle(
+                                fontSize: 11, 
+                                color: Colors.green
+                              ),
+                            ),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => TicketsPage(eventId: event.id),
+                                ),
+                              );
+                            },
                           ),
-                          if(event.hasTicket)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 2),
-                            child: TextButton(
-                              style: TextButton.styleFrom(
-                                padding: EdgeInsets.zero,
-                                minimumSize: Size.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                              child: (event.tickets.length > 1) ?
-                              Text(
-                                "View Tickets",
-                                style: TextStyle(
-                                  fontSize: 11, 
-                                  color: Colors.green
-                                ),
-                              ) : 
-                              Text(
-                                "View Ticket",
-                                style: TextStyle(
-                                  fontSize: 11, 
-                                  color: Colors.green
-                                ),
-                              ),
-                              onPressed: () {
+                        ),
+                        const SizedBox(height: 8),
+                        if((userId == event.userId) && (event.category.toUpperCase() == "THEATER") && (event.status == "active"))
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: TextButton(
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            onPressed: () {
+                              if(event.type == 'paid') { 
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => TicketsPage(eventId: event.id),
+                                    builder: (context) => TheaterCheckoutPage(
+                                      event: event,
+                                      theaterName: organiser_name,
+                                      refreshMethod: fetchEvent,
+                                    ),
                                   ),
                                 );
-                              },
+                              } else {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => TheaterConfirmPage(
+                                      event: event,
+                                      theaterName: 'Confirm',
+                                      refreshMethod: fetchEvent,
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                            child: const Icon(
+                              Icons.sell,
+                              size: 18,
+                              color: Colors.red
                             ),
                           ),
-                          if (widget.userId == event.userId)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: Text(
-                              'ID: ${event.id}',
-                              style: TextStyle(
-                                fontSize: 11, 
-                                color: Colors.black
-                              ),
+                        ),
+                        const SizedBox(height: 8),
+                        if (userId == event.userId)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: TextButton(
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            onPressed: (userId == event.userId)
+                              ? () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => SetScannerPage(userId: userId, eventId: event.id),
+                                    ),
+                                  );
+                                }
+                              : null,
+                            child: const Icon(
+                              Icons.assignment_ind,
+                              size: 18,
+                              color: Colors.green
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          if (widget.userId == event.userId)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            child: TextButton(
-                              style: TextButton.styleFrom(
-                                padding: EdgeInsets.zero,
-                                minimumSize: Size.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                              onPressed: (widget.userId == event.userId)
+                        ),
+                        const SizedBox(height: 8),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: TextButton(
+                            onPressed: () async {
+                              final eventId = event.id;
+                              final link = "https://tiketimkononi.telabs.co.tz/event/$eventId";
+
+                              if (kIsWeb) {
+                                await Clipboard.setData(ClipboardData(text: "Check out this event! 🎟️\n$link"));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Link copied to clipboard!')),
+                                );
+                              } else {
+                                Share.share("Check out this event! 🎟️\n$link");
+                              }
+                            },
+                            child: const Icon(
+                              Icons.share,
+                              size: 18,
+                              color: Colors.blue,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        if ((userId == event.userId) || ((userId != 0) && (userId == event.ticketScannerId)))
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: TextButton(
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            onPressed: () {
+                              (kIsWeb) ? 
+                              _handleQRCodeScannerUnavailablility()
+                              :
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => QRScannerPage(userId: userId, eventId: event.id),
+                                ),
+                              );
+                            },
+                            child: const Icon(
+                              Icons.qr_code_scanner,
+                              size: 18,
+                              color: Colors.green
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 12),
+                          child: TextButton(
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            onPressed: (userId == event.userId)
                                 ? () {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) => SetScannerPage(userId: widget.userId, eventId: event.id),
+                                        builder: (context) => EventTicketsPage(
+                                          event: event,
+                                        ),
                                       ),
                                     );
                                   }
                                 : null,
-                              child: const Icon(
-                                Icons.assignment_ind,
-                                size: 18,
-                                color: Colors.green
-                              ),
+                            child: Text(
+                              event.type == 'free'
+                                  ? '🎟️ $eventTicketsCount Confirmed'
+                                  : '🎟️ $eventTicketsCount Sold',
+                              style: TextStyle(
+                                  fontSize: 11, 
+                                  color: Colors.orange[800],
+                                  overflow: TextOverflow.ellipsis
+                                ),
                             ),
-                          ),
-                          const SizedBox(height: 50),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            child: TextButton(
-                              onPressed: () {
-                                final eventId = event.id;
-                                final link = "https://tiketimkononi.telabs.co.tz/event/$eventId";
 
-                                Share.share("Check out this event! 🎟️\n$link");
-                              },
-                              child: const Icon(
-                                Icons.share,
-                                size: 18,
-                                color: Colors.blue,
-                              ),
-                            ),
                           ),
-                          const SizedBox(height: 8),
-                          if ((widget.userId == event.userId) || ((widget.userId != 0) && (widget.userId == event.ticketScannerId)))
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            child: TextButton(
-                              style: TextButton.styleFrom(
-                                padding: EdgeInsets.zero,
-                                minimumSize: Size.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                              onPressed: () {
-                                (kIsWeb) ? 
-                                _handleQRCodeScannerUnavailablility()
-                                :
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => QRScannerPage(userId: widget.userId, eventId: event.id),
-                                  ),
-                                );
-                              },
-                              child: const Icon(
-                                Icons.qr_code_scanner,
-                                size: 18,
-                                color: Colors.green
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Padding(
-                            padding: const EdgeInsets.only(left: 12),
-                            child: TextButton(
-                              style: TextButton.styleFrom(
-                                padding: EdgeInsets.zero,
-                                minimumSize: Size.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                              onPressed: (widget.userId == event.userId)
-                                  ? () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => EventTicketsPage(
-                                            event: event,
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                  : null,
-                              child: Text(
-                                event.type == 'free'
-                                    ? '🎟️ $eventTicketsCount Confirmed'
-                                    : '🎟️ $eventTicketsCount Sold',
-                                style: TextStyle(
-                                    fontSize: 11, 
-                                    color: Colors.orange[800],
-                                    overflow: TextOverflow.ellipsis
-                                  ),
-                              ),
-
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                    _buildEventDetailsCard(event, context),
-                    const SizedBox(height: 16),
-                    _buildTicketsCard(event),
-                    const SizedBox(height: 24),
-                    _buildActionButtons(event, context),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildEventDetailsCard(event, context),
+                  const SizedBox(height: 16),
+                  _buildTicketsCard(event),
+                  const SizedBox(height: 24),
+                  _buildActionButtons(event, context),
+                ],
               ),
             ),
-          ],
-        ),
-      )
+          ),
+        ],
+      ),
     );
   }
 

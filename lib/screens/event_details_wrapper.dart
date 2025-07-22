@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:tiketi_mkononi/env.dart';
 import 'package:tiketi_mkononi/models/event.dart';
@@ -44,14 +45,42 @@ class _EventDetailsWrapperState extends State<EventDetailsWrapper> {
     }
 
     if (event == null) {
-      return const Scaffold(body: Center(child: Text('Event not found')));
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('Event not found'),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.logout),
+                label: Text('See Other Events', style: TextStyle(
+                  fontSize: 14,
+                )
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.orange[800],
+                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 2,
+                ),
+                onPressed: () {
+                  context.push('/home');
+                },
+              )
+            ],
+          ),
+        )
+      );
     }
 
     return EventDetailsPage(
       event: event!,
-      userId: 0, // Replace with actual user ID
+      userId: 0,
       refreshMethod: () {},
-      useDNS: true, // or true depending on your logic
+      useDNS: true,
     );
   }
 }

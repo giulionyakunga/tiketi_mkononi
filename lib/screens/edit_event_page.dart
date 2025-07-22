@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -75,6 +76,7 @@ class _EditEventPageState extends State<EditEventPage> {
   TimeOfDay? _selectedTime;
   String? _selectedCategory;
   XFile? _eventImage;
+  Uint8List? _webImageBytes;
   String? fileType;
   bool _isLoading = false;
   bool _isPaidEvent = true;
@@ -280,31 +282,82 @@ class _EditEventPageState extends State<EditEventPage> {
     }
   }
 
+  // Future<void> _pickImage() async {
+  //   final ImagePicker picker = ImagePicker();
+  //   try {
+  //     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+  //     if (image != null) {
+  //       final fileExtension = path.extension(image.path).toLowerCase();
+  //       final mimeType = lookupMimeType(image.path);
+
+  //       if (mimeType == null || (!mimeType.startsWith('image/'))) {
+  //         print('Invalid file type. Please select a valid image.');
+  //         ScaffoldMessenger.of(context).showSnackBar(
+  //           const SnackBar(
+  //               content: Text('Invalid file type. Please select a valid image.')),
+  //         );
+  //         return;
+  //       }
+
+  //       if (fileExtension != '.png' &&
+  //           fileExtension != '.jpg' &&
+  //           fileExtension != '.jpeg') {
+  //         print('Unsupported image format. Only PNG and JPEG are allowed.');
+  //         ScaffoldMessenger.of(context).showSnackBar(
+  //           const SnackBar(
+  //               content:
+  //                   Text('Unsupported image format. Only PNG and JPEG are allowed.')),
+  //         );
+  //         return;
+  //       }
+
+  //       setState(() {
+  //         _eventImage = image;
+  //         fileType = fileExtension;
+  //       });
+  //     }
+  //   } catch (e) {
+  //     if (mounted) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         const SnackBar(content: Text('Failed to pick image')),
+  //       );
+  //     }
+  //   }
+  // }
+
+  
   Future<void> _pickImage() async {
     final ImagePicker picker = ImagePicker();
     try {
       final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-      if (image != null) {
-        final fileExtension = path.extension(image.path).toLowerCase();
-        final mimeType = lookupMimeType(image.path);
 
-        if (mimeType == null || (!mimeType.startsWith('image/'))) {
-          print('Invalid file type. Please select a valid image.');
+      if (image != null) {
+        String? mimeType;
+        String fileExtension;
+
+        if (kIsWeb) {
+          // On web, use `image.name` instead of `image.path`
+          fileExtension = path.extension(image.name).toLowerCase();
+          mimeType = lookupMimeType(image.name);
+
+          // Read image as bytes for web
+          final bytes = await image.readAsBytes();
+          _webImageBytes = bytes;
+        } else {
+          fileExtension = path.extension(image.path).toLowerCase();
+          mimeType = lookupMimeType(image.path);
+        }
+
+        if (mimeType == null || !mimeType.startsWith('image/')) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('Invalid file type. Please select a valid image.')),
+            const SnackBar(content: Text('Invalid file type. Please select a valid image.')),
           );
           return;
         }
 
-        if (fileExtension != '.png' &&
-            fileExtension != '.jpg' &&
-            fileExtension != '.jpeg') {
-          print('Unsupported image format. Only PNG and JPEG are allowed.');
+        if (fileExtension != '.png' && fileExtension != '.jpg' && fileExtension != '.jpeg') {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content:
-                    Text('Unsupported image format. Only PNG and JPEG are allowed.')),
+            const SnackBar(content: Text('Unsupported image format. Only PNG and JPEG are allowed.')),
           );
           return;
         }
@@ -609,7 +662,7 @@ class _EditEventPageState extends State<EditEventPage> {
           .toList(),
       'file_type': fileType,
       if (_eventImage != null)
-        'event_image': base64Encode(await File(_eventImage!.path).readAsBytes()),
+        'event_image': kIsWeb ? _webImageBytes : base64Encode(await File(_eventImage!.path).readAsBytes()),
     };
 
     try {
@@ -1607,7 +1660,12 @@ class _EditEventPageState extends State<EditEventPage> {
                       child: _eventImage != null
                           ? ClipRRect(
                               borderRadius: BorderRadius.circular(12),
-                              child: Image.file(
+                              child: kIsWeb ? 
+                              Image.memory(
+                                _webImageBytes!,
+                                fit: BoxFit.cover,
+                              ) :
+                              Image.file(
                                 File(_eventImage!.path),
                                 fit: BoxFit.cover,
                               ),

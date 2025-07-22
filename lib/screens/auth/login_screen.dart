@@ -13,7 +13,8 @@ import '../../env.dart';
 import 'package:http/http.dart' as http;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
-// import 'dart:html' as html;
+import 'web_setup_stub.dart'
+if (dart.library.html) 'web_setup_web.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -209,29 +210,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ),
     );
   }
-
-
-  // String getOS() {
-  //   if (!kIsWeb) return "Not running on web";
-
-  //   // Web-specific OS detection
-  //   try {
-  //     // Import 'dart:html' only on web
-  //     if (kIsWeb) {
-  //       final userAgent = html.window.navigator.userAgent.toLowerCase();
-        
-  //       if (userAgent.contains("windows")) return "Windows";
-  //       if (userAgent.contains("mac os")) return "macOS";
-  //       if (userAgent.contains("linux")) return "Linux";
-  //       if (userAgent.contains("android")) return "Android";
-  //       if (userAgent.contains("iphone") || userAgent.contains("ipad")) return "iOS";
-  //     }
-  //   } catch (e) {
-  //     return "Unknown OS (Web)";
-  //   }
-
-  //   return "Unknown OS";
-  // }
 
   Future<void> _handleGoogleSignIn2(String? token, String email, String? name,  {bool useDNS = true}) async {
     try {
@@ -737,28 +715,28 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ],
         ),
         SizedBox(height: isLargeScreen ? 20 : 12),
-        // if (kIsWeb && ((getOS() == "Windows") || (getOS() == "Linux") || getOS() == "Android" ))
-        // _buildSocialButton(
-        //     imagePath: 'assets/images/google_logo.png',
-        //     text: 'Continue with Google',
-        //     textColor: Colors.white,
-        //     color: Colors.black,
-        //     onPressed: _handleGoogleSignIn,
-        //     isLargeScreen: isLargeScreen,
-        // ),
-        // if (kIsWeb && ((getOS() == "Windows") || (getOS() == "Linux") || getOS() == "Android" ))
-        // SizedBox(height: isLargeScreen ? 10 : 6),
-        // if (kIsWeb && ((getOS() == "macOS") || (getOS() == "iOS")))
-        // _buildSocialButton(
-        //   imagePath: 'assets/images/appleid_logo.png',
-        //   text: 'Continue with Apple',
-        //   textColor: Colors.black,
-        //   color: Colors.white,
-        //   onPressed: _handleAppleSignIn,
-        //   isLargeScreen: isLargeScreen,
-        // ),     
-        // if (kIsWeb && ((getOS() == "macOS") || (getOS() == "iOS")))        
-        // SizedBox(height: isLargeScreen ? 10 : 6),
+        if (kIsWeb && ((getOS() == "Windows") || (getOS() == "Linux") || getOS() == "Android" ))
+        _buildSocialButton(
+            imagePath: 'assets/images/google_logo.png',
+            text: 'Continue with Google',
+            textColor: Colors.white,
+            color: Colors.black,
+            onPressed: _handleGoogleSignIn,
+            isLargeScreen: isLargeScreen,
+        ),
+        if (kIsWeb && ((getOS() == "Windows") || (getOS() == "Linux") || getOS() == "Android" ))
+        SizedBox(height: isLargeScreen ? 10 : 6),
+        if (kIsWeb && ((getOS() == "macOS") || (getOS() == "iOS")))
+        _buildSocialButton(
+          imagePath: 'assets/images/appleid_logo.png',
+          text: 'Continue with Apple',
+          textColor: Colors.black,
+          color: Colors.white,
+          onPressed: _handleAppleSignIn,
+          isLargeScreen: isLargeScreen,
+        ),     
+        if (kIsWeb && ((getOS() == "macOS") || (getOS() == "iOS")))        
+        SizedBox(height: isLargeScreen ? 10 : 6),
         if (!kIsWeb)
         if (Platform.isAndroid) ...[
           _buildSocialButton(
@@ -805,7 +783,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final isLargeScreen = _isLargeScreen(context);
 
     return Scaffold(
-      body: SafeArea(
+  body: Stack(
+    children: [
+      SafeArea(
         child: Center(
           child: SingleChildScrollView(
             padding: EdgeInsets.symmetric(
@@ -819,6 +799,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  SizedBox(height: 24),
                   ShaderMask(
                     shaderCallback: (Rect bounds) {
                       return LinearGradient(
@@ -839,26 +820,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                   ),
                   SizedBox(height: isLargeScreen ? 16 : 8),
-          
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.logout),
-                    label: Text('Explore Events', style: TextStyle(
-                      fontSize: isLargeScreen ? 16 : 14,
-                    )
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.blue,
-                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 2,
-                    ),
-                    onPressed: () {
-                      context.go('/home');
-                    },
-                  ),
 
                   SizedBox(height: isLargeScreen ? 16 : 8),
 
@@ -884,6 +845,36 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ),
         ),
       ),
-    );
+
+      // Positioned button (top-right corner)
+      Positioned(
+        top: 24.0, // Adjust as needed
+        right: 16.0, // Adjust as needed
+        child: ElevatedButton.icon(
+          icon: const Icon(Icons.explore),
+          label: Text(
+            'Explore Events',
+            style: TextStyle(
+              fontSize: isLargeScreen ? 16 : 14,
+              color: Colors.orange[800],
+            ),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.orange[100],
+            foregroundColor: Colors.orange[800],
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            elevation: 2,
+          ),
+          onPressed: () {
+            context.go('/home');
+          },
+        ),
+      ),
+    ],
+  ),
+);
   }
 }

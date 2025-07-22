@@ -1,16 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:tiketi_mkononi/models/event.dart';
-import 'package:tiketi_mkononi/screens/auth/login_screen.dart';
-import 'package:tiketi_mkononi/screens/confirm_page.dart';
 import 'package:tiketi_mkononi/screens/event_details_page.dart';
-import 'package:tiketi_mkononi/screens/checkout_page.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:tiketi_mkononi/screens/event_providers.dart';
-import 'package:tiketi_mkononi/screens/theater_checkout_page.dart';
-import 'package:tiketi_mkononi/screens/theater_confirm_page.dart';
 
 class EventCard2 extends StatelessWidget {
   final Event event;
@@ -69,19 +62,6 @@ class EventCard2 extends StatelessWidget {
             Hero(
               tag: 'event-image-${event.id}',
               child: Container(
-                  // height: 160,
-                  // decoration: BoxDecoration(
-                  // CachedNetworkImage(
-                  //   imageUrl: '${backend_url}api/image/${event.imageUrl}',
-                  //   // imageUrl: useDNS ? '${backend_url}api/image/${event.imageUrl}' : '${backend_url_with_fallback_ip}api/image/${event.imageUrl}',
-                  //   width: double.infinity,
-                  //   fit: BoxFit.cover,
-                  //   placeholder: (context, url) => const Center(
-                  //     child: CircularProgressIndicator(),
-                  //   ),
-                  //   errorWidget: (context, url, error) => const Icon(Icons.error),
-                  // ),
-
                   height: 160,
                   decoration: BoxDecoration(
                     image: DecorationImage(
@@ -105,6 +85,8 @@ class EventCard2 extends StatelessWidget {
                       Expanded(
                         child: Text(
                           event.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis, // Truncates with ellipsis
                           style: const TextStyle(
                             fontSize: 18, // Increased font size
                             fontWeight: FontWeight.bold,
@@ -278,7 +260,6 @@ class EventCard2 extends StatelessWidget {
                     '📍 ${event.venue}',
                   ),
                   const SizedBox(height: 16),
-                  (event.ticketTypes.length < 3) ?
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: event.ticketTypes.map((ticketType) =>
@@ -354,7 +335,7 @@ class EventCard2 extends StatelessWidget {
                             ),
                       ),
                     ).toList(),
-                  ) :
+                  ),
                   TextButton(
                     onPressed: () {
                       Navigator.push(
@@ -368,137 +349,10 @@ class EventCard2 extends StatelessWidget {
                       'See more details',
                       style: TextStyle(
                         fontSize: 18,
-                        color: Colors.orange[800],
+                        color: Theme.of(context).primaryColor,
                       ),
                     ),
                   ),
-
-                  (event.ticketTypes.length == 1) ? const SizedBox(height: 45) : const SizedBox(height: 16),
-                  event.hasTicket
-                      ? SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: null,
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              disabledBackgroundColor: Colors.orange[800], // Success color
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            child: Text(
-                              (event.type == 'paid') ? 'Booked' : 'Confirmed',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        )
-                      : ((event.status == "past") || (event.status == "closed")) ? 
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: null,
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              disabledBackgroundColor: Colors.orange[800], // Success color
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            child: Text(
-                              (event.status == "past") ? 'Past' : "Closed",
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ) :
-                        SizedBox(
-                          width: double.infinity,
-                          child: (event.userId == userId) ? null :
-                          ElevatedButton(
-                            onPressed: checkSoldOut() ? null : () {
-                              if(!(userId > 0)) {
-                                final container = ProviderScope.containerOf(context);
-                                container.read(selectedEventProvider.notifier).state = event;
-
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => LoginScreen(),
-                                  ),
-                                );
-                              } else if(event.type == 'paid') {
-                                if(event.category.toUpperCase() == "THEATER") {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => TheaterCheckoutPage(
-                                        event: event,
-                                        refreshMethod: refreshMethod,
-                                      ),
-                                    ),
-                                  );
-                                } else {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => CheckoutPage(event: event, refreshMethod: refreshMethod,),
-                                    ),
-                                  );
-                                }
-                              }else {
-                                if(event.category.toUpperCase() == "THEATER") {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => TheaterConfirmPage(
-                                        event: event,
-                                        refreshMethod: refreshMethod,
-                                      ),
-                                    ),
-                                  );
-                                } else {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => ConfirmPage(event: event, refreshMethod: refreshMethod,),
-                                    ),
-                                  );
-                                }
-                              }
-                            },
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              backgroundColor: checkSoldOut() ? Colors.orange[800] : Theme.of(context).primaryColor,
-                              disabledBackgroundColor: checkSoldOut() ? Colors.orange[800] : Theme.of(context).primaryColor,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            child: ((event.daily_event == 'no') && checkSoldOut()) ? Text(
-                              (event.type == 'paid') ? 'Sold Out' : "Full",
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ) : 
-                            Text(
-                              (event.type == 'paid') ? 'Buy Tickets' : "Confirm",
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
                 ],
               ),
             ),

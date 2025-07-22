@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,6 +11,7 @@ import 'package:http/http.dart' as http;
 import 'package:tiketi_mkononi/widgets/server_metrics_card.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'platform_detector.dart';
 
 class AppInfoUpdatesPage extends StatefulWidget {
   const AppInfoUpdatesPage({super.key});
@@ -43,6 +45,7 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
     super.initState();
     _initializeServices();
     checkForUpdates();
+    getMobileApp();
   }
 
   Future<void> _initializeServices() async {
@@ -60,6 +63,52 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
       });
 
       if(role == "admin") getServerMetrics();
+    }
+  }
+
+  void getMobileApp() {
+    if(kIsWeb && isAndroidWeb()) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Get App on Google Play"),
+        content: const Text("Get the mobile app for a better experience and more features 🚀"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Later"),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _launchStore();
+            },
+            child: const Text("Get app"),
+          ),
+        ],
+      ),
+    );
+    } else if(kIsWeb && isIOSWeb()) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text("Get App on the App Store"),
+          content: const Text("Get the mobile app for a better experience and more features 🚀"),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Later"),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _launchStore();
+              },
+              child: const Text("Get app"),
+            ),
+          ],
+        ),
+      );
     }
   }
 
@@ -274,7 +323,12 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
     });
 
     String _latestVersion = "";
-    String operatingSystem = Platform.operatingSystem; // Hardcoded for example
+    String operatingSystem = "";
+    if(kIsWeb) {
+      operatingSystem = 'web';
+    } else {
+      operatingSystem = Platform.operatingSystem; // Hardcoded for example
+    }
 
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/application_information/$userId/$installedVersion2/$operatingSystem') // Original URL 
     : Uri.parse('${backend_url_with_fallback_ip}api/application_information/$userId/$installedVersion2/$operatingSystem'); // Use IP
@@ -399,12 +453,21 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
   }
 
   Future<void> _launchStore() async {
+    if(kIsWeb) return;
+
     const appStoreUrl = "https://apps.apple.com/app/id6746575990"; // iOS
     const playStoreUrl = "https://play.google.com/store/apps/details?id=com.telabs.tiketi_mkononi"; // Android
 
-    final Uri storeUrl = Uri.parse(
-      Platform.isAndroid ? playStoreUrl : appStoreUrl,
-    );
+    Uri storeUrl;
+    if(kIsWeb) {
+      storeUrl = Uri.parse(
+        isAndroidWeb() ? playStoreUrl : appStoreUrl,
+      );
+    }else {
+      storeUrl = Uri.parse(
+        Platform.isAndroid ? playStoreUrl : appStoreUrl,
+      );
+    }
 
     if (!await launchUrl(storeUrl, mode: LaunchMode.externalApplication)) {
       if (mounted) {

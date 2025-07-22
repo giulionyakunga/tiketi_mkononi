@@ -26,7 +26,7 @@ class CheckoutPage extends StatefulWidget {
 
 class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver {
   int userId = 0;
-  int trials = 10;
+  int trials = 15; 
   late final StorageService _storageService;
   int eventId = 0; 
   int quantity = 1;
@@ -40,8 +40,10 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
   final _phoneNumberController = TextEditingController();
   bool _isLoading = false;
   bool _payed = false;
+  bool _sold = false;
   bool soldOut = false;
   bool __processing_payment = false;
+  bool _processing_selling = false;
   Timer? _timer;
   bool _isAppActive = true;
   final _formKey = GlobalKey<FormState>();
@@ -274,6 +276,66 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
     }
   }
 
+  Future<void> _handleSelling({bool useDNS = true}) async {
+    if (checkTicketAvailability()){
+        try {
+          setState(() => _isLoading = true);
+
+          final Uri uri = useDNS ? Uri.parse('${backend_url}api/confirm') // Original URL 
+          : Uri.parse('${backend_url_with_fallback_ip}api/confirm'); // Use IP
+        
+          final response = await http.post(
+            uri,
+            headers: {'Content-Type': 'application/json; charset=UTF-8'},
+            body: '{"user_id": "$userId", "event_id": "$eventId", "quantity": "$quantity", "ticket_price": $ticketPrice, "ticket_type": "$ticketTypeName"}',
+          );
+
+          if (response.statusCode == 200) {
+            if ((response.body == "Confirmation failed, Plz check your account!") || 
+                response.body.contains("We currently have only")) {
+              _showSnackBar(response.body);
+            } else if (response.body == "Confirmed!" || 
+                      response.body == "You have already confirmed for this event!") {
+              _showSnackBar(response.body);
+              setState(() {
+                _sold = true;
+                _processing_selling = false;
+              });
+              widget.refreshMethod();
+              fetchTickets();
+            }
+          }  else if (response.statusCode == 302) {
+            _handleHTTPRedirect();
+          } else {
+            _showSnackBar('Request failed: ${response.statusCode}');
+          }
+        } on SocketException catch (e) {
+          debugPrint('Network error occurred:');
+          debugPrint('- Exception type: ${e.runtimeType}');
+          debugPrint('- Message: ${e.message}');
+          
+          if (e.osError != null) {
+            debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+            debugPrint('  - OS message: ${e.osError!.message}');
+
+            // Retry with IP if DNS fails (errno = 7) and not already retrying
+            if (e.osError!.errorCode == 7 && useDNS) {
+              debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+              await _handleSelling(useDNS: false); // Recursive retry
+              return;
+            }
+          }
+
+          _handleSocketException(e);
+        } catch (e) {
+          _showSnackBar('An error occurred: $e');
+        } finally {
+          setState(() => _isLoading = false);
+        }
+    }
+  }
+
+
   void _showSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
@@ -323,7 +385,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
 
     if(trials <= 0){
       setState(() {
-        trials = 10;
+        trials = 15;
         __processing_payment = false;
       });
     }
@@ -343,7 +405,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
           if(__processing_payment) {
             _showSnackBar("Muamala Haujakamilika: Hauna salio la kutosha, Unaweza kuweka namba yenye salio hapo juu");
             setState(() {
-              trials = 10;
+              trials = 15;
               __processing_payment = false;
             });
           }
@@ -352,7 +414,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
           if(__processing_payment) {
             _showSnackBar("Muamala Haujakamilika: Mfumo hauruhusu malipo kwa M-Pesa, Weka namba ya mtandao mwingine yenye salio hapo juu");
             setState(() {
-              trials = 10;
+              trials = 15;
               __processing_payment = false;
             });
           }
@@ -361,7 +423,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
           if(__processing_payment) {
             _showSnackBar("Muamala Haujakamilika: PIN uliyoingiza sio sahihi");
             setState(() {
-              trials = 10;
+              trials = 15;
               __processing_payment = false;
             });
           }
@@ -370,7 +432,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
           if(__processing_payment) {
             _showSnackBar("Muamala Haujakamilika: Akaunti yako imezuiliwa");
             setState(() {
-              trials = 10;
+              trials = 15;
               __processing_payment = false;
             });
           }
@@ -379,7 +441,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
           if(__processing_payment) {
             _showSnackBar("Muamala Haujakamilika: Failed in Min and Max Amount");
             setState(() {
-              trials = 10;
+              trials = 15;
               __processing_payment = false;
             });
           }
@@ -460,6 +522,17 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
       return '255${rawNumber.substring(1)}';
     }
     return rawNumber; 
+  }
+
+  String _formatDate(String date) {
+    try {
+      final DateFormat inputFormat = DateFormat('dd-MM-yyyy');
+      final DateTime dateTime = inputFormat.parse(date);
+      final DateFormat outputFormat = DateFormat('EEEE, MMMM d, yyyy');
+      return outputFormat.format(dateTime);
+    } catch (e) {
+      return date;
+    }
   }
 
   Widget _buildPoweredByLabel() {
@@ -597,7 +670,8 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
                 const SizedBox(height: 20),
                 _buildSummaryCard(isVeryLargeScreen),
                 const SizedBox(height: 20),
-                _buildCheckoutButton(),
+                (widget.event.userId == userId) ?
+                _buildSellButton() : _buildCheckoutButton(),
                 const SizedBox(height: 10),
                 _buildPoweredByLabel(),
               ],
@@ -926,6 +1000,35 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: Text(
+                'SUMMARY',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+            RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'Event: ',
+                    style: const TextStyle(
+                      fontSize: 18, 
+                      color: Colors.grey
+                    ),
+                  ),
+                  TextSpan(
+                    text: '${widget.event.name}',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ]
+              )
+            ),
+            const SizedBox(height: 12),
             RichText(
               text: TextSpan(
                 children: [
@@ -948,6 +1051,50 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
               )
             ),
             const SizedBox(height: 12), // Add some spacing
+            RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'Date: ',
+                    style: const TextStyle(
+                      fontSize: 18, 
+                      color: Colors.grey
+                    ),
+                  ),
+                  TextSpan(
+                    text: ((widget.event.daily_event == 'yes') && (_selectedDate != null)) ? '${_formatDate('${_selectedDate!.day}-${_selectedDate!.month}-${_selectedDate!.year}')}' : '${_formatDate(widget.event.date)}',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ]
+              )
+            ),
+            const SizedBox(height: 12),
+            RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'Time: ',
+                    style: const TextStyle(
+                      fontSize: 18, 
+                      color: Colors.grey
+                    ),
+                  ),
+                  TextSpan(
+                    text: '${widget.event.time}',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ]
+              )
+            ),
+            const SizedBox(height: 12),
             // Total price row
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1022,6 +1169,66 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
           ? const CircularProgressIndicator(color: Colors.white)
           : const Text(
               'Pay Now', 
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.white,
+              ),
+            ),
+      ),
+    );
+  }
+
+  Widget _buildSellButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 50,
+      child: (_sold || soldOut) ?
+      ElevatedButton(
+        onPressed: (soldOut) ? null : _handleSelling,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.orange[800],
+          disabledBackgroundColor: Colors.orange[800],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        child: Text(
+          soldOut ? "Sold Out" : 'Sold',
+          style: const TextStyle(
+            fontSize: 16,
+            color: Colors.white,
+          ),
+        ),
+      ) :
+      _processing_selling ? 
+      ElevatedButton(
+        onPressed: null,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.orange[800],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        child: const Text(
+          'Please wait...',
+          style: TextStyle(
+            fontSize: 16,
+            color: Colors.white,
+          ),
+        ),
+      ) :
+      ElevatedButton(
+        onPressed: _isLoading ? null : _handleSelling,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.orange[800],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        child: _isLoading 
+          ? const CircularProgressIndicator(color: Colors.white)
+          :  Text(
+              'Sell',
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.white,
