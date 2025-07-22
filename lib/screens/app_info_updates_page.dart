@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,6 +11,7 @@ import 'package:http/http.dart' as http;
 import 'package:tiketi_mkononi/widgets/server_metrics_card.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'platform_detector.dart';
 
 class AppInfoUpdatesPage extends StatefulWidget {
   const AppInfoUpdatesPage({super.key});
@@ -29,11 +31,13 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
   late ServerMetrics serverMetrics;
   bool _hasReceivedServerMetrics = false;
 
+
+
   final _formKey = GlobalKey<FormState>();
   final _appVersionController = TextEditingController();
   late final StorageService _storageService;
   bool _isLoading = false;
-
+  
   bool _sent = false;
 
   @override
@@ -41,6 +45,7 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
     super.initState();
     _initializeServices();
     checkForUpdates();
+    getMobileApp();
   }
 
   Future<void> _initializeServices() async {
@@ -53,15 +58,61 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
     final profile = _storageService.getUserProfile();
     if (profile != null) {
       setState(() {
-        userId = profile.id;
+        userId = profile.id;      
         role = profile.role;
       });
 
-      if (role == "admin") getServerMetrics();
+      if(role == "admin") getServerMetrics();
     }
   }
 
-  @override
+  void getMobileApp() {
+    if(kIsWeb && isAndroidWeb()) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Get App on Google Play"),
+        content: const Text("Get the mobile app for a better experience and more features 🚀"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Later"),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _launchStore();
+            },
+            child: const Text("Get app"),
+          ),
+        ],
+      ),
+    );
+    } else if(kIsWeb && isIOSWeb()) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text("Get App on the App Store"),
+          content: const Text("Get the mobile app for a better experience and more features 🚀"),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Later"),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _launchStore();
+              },
+              child: const Text("Get app"),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+   @override
   void dispose() {
     _appVersionController.dispose();
     super.dispose();
@@ -84,12 +135,9 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
       try {
         setState(() => _isLoading = true);
 
-        final Uri uri = useDNS
-            ? Uri.parse(
-                '${backend_url}api/add_application_information') // Original URL
-            : Uri.parse(
-                '${backend_url_with_fallback_ip}api/add_application_information'); // Use IP
-
+        final Uri uri = useDNS ? Uri.parse('${backend_url}api/add_application_information') // Original URL 
+        : Uri.parse('${backend_url_with_fallback_ip}api/add_application_information'); // Use IP
+        
         final response = await http.post(
           uri,
           headers: {'Content-Type': 'application/json; charset=UTF-8'},
@@ -111,17 +159,15 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
         debugPrint('Network error occurred:');
         debugPrint('- Exception type: ${e.runtimeType}');
         debugPrint('- Message: ${e.message}');
-
+        
         if (e.osError != null) {
           debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
           debugPrint('  - OS message: ${e.osError!.message}');
 
           // Retry with IP if DNS fails (errno = 7) and not already retrying
           if (e.osError!.errorCode == 7 && useDNS) {
-            debugPrint(
-                'DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-            await _handleAddApplicationInformation(
-                useDNS: false); // Recursive retry
+            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+            await _handleAddApplicationInformation(useDNS: false); // Recursive retry
             return;
           }
         }
@@ -137,15 +183,12 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
   }
 
   void _handleSocketException(SocketException e) {
-    if (e.osError?.errorCode == 7 ||
-        e.osError?.errorCode == 101 ||
-        e.osError?.errorCode == 111) {
+    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 101 || e.osError?.errorCode == 111) {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('Connection Error'),
-          content: const Text(
-              'Could not connect to the server. Please check your internet connection.'),
+          content: const Text('Could not connect to the server. Please check your internet connection.'),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -161,8 +204,7 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Connection Error'),
-        content: const Text(
-            'Could not connect to the server. Please check your internet connection.'),
+        content: const Text('Could not connect to the server. Please check your internet connection.'),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
@@ -197,10 +239,8 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
             ),
             style: TextStyle(fontSize: isLargeScreen ? 18 : 16),
             validator: (value) {
-              if (value == null || value.isEmpty)
-                return 'Please enter app version';
-              if (value.length > 10)
-                return 'App version cannot exceed 10 characters';
+              if (value == null || value.isEmpty) return 'Please enter app version';
+              if (value.length > 10) return 'App version cannot exceed 10 characters';
               return null;
             },
           ),
@@ -231,6 +271,7 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
     );
   }
 
+  
   InputDecoration _buildInputDecoration({
     required String label,
     required IconData icon,
@@ -273,7 +314,7 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
     setState(() {
       _isLoading = true;
     });
-
+    
     // Get current app version
     final packageInfo = await PackageInfo.fromPlatform();
     String installedVersion2 = packageInfo.version;
@@ -282,14 +323,16 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
     });
 
     String _latestVersion = "";
-    String operatingSystem = Platform.operatingSystem; // Hardcoded for example
+    String operatingSystem = "";
+    if(kIsWeb) {
+      operatingSystem = 'web';
+    } else {
+      operatingSystem = Platform.operatingSystem; // Hardcoded for example
+    }
 
-    final Uri uri = useDNS
-        ? Uri.parse(
-            '${backend_url}api/application_information/$userId/$installedVersion2/$operatingSystem') // Original URL
-        : Uri.parse(
-            '${backend_url_with_fallback_ip}api/application_information/$userId/$installedVersion2/$operatingSystem'); // Use IP
-
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/application_information/$userId/$installedVersion2/$operatingSystem') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}api/application_information/$userId/$installedVersion2/$operatingSystem'); // Use IP
+        
     try {
       final response = await http.get(uri);
       if (response.statusCode == 200) {
@@ -309,24 +352,23 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
         _showSnackBar('Request failed: ${response.statusCode}');
       }
     } on SocketException catch (e) {
-      debugPrint('Network error occurred:');
-      debugPrint('- Exception type: ${e.runtimeType}');
-      debugPrint('- Message: ${e.message}');
+        debugPrint('Network error occurred:');
+        debugPrint('- Exception type: ${e.runtimeType}');
+        debugPrint('- Message: ${e.message}');
+        
+        if (e.osError != null) {
+          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+          debugPrint('  - OS message: ${e.osError!.message}');
 
-      if (e.osError != null) {
-        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
-        debugPrint('  - OS message: ${e.osError!.message}');
-
-        // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
-          debugPrint(
-              'DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await checkForUpdates(useDNS: false); // Recursive retry
-          return;
+          // Retry with IP if DNS fails (errno = 7) and not already retrying
+          if (e.osError!.errorCode == 7 && useDNS) {
+            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+            await checkForUpdates(useDNS: false); // Recursive retry
+            return;
+          }
         }
-      }
 
-      _handleSocketException(e);
+        _handleSocketException(e);
     } catch (e) {
       debugPrint('Error checking for updates: $e');
     } finally {
@@ -345,8 +387,7 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
           context: context,
           builder: (context) => AlertDialog(
             title: const Text("Update Available"),
-            content: const Text(
-                "A new version of the app is available. Please update to enjoy the latest features."),
+            content: const Text("A new version of the app is available. Please update to enjoy the latest features."),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
@@ -366,43 +407,44 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
     }
   }
 
+  
   Future<void> getServerMetrics({bool useDNS = true}) async {
-    final Uri uri = useDNS
-        ? Uri.parse('${backend_url}api/metrics') // Original URL
-        : Uri.parse('${backend_url_with_fallback_ip}api/metrics'); // Use IP
-
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/metrics') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}api/metrics'); // Use IP
+        
     try {
       final response = await http.get(uri);
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200) {        
+        
         setState(() {
           serverMetrics = ServerMetrics.fromJson(jsonDecode(response.body));
           serverMetrics.dnsResolution = useDNS;
           _hasReceivedServerMetrics = true;
-        });
+        });      
+        
       } else if (response.statusCode == 302) {
         _handleHTTPRedirect();
       } else {
         _showSnackBar('Request failed: ${response.statusCode}');
       }
     } on SocketException catch (e) {
-      debugPrint('Network error occurred:');
-      debugPrint('- Exception type: ${e.runtimeType}');
-      debugPrint('- Message: ${e.message}');
+        debugPrint('Network error occurred:');
+        debugPrint('- Exception type: ${e.runtimeType}');
+        debugPrint('- Message: ${e.message}');
+        
+        if (e.osError != null) {
+          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+          debugPrint('  - OS message: ${e.osError!.message}');
 
-      if (e.osError != null) {
-        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
-        debugPrint('  - OS message: ${e.osError!.message}');
-
-        // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
-          debugPrint(
-              'DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await getServerMetrics(useDNS: false); // Recursive retry
-          return;
+          // Retry with IP if DNS fails (errno = 7) and not already retrying
+          if (e.osError!.errorCode == 7 && useDNS) {
+            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+            await getServerMetrics(useDNS: false); // Recursive retry
+            return;
+          }
         }
-      }
 
-      _handleSocketException(e);
+        _handleSocketException(e);
     } catch (e) {
       debugPrint('Error getting server metrics: $e');
     } finally {
@@ -411,13 +453,21 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
   }
 
   Future<void> _launchStore() async {
-    const appStoreUrl = "https://apps.apple.com/app/id6746575990"; // iOS
-    const playStoreUrl =
-        "https://play.google.com/store/apps/details?id=com.telabs.tiketimkononi"; // Android
+    if(kIsWeb) return;
 
-    final Uri storeUrl = Uri.parse(
-      Platform.isAndroid ? playStoreUrl : appStoreUrl,
-    );
+    const appStoreUrl = "https://apps.apple.com/app/id6746575990"; // iOS
+    const playStoreUrl = "https://play.google.com/store/apps/details?id=com.telabs.tiketi_mkononi"; // Android
+
+    Uri storeUrl;
+    if(kIsWeb) {
+      storeUrl = Uri.parse(
+        isAndroidWeb() ? playStoreUrl : appStoreUrl,
+      );
+    }else {
+      storeUrl = Uri.parse(
+        Platform.isAndroid ? playStoreUrl : appStoreUrl,
+      );
+    }
 
     if (!await launchUrl(storeUrl, mode: LaunchMode.externalApplication)) {
       if (mounted) {
@@ -431,7 +481,7 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
   @override
   Widget build(BuildContext context) {
     final isLargeScreen = MediaQuery.of(context).size.width > 600;
-
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('App Info & Updates'),
@@ -456,12 +506,13 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
                   const SizedBox(height: 24),
                   _buildUpdateButton(context),
                 ],
-                if (_hasReceivedServerMetrics)
-                  SizedBox(height: isLargeScreen ? 40 : 24),
-                if (_hasReceivedServerMetrics)
-                  ServerMetricsCard(serverMetrics: serverMetrics),
+                if(_hasReceivedServerMetrics) SizedBox(height: isLargeScreen ? 40 : 24),
+                if(_hasReceivedServerMetrics) ServerMetricsCard(serverMetrics: serverMetrics),
+                
                 SizedBox(height: isLargeScreen ? 40 : 24),
-                if (role == "admin") _buildAppInformationForm(isLargeScreen),
+
+                if(role == "admin")
+                _buildAppInformationForm(isLargeScreen),
               ],
             ),
           ),
@@ -494,10 +545,10 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
             Text(
               'Application Information',
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 20,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+                color: Theme.of(context).colorScheme.primary,
+              ),
             ),
             const SizedBox(height: 24),
             _buildAppInfoGrid(isLargeScreen),
@@ -524,7 +575,7 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
       _AppInfoItem(
         icon: Icons.calendar_today_rounded,
         title: 'Last Updated On',
-        value: lastUpdate.isNotEmpty
+        value: lastUpdate.isNotEmpty 
             ? DateFormat('dd MMM yyyy').format(DateTime.parse(lastUpdate))
             : 'N/A',
         color: Colors.purple,
@@ -549,14 +600,12 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
       );
     } else {
       return Column(
-        children: items
-            .map((item) => Column(
-                  children: [
-                    _buildAppInfoTile(item),
-                    const SizedBox(height: 12),
-                  ],
-                ))
-            .toList(),
+        children: items.map((item) => Column(
+          children: [
+            _buildAppInfoTile(item),
+            const SizedBox(height: 12),
+          ],
+        )).toList(),
       );
     }
   }
@@ -601,8 +650,8 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
       child: ElevatedButton.icon(
         onPressed: (_isLoading || _sent) ? null : _launchStore,
         style: ElevatedButton.styleFrom(
-          backgroundColor: _isNewVerionAvailable
-              ? Colors.orange.shade700
+          backgroundColor: _isNewVerionAvailable 
+              ? Colors.orange.shade700 
               : Theme.of(context).primaryColor,
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
@@ -620,9 +669,7 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
                 ),
               )
             : Icon(
-                _sent
-                    ? Icons.check_circle_rounded
-                    : Icons.system_update_rounded,
+                _sent ? Icons.check_circle_rounded : Icons.system_update_rounded,
                 size: 24,
                 color: Colors.white,
               ),
