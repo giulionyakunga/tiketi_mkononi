@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:tiketi_mkononi/models/event.dart';
 import 'package:intl/intl.dart';
+import 'package:tiketi_mkononi/screens/auth/login_screen.dart';
 import 'package:tiketi_mkononi/screens/checkout_page.dart';
 import 'package:tiketi_mkononi/screens/confirm_page.dart';
 import 'package:tiketi_mkononi/screens/edit_event_page.dart';
@@ -641,16 +642,25 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => CheckoutPage(
-                              event: event,
-                              refreshMethod: fetchEvent,
-                            ),
-                          ),
-                        );
-                      },
+                  if(!(widget.userId > 0)) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => LoginScreen(),
+                      ),
+                    );
+                  }else {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => CheckoutPage(
+                          event: event,
+                          refreshMethod: fetchEvent,
+                        ),
+                      ),
+                    );
+                  }
+                },
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   backgroundColor:
@@ -677,15 +687,24 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                 onPressed: 
                 // (existsTicketUpdatedAfterEvent(event)) ? null :
                 () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ConfirmPage(
-                        event: event,
-                        refreshMethod: fetchEvent,
+                  if(!(widget.userId > 0)) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => LoginScreen(),
                       ),
-                    ),
-                  );
+                    );
+                  }else {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ConfirmPage(
+                          event: event,
+                          refreshMethod: fetchEvent,
+                        ),
+                      ),
+                    );
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),

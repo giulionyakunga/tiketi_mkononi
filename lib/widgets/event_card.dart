@@ -384,7 +384,9 @@ class EventCard extends StatelessWidget {
                           child: (event.userId == userId) ? null :
                           ElevatedButton(
                             onPressed: checkSoldOut() ? null : () {
-                              if(event.type == 'paid') {
+                              if(!(userId > 0)) {
+                                Navigator.pushReplacementNamed(context, '/login');
+                              } else if(event.type == 'paid') {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(

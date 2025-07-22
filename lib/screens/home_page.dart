@@ -36,7 +36,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initializeServices();
-
+    
     _startFetchingEvents();
     checkForUpdates(context);
   }
@@ -57,6 +57,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       setState(() {
         userId = profile.id;
       });
+      fetchEvents();
+    }else {
       fetchEvents();
     }
   }
@@ -100,25 +102,22 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (!_isAppActive) return;
 
     try {
-      final Uri uri = useDNS
-          ? Uri.parse('${backend_url}api/events/$userId') // Original URL
-          : Uri.parse(
-              '${backend_url_with_fallback_ip}api/events/$userId'); // Use IP
-
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/events/$userId') // Original URL
+      : Uri.parse('${backend_url_with_fallback_ip}api/events/$userId'); // Use IP
+        
       final response = await http.get(uri);
 
       if (response.statusCode == 200) {
         List<dynamic> dataList = jsonDecode(response.body);
-        List<Event> events =
-            dataList.map((json) => Event.fromJson(json)).toList();
+        List<Event> events = dataList.map((json) => Event.fromJson(json)).toList();
 
         setState(() => eventsList = events);
 
         SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setString('cached_events', jsonEncode(dataList));
 
-        if (useDNS) {
-          if (!useDNS_2) {
+        if(useDNS){
+          if(!useDNS_2) {
             await prefs.setBool('use_dns', true);
 
             setState(() {
@@ -128,26 +127,25 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         }
       }
     } on SocketException catch (e) {
-      debugPrint('Network error occurred:');
-      debugPrint('- Exception type: ${e.runtimeType}');
-      debugPrint('- Message: ${e.message}');
+        debugPrint('Network error occurred:');
+        debugPrint('- Exception type: ${e.runtimeType}');
+        debugPrint('- Message: ${e.message}');
+        
+        if (e.osError != null) {
+          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+          debugPrint('  - OS message: ${e.osError!.message}');
 
-      if (e.osError != null) {
-        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
-        debugPrint('  - OS message: ${e.osError!.message}');
+          // Retry with IP if DNS fails (errno = 7) and not already retrying
+          if (e.osError!.errorCode == 7 && useDNS) {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('use_dns', false);
 
-        // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setBool('use_dns', false);
-
-          debugPrint(
-              'DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await fetchEvents(useDNS: false); // Recursive retry
-          return;
+            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+            await fetchEvents(useDNS: false); // Recursive retry
+            return;
+          }
         }
-      }
-    } catch (e) {
+      } catch (e) {
       debugPrint('Error fetching events: $e');
     }
   }
@@ -159,14 +157,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   List<Event> _getFilteredEvents() {
     return _searchQuery.isEmpty
         ? eventsList
-        : eventsList
-            .where((event) =>
-                event.name.toLowerCase().contains(_searchQuery.toLowerCase()))
+        : eventsList.where((event) => 
+            event.name.toLowerCase().contains(_searchQuery.toLowerCase()))
             .toList();
   }
 
-  Future<void> checkForUpdates(BuildContext context,
-      {bool useDNS = true}) async {
+
+  Future<void> checkForUpdates(BuildContext context, {bool useDNS = true}) async {
     // Get current app version
     final packageInfo = await PackageInfo.fromPlatform();
     String installedVersion = packageInfo.version;
@@ -175,11 +172,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     String operatingSystem = Platform.operatingSystem; // Hardcoded for example
 
     try {
-      final Uri uri = useDNS
-          ? Uri.parse(
-              '${backend_url}api/application_information/$userId/$installedVersion/$operatingSystem') // Original URL
-          : Uri.parse(
-              '${backend_url_with_fallback_ip}api/application_information/$userId/$installedVersion/$operatingSystem'); // Use IP
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/application_information/$userId/$installedVersion/$operatingSystem') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}api/application_information/$userId/$installedVersion/$operatingSystem'); // Use IP
 
       final response = await http.get(uri);
       if (response.statusCode == 200) {
@@ -190,8 +184,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           await prefs.setString('application_information', response.body);
         }
 
-        if (useDNS) {
-          if (!useDNS_2) {
+        if(useDNS){
+          if(!useDNS_2) {
             final prefs = await SharedPreferences.getInstance();
             await prefs.setBool('use_dns', true);
 
@@ -205,7 +199,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       debugPrint('Network error occurred:');
       debugPrint('- Exception type: ${e.runtimeType}');
       debugPrint('- Message: ${e.message}');
-
+      
       if (e.osError != null) {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         debugPrint('  - OS message: ${e.osError!.message}');
@@ -214,9 +208,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         if (e.osError!.errorCode == 7 && useDNS) {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setBool('use_dns', false);
-
-          debugPrint(
-              'DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+            
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
           await checkForUpdates(context, useDNS: false); // Recursive retry
           return;
         }
@@ -230,19 +223,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _launchStore() async {
-    const appStoreUrl = "https://apps.apple.com/app/id6746575990"; // iOS
-    const playStoreUrl =
-        "https://play.google.com/store/apps/details?id=com.telabs.tiketimkononi"; // Android
+Future<void> _launchStore() async {
+  const appStoreUrl = "https://apps.apple.com/app/id6746575990"; // iOS
+  const playStoreUrl = "https://play.google.com/store/apps/details?id=com.telabs.tiketi_mkononi"; // Android
 
-    final Uri storeUrl = Uri.parse(
-      Platform.isAndroid ? playStoreUrl : appStoreUrl,
-    );
+  final Uri storeUrl = Uri.parse(
+    Platform.isAndroid ? playStoreUrl : appStoreUrl,
+  );
 
-    if (!await launchUrl(storeUrl, mode: LaunchMode.externalApplication)) {
-      throw Exception("Could not launch $storeUrl");
-    }
+  if (!await launchUrl(storeUrl, mode: LaunchMode.externalApplication)) {
+    throw Exception("Could not launch $storeUrl");
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -279,35 +271,34 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 ),
               ),
               actions: [
-                _isNewVerionAvailable
-                    ? IconButton(
-                        icon: const Icon(Icons.system_update_rounded),
-                        color: Colors.red,
-                        onPressed: () =>
-                            // New update available
-                            showDialog(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Text("Update Available"),
-                            content: const Text(
-                                "A new version of the app is available. Please update to enjoy the latest features."),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text("Later"),
-                              ),
-                              TextButton(
-                                onPressed: () {
-                                  Navigator.pop(context);
-                                  _launchStore();
-                                },
-                                child: const Text("Update Now"),
-                              ),
-                            ],
-                          ),
+                _isNewVerionAvailable ?
+                IconButton(
+                  icon: const Icon(Icons.system_update_rounded),
+                  color: Colors.red,
+                  onPressed: () => 
+                  // New update available
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text("Update Available"),
+                      content: const Text("A new version of the app is available. Please update to enjoy the latest features."),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text("Later"),
                         ),
-                      )
-                    : Text("")
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _launchStore();
+                          },
+                          child: const Text("Update Now"),
+                        ),
+                      ],
+                    ),
+                  ),
+                ) : 
+                Text("")
               ],
             ),
       body: RefreshIndicator(
@@ -320,8 +311,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             if (isWideScreen)
               SliverToBoxAdapter(
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
@@ -360,11 +350,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 delegate: SliverChildListDelegate([
                   if (!isWideScreen) _buildSearchBar(isDarkMode),
                   const SizedBox(height: 24),
-                  _buildFeaturedEventsSection(
-                      isDarkMode, filteredEvents, isWideScreen),
+                  _buildFeaturedEventsSection(isDarkMode, filteredEvents, isWideScreen),
                   const SizedBox(height: 28),
-                  _buildCategoriesSection(
-                      isDarkMode, filteredEvents, isWideScreen),
+                  _buildCategoriesSection(isDarkMode, filteredEvents, isWideScreen),
                   const SizedBox(height: 20),
                 ]),
               ),
@@ -441,8 +429,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildFeaturedEventsSection(
-      bool isDarkMode, List<Event> filteredEvents, bool isWideScreen) {
+  Widget _buildFeaturedEventsSection(bool isDarkMode, List<Event> filteredEvents, bool isWideScreen) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -472,8 +459,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   'See All',
                   style: TextStyle(
                     fontSize: isWideScreen ? 18 : null,
-                    color:
-                        isDarkMode ? Colors.purpleAccent : Colors.orange[800],
+                    color: isDarkMode ? Colors.purpleAccent : Colors.orange[800],
                   ),
                 ),
               ),
@@ -491,8 +477,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildCategoriesSection(
-      bool isDarkMode, List<Event> filteredEvents, bool isWideScreen) {
+  Widget _buildCategoriesSection(bool isDarkMode, List<Event> filteredEvents, bool isWideScreen) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

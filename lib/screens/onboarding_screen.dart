@@ -228,7 +228,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             } else {
               final prefs = await SharedPreferences.getInstance();
               await prefs.setBool('first_launch', false);
-              Navigator.pushReplacementNamed(context, '/login');
+              Navigator.pushReplacementNamed(context, '/home');
             }
           },
           child: Text(

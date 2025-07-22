@@ -62,15 +62,7 @@ class TiketiMkononiApp extends StatelessWidget {
 
   Future<String> getInitialRoute() async {
     final prefs = await SharedPreferences.getInstance();
-    StorageService storageService = StorageService(prefs);
-    final profile = storageService.getUserProfile();
-
-    if (profile != null) {
-      if(profile.id > 0){
-        return '/home';
-      }
-    }
-    return '/login';
+    return '/home';
   }
 
   Widget _getScreenForRoute(String route) {
@@ -93,6 +85,7 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
+  bool isUserLoggedIn = false;
 
   final List<Widget> _screens = [
     const HomePage(),
@@ -100,6 +93,26 @@ class _MainScreenState extends State<MainScreen> {
     const TicketsPage(eventId: 0,),
     const ProfilePage(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _init();
+  }
+
+  Future<void> _init() async {
+    final prefs = await SharedPreferences.getInstance();
+    StorageService storageService = StorageService(prefs);
+    final profile = storageService.getUserProfile();
+
+    if (profile != null) {
+      if(profile.id > 0){
+        setState(() {
+          isUserLoggedIn = true;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -110,7 +123,16 @@ class _MainScreenState extends State<MainScreen> {
         selectedIndex: _selectedIndex,
         onDestinationSelected: (int index) {
           setState(() {
-            _selectedIndex = index;
+            if(isUserLoggedIn || ((index != 2) && (index != 3))) {
+              _selectedIndex = index;
+            }else {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => LoginScreen(),
+                ),
+              );
+            }
           });
         },
         destinations: [
