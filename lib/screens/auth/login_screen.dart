@@ -1,22 +1,29 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/models/user_profile.dart';
+import 'package:tiketi_mkononi/screens/event_details_page.dart';
+import 'package:tiketi_mkononi/screens/event_providers.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
 import '../../env.dart';
 import 'package:http/http.dart' as http;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'web_setup_stub.dart'
+if (dart.library.html) 'web_setup_web.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -85,7 +92,25 @@ class _LoginScreenState extends State<LoginScreen> {
             final responseData = jsonDecode(response.body);
             if (responseData['token'] != "") {
               await _saveUserProfile(responseData);
-              Navigator.pushReplacementNamed(context, '/home');
+
+              final event = ref.watch(selectedEventProvider);
+              if(event != null) {
+                ref.read(selectedEventProvider.notifier).state = null;
+
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => EventDetailsPage(
+                      event: event,
+                      userId: responseData['id'],
+                      refreshMethod: () {},
+                      useDNS: true,
+                    ),
+                  ),
+                );
+              } else {
+                context.go('/home');
+              }
             } else {
               _showSnackBar(response.body);
             }
@@ -186,7 +211,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-
   Future<void> _handleGoogleSignIn2(String? token, String email, String? name,  {bool useDNS = true}) async {
     try {
       final Uri uri = useDNS ? Uri.parse('${backend_url}api/google_login') // Original URL
@@ -206,8 +230,27 @@ class _LoginScreenState extends State<LoginScreen> {
         if (response.body == "Login failed, Plz check your credentials!") {
           _showSnackBar(response.body);
         } else {
-          await _saveUserProfile(jsonDecode(response.body));
-          Navigator.pushReplacementNamed(context, '/home');
+          final responseData = jsonDecode(response.body);
+          await _saveUserProfile(responseData);
+
+          final event = ref.watch(selectedEventProvider);
+          if(event != null) {
+            ref.read(selectedEventProvider.notifier).state = null;
+
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => EventDetailsPage(
+                  event: event,
+                  userId: responseData['id'],
+                  refreshMethod: () {},
+                  useDNS: true,
+                ),
+              ),
+            );
+          } else {
+            context.go('/home');
+          }
         }
 
         if(useDNS){
@@ -293,8 +336,27 @@ class _LoginScreenState extends State<LoginScreen> {
         if (response.body == "Login failed, Plz check your credentials!") {
           _showSnackBar(response.body);
         } else {
-          await _saveUserProfile(jsonDecode(response.body));
-          Navigator.pushReplacementNamed(context, '/home');
+          final responseData = jsonDecode(response.body);
+          await _saveUserProfile(responseData);
+
+          final event = ref.watch(selectedEventProvider);
+          if(event != null) {
+            ref.read(selectedEventProvider.notifier).state = null;
+
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => EventDetailsPage(
+                  event: event,
+                  userId: responseData['id'],
+                  refreshMethod: () {},
+                  useDNS: true,
+                ),
+              ),
+            );
+          } else {
+            context.go('/home');
+          }
         }
 
         if(useDNS){
@@ -407,7 +469,7 @@ class _LoginScreenState extends State<LoginScreen> {
   //       }
         
   //       // await _storageService.saveUserProfile(profile);
-  //       if (mounted) Navigator.pushReplacementNamed(context, '/home');
+  //       if (mounted) context.go('/home');
   //     } else if (response.statusCode == 302) {
   //       _handleHTTPRedirect();
   //     } else {
@@ -534,7 +596,7 @@ class _LoginScreenState extends State<LoginScreen> {
           Align(
             alignment: Alignment.centerRight,
             child: TextButton(
-              onPressed: () => Navigator.pushNamed(context, '/forgot-password'),
+              onPressed: () => context.push('/forgot-password'),
               style: TextButton.styleFrom(
                 padding: EdgeInsets.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -653,6 +715,29 @@ class _LoginScreenState extends State<LoginScreen> {
           ],
         ),
         SizedBox(height: isLargeScreen ? 20 : 12),
+        if (kIsWeb && ((getOS() == "Windows") || (getOS() == "Linux") || getOS() == "Android" ))
+        _buildSocialButton(
+            imagePath: 'assets/images/google_logo.png',
+            text: 'Continue with Google',
+            textColor: Colors.white,
+            color: Colors.black,
+            onPressed: _handleGoogleSignIn,
+            isLargeScreen: isLargeScreen,
+        ),
+        if (kIsWeb && ((getOS() == "Windows") || (getOS() == "Linux") || getOS() == "Android" ))
+        SizedBox(height: isLargeScreen ? 10 : 6),
+        if (kIsWeb && ((getOS() == "macOS") || (getOS() == "iOS")))
+        _buildSocialButton(
+          imagePath: 'assets/images/appleid_logo.png',
+          text: 'Continue with Apple',
+          textColor: Colors.black,
+          color: Colors.white,
+          onPressed: _handleAppleSignIn,
+          isLargeScreen: isLargeScreen,
+        ),     
+        if (kIsWeb && ((getOS() == "macOS") || (getOS() == "iOS")))        
+        SizedBox(height: isLargeScreen ? 10 : 6),
+        if (!kIsWeb)
         if (Platform.isAndroid) ...[
           _buildSocialButton(
             imagePath: 'assets/images/google_logo.png',
@@ -664,24 +749,24 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           SizedBox(height: isLargeScreen ? 10 : 6),
         ],
-        if (Platform.isIOS) ...[
-          _buildSocialButton(
-            imagePath: 'assets/images/appleid_logo.png',
-            text: 'Continue with Apple',
-            textColor: Colors.black,
-            color: Colors.white,
-            onPressed: _handleAppleSignIn,
-            isLargeScreen: isLargeScreen,
-          ),
-          SizedBox(height: isLargeScreen ? 10 : 6),
-        ],
+        // if (Platform.isIOS) ...[
+        //   _buildSocialButton(
+        //     imagePath: 'assets/images/appleid_logo.png',
+        //     text: 'Continue with Apple',
+        //     textColor: Colors.black,
+        //     color: Colors.white,
+        //     onPressed: _handleAppleSignIn,
+        //     isLargeScreen: isLargeScreen,
+        //   ),
+        //   SizedBox(height: isLargeScreen ? 10 : 6),
+        // ],
       ],
     );
   }
 
   Widget _buildRegisterSection(bool isLargeScreen) {
     return TextButton(
-      onPressed: () => Navigator.pushNamed(context, '/register'),
+      onPressed: () => context.push('/register'),
       style: TextButton.styleFrom(
         foregroundColor: Colors.orange[800],
         textStyle: TextStyle(
@@ -698,7 +783,9 @@ class _LoginScreenState extends State<LoginScreen> {
     final isLargeScreen = _isLargeScreen(context);
 
     return Scaffold(
-      body: SafeArea(
+  body: Stack(
+    children: [
+      SafeArea(
         child: Center(
           child: SingleChildScrollView(
             padding: EdgeInsets.symmetric(
@@ -712,6 +799,7 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  SizedBox(height: 24),
                   ShaderMask(
                     shaderCallback: (Rect bounds) {
                       return LinearGradient(
@@ -732,6 +820,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   SizedBox(height: isLargeScreen ? 16 : 8),
+
+                  SizedBox(height: isLargeScreen ? 16 : 8),
+
                   Text(
                     'Sign in to continue',
                     style: TextStyle(
@@ -754,6 +845,36 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
-    );
+
+      // Positioned button (top-right corner)
+      Positioned(
+        top: 24.0, // Adjust as needed
+        right: 16.0, // Adjust as needed
+        child: ElevatedButton.icon(
+          icon: const Icon(Icons.explore),
+          label: Text(
+            'Explore Events',
+            style: TextStyle(
+              fontSize: isLargeScreen ? 16 : 14,
+              color: Colors.orange[800],
+            ),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.orange[100],
+            foregroundColor: Colors.orange[800],
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            elevation: 2,
+          ),
+          onPressed: () {
+            context.go('/home');
+          },
+        ),
+      ),
+    ],
+  ),
+);
   }
 }
