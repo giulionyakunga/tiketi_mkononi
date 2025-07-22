@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -49,6 +50,7 @@ class PostEventPage extends StatefulWidget {
 
 class _PostEventPageState extends State<PostEventPage> {
   int userId = 0;
+  String role = "";
   final _formKey = GlobalKey<FormState>();
   final GlobalKey _imagePickerKey = GlobalKey();
   final _nameController = TextEditingController();
@@ -60,6 +62,7 @@ class _PostEventPageState extends State<PostEventPage> {
   TimeOfDay? _selectedTime;
   String? _selectedCategory;
   XFile? _eventImage;
+  Uint8List? _webImageBytes;
   String? fileType;
   bool _isLoading = false;
   bool _isPaidEvent = true;
@@ -87,6 +90,7 @@ class _PostEventPageState extends State<PostEventPage> {
     _addTicketType();
     _rowsController = TextEditingController(text: '0');
     _seatsController = TextEditingController(text: '0');
+
   }
 
   Future<void> _initializeServices() async {
@@ -100,11 +104,70 @@ class _PostEventPageState extends State<PostEventPage> {
     if (profile != null) {
       setState(() {
         userId = profile.id;
+        role = profile.role;
       });
 
+      if(profile.role == "user") {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Sorry! You can't post an event")),
+        );
+      }
+
+      getUserRole();
       getVenues();
     }
   }
+
+    
+  Future<void> getUserRole({bool useDNS = true}) async {
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/get_user_role/$userId') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}api/get_user_role/$useDNS'); // Use IP
+        
+    try {
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);   
+        if((role != responseData['role'])) {
+          setState(() {
+            role = responseData['role'];
+          });
+          var profile = _storageService.getUserProfile();
+          profile!.role =  responseData['role'];
+          await _storageService.saveUserProfile(profile);
+
+          if(responseData['role'] == "user") {
+            Navigator.pop(context);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text("Sorry, You can't post an event")),
+            );
+          }
+        }        
+      }
+    } on SocketException catch (e) {
+        debugPrint('Network error occurred:');
+        debugPrint('- Exception type: ${e.runtimeType}');
+        debugPrint('- Message: ${e.message}');
+        
+        if (e.osError != null) {
+          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+          debugPrint('  - OS message: ${e.osError!.message}');
+
+          // Retry with IP if DNS fails (errno = 7) and not already retrying
+          if (e.osError!.errorCode == 7 && useDNS) {
+            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+            await getUserRole(useDNS: false); // Recursive retry
+            return;
+          }
+        }
+
+    } catch (e) {
+      debugPrint('Error getting server metrics: $e');
+    } finally {
+      debugPrint('Process finished');
+    }
+  }
+
 
   bool _isLargeScreen(BuildContext context) {
     return MediaQuery.of(context).size.width > 768;
@@ -128,41 +191,95 @@ class _PostEventPageState extends State<PostEventPage> {
     });
   }
 
-  Future<void> _pickImage() async {
-    final ImagePicker picker = ImagePicker();
-    try {
-      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-      if (image != null) {
-        final fileExtension = path.extension(image.path).toLowerCase();
-        final mimeType = lookupMimeType(image.path);
+  // Future<void> _pickImage() async {
+  //   final ImagePicker picker = ImagePicker();
+  //   try {
+  //     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+  //     if (image != null) {
+  //       final fileExtension = path.extension(image.path).toLowerCase();
+  //       final mimeType = lookupMimeType(image.path);
 
-        if (mimeType == null || (!mimeType.startsWith('image/'))) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Invalid file type. Please select a valid image.')),
-          );
-          return;
-        }
+  //       if (mimeType == null || (!mimeType.startsWith('image/'))) {
+  //         ScaffoldMessenger.of(context).showSnackBar(
+  //           const SnackBar(content: Text('Invalid file type. Please select a valid image.')),
+  //         );
+  //         return;
+  //       }
 
-        if (fileExtension != '.png' && fileExtension != '.jpg' && fileExtension != '.jpeg') {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Unsupported image format. Only PNG and JPEG are allowed.')),
-          );
-          return;
-        }
+  //       if (fileExtension != '.png' && fileExtension != '.jpg' && fileExtension != '.jpeg') {
+  //         ScaffoldMessenger.of(context).showSnackBar(
+  //           const SnackBar(content: Text('Unsupported image format. Only PNG and JPEG are allowed.')),
+  //         );
+  //         return;
+  //       }
 
-        setState(() {
-          _eventImage = image;
-          fileType = fileExtension;
-        });
+  //       setState(() {
+  //         _eventImage = image;
+  //         fileType = fileExtension;
+  //       });
+  //     }
+  //   } catch (e) {
+  //     if (mounted) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         const SnackBar(content: Text('Failed to pick image')),
+  //       );
+  //     }
+  //   }
+  // }
+
+  
+
+
+Future<void> _pickImage() async {
+  final ImagePicker picker = ImagePicker();
+  try {
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+
+    if (image != null) {
+      String? mimeType;
+      String fileExtension;
+
+      if (kIsWeb) {
+        // On web, use `image.name` instead of `image.path`
+        fileExtension = path.extension(image.name).toLowerCase();
+        mimeType = lookupMimeType(image.name);
+
+        // Read image as bytes for web
+        final bytes = await image.readAsBytes();
+        _webImageBytes = bytes;
+      } else {
+        fileExtension = path.extension(image.path).toLowerCase();
+        mimeType = lookupMimeType(image.path);
       }
-    } catch (e) {
-      if (mounted) {
+
+      if (mimeType == null || !mimeType.startsWith('image/')) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to pick image')),
+          const SnackBar(content: Text('Invalid file type. Please select a valid image.')),
         );
+        return;
       }
+
+      if (fileExtension != '.png' && fileExtension != '.jpg' && fileExtension != '.jpeg') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unsupported image format. Only PNG and JPEG are allowed.')),
+        );
+        return;
+      }
+
+      setState(() {
+        _eventImage = image;
+        fileType = fileExtension;
+      });
+    }
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to pick image')),
+      );
     }
   }
+}
+
 
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
@@ -338,7 +455,7 @@ class _PostEventPageState extends State<PostEventPage> {
         'is_custom': ticket.isCustom,
       }).toList(),
       'file_type': fileType,
-      'event_image': base64Encode(await File(_eventImage!.path).readAsBytes()),
+      'event_image': kIsWeb ? _webImageBytes : base64Encode(await File(_eventImage!.path).readAsBytes()),
     };
 
     try {
@@ -364,7 +481,11 @@ class _PostEventPageState extends State<PostEventPage> {
       } else if (response.statusCode == 302) {
         _handleHTTPRedirect();
       } else {
-        _showSnackBar('Request failed: ${response.statusCode}');
+        if(response.statusCode == 413){
+          _showSnackBar('Request failed: Image is Too Large');
+        } else {
+          _showSnackBar('Request failed: ${response.statusCode}');
+        }
       }
     } on SocketException catch (e) {
         debugPrint('Network error occurred:');
@@ -766,7 +887,12 @@ class _PostEventPageState extends State<PostEventPage> {
         child: _eventImage != null
             ? ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: Image.file(
+                child: kIsWeb ? 
+                Image.memory(
+                  _webImageBytes!,
+                  fit: BoxFit.cover,
+                ) :
+                Image.file(
                   File(_eventImage!.path),
                   fit: BoxFit.cover,
                 ),
