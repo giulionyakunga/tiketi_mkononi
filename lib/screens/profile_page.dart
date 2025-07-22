@@ -1,7 +1,11 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tiketi_mkononi/env.dart';
 import 'package:tiketi_mkononi/screens/app_info_updates_page.dart';
 import 'package:tiketi_mkononi/screens/apply_to_be_organizer_page.dart';
 import 'package:tiketi_mkononi/screens/edit_profile_page.dart';
@@ -14,6 +18,7 @@ import 'package:tiketi_mkononi/screens/privacy_security_page.dart';
 import 'package:tiketi_mkononi/screens/purchase_history_page.dart';
 import 'package:tiketi_mkononi/screens/qr_scanner_page.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
+import 'package:http/http.dart' as http;
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -22,7 +27,7 @@ class ProfilePage extends StatefulWidget {
   State<ProfilePage> createState() => _ProfilePageState();
 }
 
-class _ProfilePageState extends State<ProfilePage> {
+class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
   int userId = 0;
   String role = "";
   final _firstNameController = TextEditingController();
@@ -53,12 +58,58 @@ class _ProfilePageState extends State<ProfilePage> {
         _lastNameController.text = profile.lastName;
         _emailController.text = profile.email;
       });
+      if(profile.role == "user") {
+        getUserRole();
+      }
     }
   }
 
   void _clearUserProfile() {
     _storageService.clearUserProfile();
   }
+
+   
+  Future<void> getUserRole({bool useDNS = true}) async {
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/get_user_role/$userId') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}api/get_user_role/$useDNS'); // Use IP
+        
+    try {
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);   
+        if((role != responseData['role'])) {
+          setState(() {
+            role = responseData['role'];
+          });
+          var profile = _storageService.getUserProfile();
+          profile!.role =  responseData['role'];
+          await _storageService.saveUserProfile(profile);
+        }        
+      }
+    } on SocketException catch (e) {
+        debugPrint('Network error occurred:');
+        debugPrint('- Exception type: ${e.runtimeType}');
+        debugPrint('- Message: ${e.message}');
+        
+        if (e.osError != null) {
+          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+          debugPrint('  - OS message: ${e.osError!.message}');
+
+          // Retry with IP if DNS fails (errno = 7) and not already retrying
+          if (e.osError!.errorCode == 7 && useDNS) {
+            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+            await getUserRole(useDNS: false); // Recursive retry
+            return;
+          }
+        }
+
+    } catch (e) {
+      debugPrint('Error getting server metrics: $e');
+    } finally {
+      debugPrint('Process finished');
+    }
+  }
+
 
   @override
   void dispose() {
@@ -326,7 +377,7 @@ class _ProfilePageState extends State<ProfilePage> {
               Expanded(
                 child: _buildProfileCard(
                   context,
-                  title: 'App Settings',
+                  title: 'About This App',
                   items: appSettings,
                 ),
               ),
@@ -342,11 +393,69 @@ class _ProfilePageState extends State<ProfilePage> {
               const SizedBox(height: 16),
               _buildProfileCard(
                 context,
-                title: 'App Settings',
+                title: 'About This App',
                 items: appSettings,
               ),
             ],
           );
+  }
+
+  Widget _buildNonLoginUserActionCards(BuildContext context) {
+    final appSettings = [
+      _buildActionTile(
+        context,
+        icon: Icons.security,
+        iconColor: Colors.teal,
+        title: 'Privacy & Security',
+        onTap: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const PrivacySecurityPage(),
+            ),
+          );
+        },
+      ),
+      _buildActionTile(
+        context,
+        icon: Icons.help,
+        iconColor: Colors.green,
+        title: 'Help & Support',
+        onTap: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const HelpSupportPage(),
+            ),
+          );
+          _loadUserProfile();
+        },
+      ),
+      _buildActionTile(
+        context,
+        icon: Icons.update,
+        iconColor: Colors.blue,
+        title: 'App Info & Updates',
+        onTap: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const AppInfoUpdatesPage(),
+            ),
+          );
+        },
+      ),
+    ];
+
+    return Column(
+      children: [
+        _buildProfileCard(
+          context,
+          title: 'About This App',
+          items: appSettings,
+        ),
+      ],
+    );
   }
 
   Widget _buildProfileCard(BuildContext context, {required String title, required List<Widget> items}) {
@@ -535,7 +644,7 @@ class _ProfilePageState extends State<ProfilePage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Profile', style: TextStyle(fontWeight: FontWeight.normal)),
-        centerTitle: false,
+        centerTitle: false, 
         backgroundColor: const Color.fromARGB(255, 240, 244, 247),
         actions: [
           if(userId > 0)
@@ -595,23 +704,46 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         )
         :
-        Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text('Please Login'),
-            ElevatedButton(
-              onPressed: () {
-                context.push('/login');
-              },
-              child: const Text(
-                'Login',
-                style: TextStyle(
-                  color: Colors.green
-                ),
-              ),
+        ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: isLargeScreen ? 1000 : double.infinity,
+          ),
+          child: SingleChildScrollView(
+            padding: EdgeInsets.symmetric(
+              horizontal: isLargeScreen ? 32 : 16,
+              vertical: 16,
             ),
-          ],
-        ),
+            child: Column(
+              children: [
+                _buildNonLoginUserActionCards(context),
+                const SizedBox(height: 24),
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('Please Login'),
+                    ElevatedButton(
+                      onPressed: () {
+                        context.push('/login');
+                      },
+                      child: const Text(
+                        'Login',
+                        style: TextStyle(
+                          color: Colors.green
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        )
+
+
+
+
+
+        
       ),
     );
   }
