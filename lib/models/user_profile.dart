@@ -5,7 +5,7 @@ class UserProfile {
   final String lastName;
   final String email;
   final String phoneNumber;
-  final String role;
+  String role;
   final String region;
   final String district;
   final String ward;
