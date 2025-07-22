@@ -257,7 +257,7 @@ class _CategoryEventsPageState extends State<CategoryEventsPage> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           color: isDarkMode
-              ? colorScheme.surfaceVariant.withOpacity(0.8)
+              ? colorScheme.surfaceContainerHighest.withOpacity(0.8)
               : colorScheme.surface.withOpacity(0.9),
           boxShadow: [
             BoxShadow(
@@ -287,8 +287,8 @@ class _CategoryEventsPageState extends State<CategoryEventsPage> {
               padding: const EdgeInsets.only(left: 16, right: 8),
               child: Icon(
                 Icons.search_rounded,
+                color: Colors.orange[800],
                 size: isLargeScreen ? 24 : 20,
-                color: colorScheme.primary,
               ),
             ),
             suffixIcon: _searchQuery.isNotEmpty
