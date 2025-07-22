@@ -11,10 +11,7 @@ import 'package:tiketi_mkononi/screens/event_providers.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
 import '../../env.dart';
 import 'package:http/http.dart' as http;
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
-import 'web_setup_stub.dart'
-if (dart.library.html) 'web_setup_web.dart';
+import 'web_setup_stub.dart' if (dart.library.html) 'web_setup_web.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -30,9 +27,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _isPasswordVisible = false;
   late final StorageService _storageService;
   bool _isLoading = false;
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
-    scopes: ['email', 'profile'],
-  );
+  // final GoogleSignIn _googleSignIn = GoogleSignIn(
+  //   scopes: ['email', 'profile'],
+  // );
 
   @override
   void initState() {
@@ -73,9 +70,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       try {
         setState(() => _isLoading = true);
 
-        final Uri uri = useDNS ? Uri.parse('${backend_url}api/login') // Original URL 
-        : Uri.parse('${backend_url_with_fallback_ip}api/login'); // Use IP
-        
+        final Uri uri = useDNS
+            ? Uri.parse('${backend_url}api/login') // Original URL
+            : Uri.parse('${backend_url_with_fallback_ip}api/login'); // Use IP
+
         final response = await http.post(
           uri,
           headers: {'Content-Type': 'application/json; charset=UTF-8'},
@@ -94,7 +92,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               await _saveUserProfile(responseData);
 
               final event = ref.watch(selectedEventProvider);
-              if(event != null) {
+              if (event != null) {
                 ref.read(selectedEventProvider.notifier).state = null;
 
                 Navigator.pushReplacement(
@@ -116,10 +114,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             }
           }
 
-          if(useDNS){
+          if (useDNS) {
             final prefs = await SharedPreferences.getInstance();
             await prefs.setBool('use_dns', true);
-          }else {
+          } else {
             final prefs = await SharedPreferences.getInstance();
             await prefs.setBool('use_dns', false);
           }
@@ -132,7 +130,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         debugPrint('Network error occurred:');
         debugPrint('- Exception type: ${e.runtimeType}');
         debugPrint('- Message: ${e.message}');
-        
+
         if (e.osError != null) {
           debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
           debugPrint('  - OS message: ${e.osError!.message}');
@@ -142,7 +140,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             final prefs = await SharedPreferences.getInstance();
             await prefs.setBool('use_dns', false);
 
-            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+            debugPrint(
+                'DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
             await _handleLogin(useDNS: false); // Recursive retry
             return;
           }
@@ -182,12 +181,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   void _handleSocketException(SocketException e) {
-    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 101 || e.osError?.errorCode == 111) {
+    if (e.osError?.errorCode == 7 ||
+        e.osError?.errorCode == 101 ||
+        e.osError?.errorCode == 111) {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('Connection Error'),
-          content: const Text('Could not connect to the server. Please check your internet connection.'),
+          content: const Text(
+              'Could not connect to the server. Please check your internet connection.'),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -203,7 +205,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Connection Error'),
-        content: const Text('Could not connect to the server. Please check your internet connection.'),
+        content: const Text(
+            'Could not connect to the server. Please check your internet connection.'),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
@@ -211,10 +214,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  Future<void> _handleGoogleSignIn2(String? token, String email, String? name,  {bool useDNS = true}) async {
+  Future<void> _handleGoogleSignIn2(String? token, String email, String? name,
+      {bool useDNS = true}) async {
     try {
-      final Uri uri = useDNS ? Uri.parse('${backend_url}api/google_login') // Original URL
-      : Uri.parse('${backend_url_with_fallback_ip}api/google_login'); // Use IP
+      final Uri uri = useDNS
+          ? Uri.parse('${backend_url}api/google_login') // Original URL
+          : Uri.parse(
+              '${backend_url_with_fallback_ip}api/google_login'); // Use IP
 
       final response = await http.post(
         uri,
@@ -234,7 +240,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           await _saveUserProfile(responseData);
 
           final event = ref.watch(selectedEventProvider);
-          if(event != null) {
+          if (event != null) {
             ref.read(selectedEventProvider.notifier).state = null;
 
             Navigator.pushReplacement(
@@ -253,10 +259,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           }
         }
 
-        if(useDNS){
+        if (useDNS) {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setBool('use_dns', true);
-        }else {
+        } else {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setBool('use_dns', false);
         }
@@ -269,15 +275,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       debugPrint('Network error occurred:');
       debugPrint('- Exception type: ${e.runtimeType}');
       debugPrint('- Message: ${e.message}');
-      
+
       if (e.osError != null) {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         debugPrint('  - OS message: ${e.osError!.message}');
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if (e.osError!.errorCode == 7 && useDNS) {
-          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await _handleGoogleSignIn2(token, email, name, useDNS: false); // Recursive retry
+          debugPrint(
+              'DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await _handleGoogleSignIn2(token, email, name,
+              useDNS: false); // Recursive retry
           return;
         }
       }
@@ -289,38 +297,34 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
-  
-  Future<void> _handleGoogleSignIn() async {
-    if (_isLoading) return;    
+  // Future<void> _handleGoogleSignIn() async {
+  //   if (_isLoading) return;
+  //   try {
+  //     setState(() => _isLoading = true);
+
+  //     final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+  //     if (googleUser == null) return;
+
+  //     final GoogleSignInAuthentication googleAuth =
+  //         await googleUser.authentication;
+
+  //     await _handleGoogleSignIn2(
+  //         googleAuth.idToken, googleUser.email, googleUser.displayName);
+  //   } catch (e) {
+  //     debugPrint('Google sign in failed: $e');
+  //     if (mounted) _showSnackBar('Google sign in failed, Plz try another way');
+  //   } finally {
+  //     if (mounted) setState(() => _isLoading = false);
+  //   }
+  // }
+
+  Future<void> _handleAppleSignIn2(String? token, String? email, String? name,
+      {bool useDNS = true}) async {
     try {
-      setState(() => _isLoading = true);
-      
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) return;
-
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-
-      await _handleGoogleSignIn2(googleAuth.idToken, googleUser.email, googleUser.displayName);
-
-    } catch (e) {
-      debugPrint('Google sign in failed: $e');
-      if (mounted) _showSnackBar('Google sign in failed, Plz try another way');
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-
-
-
-
-
-  
-  Future<void> _handleAppleSignIn2(String? token, String? email, String? name,  {bool useDNS = true}) async {
-    try {
-
-      final Uri uri = useDNS ? Uri.parse('${backend_url}api/apple_login') // Original URL
-      : Uri.parse('${backend_url_with_fallback_ip}api/apple_login'); // Use IP
+      final Uri uri = useDNS
+          ? Uri.parse('${backend_url}api/apple_login') // Original URL
+          : Uri.parse(
+              '${backend_url_with_fallback_ip}api/apple_login'); // Use IP
 
       final response = await http.post(
         uri,
@@ -340,7 +344,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           await _saveUserProfile(responseData);
 
           final event = ref.watch(selectedEventProvider);
-          if(event != null) {
+          if (event != null) {
             ref.read(selectedEventProvider.notifier).state = null;
 
             Navigator.pushReplacement(
@@ -359,10 +363,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           }
         }
 
-        if(useDNS){
+        if (useDNS) {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setBool('use_dns', true);
-        }else {
+        } else {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setBool('use_dns', false);
         }
@@ -375,15 +379,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       debugPrint('Network error occurred:');
       debugPrint('- Exception type: ${e.runtimeType}');
       debugPrint('- Message: ${e.message}');
-      
+
       if (e.osError != null) {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         debugPrint('  - OS message: ${e.osError!.message}');
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if (e.osError!.errorCode == 7 && useDNS) {
-          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await _handleAppleSignIn2(token, email, name, useDNS: false); // Recursive retry
+          debugPrint(
+              'DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await _handleAppleSignIn2(token, email, name,
+              useDNS: false); // Recursive retry
           return;
         }
       }
@@ -397,38 +403,37 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   // void _handleAppleSignIn({bool useDNS = true}) async {}
 
-  void _handleAppleSignIn({bool useDNS = true}) async {
-    debugPrint(" >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Apple SignIn");
+  // void _handleAppleSignIn({bool useDNS = true}) async {
+  //   debugPrint(" >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Apple SignIn");
 
-    if (_isLoading) return;  // Early return if already loading
-    
-    try {
-      setState(() => _isLoading = true);
-      
-      final credential = await SignInWithApple.getAppleIDCredential(
-        scopes: [
-          AppleIDAuthorizationScopes.email,
-          AppleIDAuthorizationScopes.fullName,
-        ],
-      );
+  //   if (_isLoading) return;  // Early return if already loading
 
-      await _handleAppleSignIn2(credential.identityToken, credential.email, '${credential.givenName} ${credential.familyName}');
+  //   try {
+  //     setState(() => _isLoading = true);
 
-    } catch (e) {
-      debugPrint('Apple sign in failed: $e');
-      if (mounted) _showSnackBar('Apple sign in failed, Plz try another way');
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
+  //     final credential = await SignInWithApple.getAppleIDCredential(
+  //       scopes: [
+  //         AppleIDAuthorizationScopes.email,
+  //         AppleIDAuthorizationScopes.fullName,
+  //       ],
+  //     );
 
+  //     await _handleAppleSignIn2(credential.identityToken, credential.email, '${credential.givenName} ${credential.familyName}');
+
+  //   } catch (e) {
+  //     debugPrint('Apple sign in failed: $e');
+  //     if (mounted) _showSnackBar('Apple sign in failed, Plz try another way');
+  //   } finally {
+  //     if (mounted) setState(() => _isLoading = false);
+  //   }
+  // }
 
   // void _handleAppleSignIn({bool useDNS = true}) async {
   //   if (_isLoading) return;  // Early return if already loading
-    
+
   //   try {
   //     setState(() => _isLoading = true);
-      
+
   //     final credential = await SignInWithApple.getAppleIDCredential(
   //       scopes: [
   //         AppleIDAuthorizationScopes.email,
@@ -438,7 +443,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   //     // Send to your backend
   //     final Uri uri = useDNS ? Uri.parse('${backend_url}api/apple_login') // Original URL
-  //     : Uri.parse('${backend_url_with_fallback_ip}api/apple_login'); // Use IP 
+  //     : Uri.parse('${backend_url_with_fallback_ip}api/apple_login'); // Use IP
 
   //     final response = await http.post(
   //       uri,
@@ -467,7 +472,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   //         final prefs = await SharedPreferences.getInstance();
   //         await prefs.setBool('use_dns', false);
   //       }
-        
+
   //       // await _storageService.saveUserProfile(profile);
   //       if (mounted) context.go('/home');
   //     } else if (response.statusCode == 302) {
@@ -479,7 +484,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   //       debugPrint('Network error occurred:');
   //       debugPrint('- Exception type: ${e.runtimeType}');
   //       debugPrint('- Message: ${e.message}');
-        
+
   //       if (e.osError != null) {
   //         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
   //         debugPrint('  - OS message: ${e.osError!.message}');
@@ -565,9 +570,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
             style: TextStyle(fontSize: isLargeScreen ? 18 : 16),
             validator: (value) {
-              if (value == null || value.isEmpty) return 'Please enter your email';
+              if (value == null || value.isEmpty)
+                return 'Please enter your email';
               if (!value.contains('@')) return 'Please enter a valid email';
-              if (value.length > 100) return 'Email cannot exceed 100 characters';
+              if (value.length > 100)
+                return 'Email cannot exceed 100 characters';
               return null;
             },
           ),
@@ -586,9 +593,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
             style: TextStyle(fontSize: isLargeScreen ? 18 : 16),
             validator: (value) {
-              if (value == null || value.isEmpty) return 'Please enter a password';
-              if (value.length < 6) return 'Password must be at least 6 characters';
-              if (value.length > 100) return 'Password cannot exceed 100 characters';
+              if (value == null || value.isEmpty)
+                return 'Please enter a password';
+              if (value.length < 6)
+                return 'Password must be at least 6 characters';
+              if (value.length > 100)
+                return 'Password cannot exceed 100 characters';
               return null;
             },
           ),
@@ -714,41 +724,47 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
           ],
         ),
-        SizedBox(height: isLargeScreen ? 20 : 12),
-        if (kIsWeb && ((getOS() == "Windows") || (getOS() == "Linux") || getOS() == "Android" ))
-        _buildSocialButton(
-            imagePath: 'assets/images/google_logo.png',
-            text: 'Continue with Google',
-            textColor: Colors.white,
-            color: Colors.black,
-            onPressed: _handleGoogleSignIn,
-            isLargeScreen: isLargeScreen,
-        ),
-        if (kIsWeb && ((getOS() == "Windows") || (getOS() == "Linux") || getOS() == "Android" ))
-        SizedBox(height: isLargeScreen ? 10 : 6),
-        if (kIsWeb && ((getOS() == "macOS") || (getOS() == "iOS")))
-        _buildSocialButton(
-          imagePath: 'assets/images/appleid_logo.png',
-          text: 'Continue with Apple',
-          textColor: Colors.black,
-          color: Colors.white,
-          onPressed: _handleAppleSignIn,
-          isLargeScreen: isLargeScreen,
-        ),     
-        if (kIsWeb && ((getOS() == "macOS") || (getOS() == "iOS")))        
-        SizedBox(height: isLargeScreen ? 10 : 6),
-        if (!kIsWeb)
-        if (Platform.isAndroid) ...[
-          _buildSocialButton(
-            imagePath: 'assets/images/google_logo.png',
-            text: 'Continue with Google',
-            textColor: Colors.white,
-            color: Colors.black,
-            onPressed: _handleGoogleSignIn,
-            isLargeScreen: isLargeScreen,
-          ),
-          SizedBox(height: isLargeScreen ? 10 : 6),
-        ],
+        // SizedBox(height: isLargeScreen ? 20 : 12),
+        // if (kIsWeb &&
+        //     ((getOS() == "Windows") ||
+        //         (getOS() == "Linux") ||
+        //         getOS() == "Android"))
+        // _buildSocialButton(
+        //   imagePath: 'assets/images/google_logo.png',
+        //   text: 'Continue with Google',
+        //   textColor: Colors.white,
+        //   color: Colors.black,
+        //   onPressed: _handleGoogleSignIn,
+        //   isLargeScreen: isLargeScreen,
+        // ),
+        //   if (kIsWeb &&
+        //       ((getOS() == "Windows") ||
+        //           (getOS() == "Linux") ||
+        //           getOS() == "Android"))
+        //     SizedBox(height: isLargeScreen ? 10 : 6),
+        // if (kIsWeb && ((getOS() == "macOS") || (getOS() == "iOS")))
+        // _buildSocialButton(
+        //   imagePath: 'assets/images/appleid_logo.png',
+        //   text: 'Continue with Apple',
+        //   textColor: Colors.black,
+        //   color: Colors.white,
+        //   onPressed: _handleAppleSignIn,
+        //   isLargeScreen: isLargeScreen,
+        // ),
+        // if (kIsWeb && ((getOS() == "macOS") || (getOS() == "iOS")))
+        //   SizedBox(height: isLargeScreen ? 10 : 6),
+        // if (!kIsWeb)
+        //   if (Platform.isAndroid) ...[
+        //     _buildSocialButton(
+        //       imagePath: 'assets/images/google_logo.png',
+        //       text: 'Continue with Google',
+        //       textColor: Colors.white,
+        //       color: Colors.black,
+        //       onPressed: _handleGoogleSignIn,
+        //       isLargeScreen: isLargeScreen,
+        //     ),
+        //     SizedBox(height: isLargeScreen ? 10 : 6),
+        //   ],
         // if (Platform.isIOS) ...[
         //   _buildSocialButton(
         //     imagePath: 'assets/images/appleid_logo.png',
@@ -783,98 +799,97 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final isLargeScreen = _isLargeScreen(context);
 
     return Scaffold(
-  body: Stack(
-    children: [
-      SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.symmetric(
-              horizontal: isLargeScreen ? 32 : 24,
-              vertical: 24,
-            ),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: isLargeScreen ? 600 : double.infinity,
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(height: 24),
-                  ShaderMask(
-                    shaderCallback: (Rect bounds) {
-                      return LinearGradient(
-                        colors: [Colors.orange[200]!, Colors.orange[800]!],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ).createShader(bounds);
-                    },
-                    child: Text(
-                      'Welcome Back!',
-                      style: TextStyle(
-                        fontSize: isLargeScreen ? 48 : 36,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        letterSpacing: 1.0,
+      body: Stack(
+        children: [
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isLargeScreen ? 32 : 24,
+                  vertical: 24,
+                ),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: isLargeScreen ? 600 : double.infinity,
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(height: 24),
+                      ShaderMask(
+                        shaderCallback: (Rect bounds) {
+                          return LinearGradient(
+                            colors: [Colors.orange[200]!, Colors.orange[800]!],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ).createShader(bounds);
+                        },
+                        child: Text(
+                          'Welcome Back!',
+                          style: TextStyle(
+                            fontSize: isLargeScreen ? 48 : 36,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            letterSpacing: 1.0,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
                       ),
-                      textAlign: TextAlign.center,
-                    ),
+                      SizedBox(height: isLargeScreen ? 16 : 8),
+                      SizedBox(height: isLargeScreen ? 16 : 8),
+                      Text(
+                        'Sign in to continue',
+                        style: TextStyle(
+                          fontSize: isLargeScreen ? 22 : 18,
+                          color: Colors.grey[700],
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 0.5,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      SizedBox(height: isLargeScreen ? 36 : 20),
+                      _buildLoginForm(isLargeScreen),
+                      SizedBox(height: isLargeScreen ? 30 : 20),
+                      _buildSocialLoginSection(isLargeScreen),
+                      SizedBox(height: isLargeScreen ? 30 : 20),
+                      _buildRegisterSection(isLargeScreen),
+                    ],
                   ),
-                  SizedBox(height: isLargeScreen ? 16 : 8),
-
-                  SizedBox(height: isLargeScreen ? 16 : 8),
-
-                  Text(
-                    'Sign in to continue',
-                    style: TextStyle(
-                      fontSize: isLargeScreen ? 22 : 18,
-                      color: Colors.grey[700],
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 0.5,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  SizedBox(height: isLargeScreen ? 36 : 20),
-                  _buildLoginForm(isLargeScreen),
-                  SizedBox(height: isLargeScreen ? 30 : 20),
-                  _buildSocialLoginSection(isLargeScreen),
-                  SizedBox(height: isLargeScreen ? 30 : 20),
-                  _buildRegisterSection(isLargeScreen),
-                ],
+                ),
               ),
             ),
           ),
-        ),
-      ),
 
-      // Positioned button (top-right corner)
-      Positioned(
-        top: 24.0, // Adjust as needed
-        right: 16.0, // Adjust as needed
-        child: ElevatedButton.icon(
-          icon: const Icon(Icons.explore),
-          label: Text(
-            'Explore Events',
-            style: TextStyle(
-              fontSize: isLargeScreen ? 16 : 14,
-              color: Colors.orange[800],
+          // Positioned button (top-right corner)
+          Positioned(
+            top: 24.0, // Adjust as needed
+            right: 16.0, // Adjust as needed
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.explore),
+              label: Text(
+                'Explore Events',
+                style: TextStyle(
+                  fontSize: isLargeScreen ? 16 : 14,
+                  color: Colors.orange[800],
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange[100],
+                foregroundColor: Colors.orange[800],
+                padding:
+                    const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 2,
+              ),
+              onPressed: () {
+                context.go('/home');
+              },
             ),
           ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.orange[100],
-            foregroundColor: Colors.orange[800],
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            elevation: 2,
-          ),
-          onPressed: () {
-            context.go('/home');
-          },
-        ),
+        ],
       ),
-    ],
-  ),
-);
+    );
   }
 }
