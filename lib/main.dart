@@ -13,8 +13,7 @@ import 'package:tiketi_mkononi/screens/onboarding_screen.dart';
 import 'package:tiketi_mkononi/screens/profile_page.dart';
 import 'package:tiketi_mkononi/screens/tickets_page.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
-import 'web_setup_stub.dart'
-if (dart.library.html) 'web_setup_web.dart';
+import 'web_setup_stub.dart' if (dart.library.html) 'web_setup_web.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -46,18 +45,30 @@ class TiketiMkononiApp extends StatelessWidget {
   });
 
   late final GoRouter _router = GoRouter(
-    initialLocation: isFirstLaunch
-        ? '/onboarding'
-        : (isLoggedIn ? '/home' : '/login'),
+    initialLocation: isFirstLaunch ? '/onboarding' : '/home',
     routes: [
-      GoRoute(path: '/onboarding', builder: (context, state) => const OnboardingScreen()),
+      GoRoute(
+          path: '/onboarding',
+          builder: (context, state) => const OnboardingScreen()),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
-      GoRoute(path: '/register', builder: (context, state) => const RegisterScreen()),
-      GoRoute(path: '/forgot-password', builder: (context, state) => const ForgotPasswordScreen()),
-      GoRoute(path: '/home', builder: (context, state) => const MainScreen(initialIndex: 0)),
-      GoRoute(path: '/events', builder: (context, state) => const MainScreen(initialIndex: 1)),
-      GoRoute(path: '/tickets', builder: (context, state) => const MainScreen(initialIndex: 2)),
-      GoRoute(path: '/profile', builder: (context, state) => const MainScreen(initialIndex: 3)),
+      GoRoute(
+          path: '/register',
+          builder: (context, state) => const RegisterScreen()),
+      GoRoute(
+          path: '/forgot-password',
+          builder: (context, state) => const ForgotPasswordScreen()),
+      GoRoute(
+          path: '/home',
+          builder: (context, state) => const MainScreen(initialIndex: 0)),
+      GoRoute(
+          path: '/events',
+          builder: (context, state) => const MainScreen(initialIndex: 1)),
+      GoRoute(
+          path: '/tickets',
+          builder: (context, state) => const MainScreen(initialIndex: 2)),
+      GoRoute(
+          path: '/profile',
+          builder: (context, state) => const MainScreen(initialIndex: 3)),
       GoRoute(
         path: '/event/:id',
         builder: (context, state) {
@@ -126,12 +137,15 @@ class _MainScreenState extends State<MainScreen> {
           if (kIsWeb) context.go(_routes[index]); // ✅ URL will update
         },
         // This makes the selected icon color change to orange
-        indicatorColor: Colors.orange.withOpacity(0.2), // Optional: adds an orange highlight
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow, // Optional: always show labels
+        indicatorColor: Colors.orange
+            .withOpacity(0.2), // Optional: adds an orange highlight
+        labelBehavior: NavigationDestinationLabelBehavior
+            .alwaysShow, // Optional: always show labels
         destinations: [
           NavigationDestination(
-            icon: Icon(Icons.home, color: _selectedIndex == 0 ?Colors.orange[800] : Colors.grey),
-            selectedIcon: Icon(Icons.home, color:Colors.orange[800]),
+            icon: Icon(Icons.home,
+                color: _selectedIndex == 0 ? Colors.orange[800] : Colors.grey),
+            selectedIcon: Icon(Icons.home, color: Colors.orange[800]),
             label: 'Home',
           ),
           NavigationDestination(
@@ -141,7 +155,8 @@ class _MainScreenState extends State<MainScreen> {
           ),
           NavigationDestination(
             icon: Icon(Icons.confirmation_number),
-            selectedIcon: Icon(Icons.confirmation_number, color: Colors.orange[800]),
+            selectedIcon:
+                Icon(Icons.confirmation_number, color: Colors.orange[800]),
             label: 'My Tickets',
           ),
           NavigationDestination(

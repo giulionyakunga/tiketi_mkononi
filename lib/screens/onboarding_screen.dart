@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tiketi_mkononi/main.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -228,7 +229,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             } else {
               final prefs = await SharedPreferences.getInstance();
               await prefs.setBool('first_launch', false);
-              Navigator.pushReplacementNamed(context, '/login');
+               Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const MainScreen(initialIndex: 0),
+                ),
+              );
             }
           },
           child: Text(
