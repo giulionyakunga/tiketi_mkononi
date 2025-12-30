@@ -1,0 +1,7 @@
+
+
+
+sudo rm -r web/
+sudo mv ~/web/ ./
+sudo chown -R www-data:www-data /var/www/web
+sudo chmod -R 755 /var/www/web

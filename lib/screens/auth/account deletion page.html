@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Request Account Deletion</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; }
+        .form-group { margin-bottom: 15px; }
+        input, button { width: 100%; padding: 10px; margin-top: 5px; }
+        button { background: #4285F4; color: white; border: none; cursor: pointer; }
+        .hidden { display: none; }
+        #error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>Delete Your Tiketi Mkononi Account! 😳</h1>
+    <div id="error"></div>
+    
+    <!-- Step 1: Email Submission -->
+    <div id="step1">
+        <p>Enter your email to request account deletion. A verification code will be sent to you.</p>
+        <div class="form-group">
+            <label for="email">Email:</label>
+            <input type="email" id="email" required>
+        </div>
+        <button onclick="sendVerificationCode()">Send Verification Code</button>
+    </div>
+
+    <!-- Step 2: Code Verification -->
+    <div id="step2" class="hidden">
+        <p>Check your email for a 6-digit code and enter it below.</p>
+        <div class="form-group">
+            <label for="code">Verification Code:</label>
+            <input type="text" id="code" maxlength="6" required>
+        </div>
+        <button onclick="verifyCode()">Confirm Deletion</button>
+    </div>
+
+    <!-- Success Message -->
+    <div id="success" class="hidden">
+        <p>✅ Your account deletion request has been submitted. All data will be deleted within 30 days.</p>
+    </div>
+
+    <script>
+        let userEmail = "";
+
+        async function sendVerificationCode() {
+            const BACKEND_URL = "http://telabs.co.tz:8085/api/send_delete_account_code"; // Replace with your endpoint
+
+            userEmail = document.getElementById("email").value;
+            document.getElementById("error").textContent = "";
+
+            try {
+                const response = await fetch(BACKEND_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email: userEmail }),
+                });
+
+                if (!response.ok) {
+                    throw new Error("Failed to send code.");
+                }else {
+                    console.log("not Okay");
+                }
+
+                // Show next step if email was sent successfully
+                document.getElementById("step1").classList.add("hidden");
+                document.getElementById("step2").classList.remove("hidden");
+            } catch (error) {
+                document.getElementById("step1").classList.add("hidden");
+                document.getElementById("step2").classList.remove("hidden");
+
+                // document.getElementById("error").textContent = "Error: " + error.message;
+            }
+        }
+
+        async function verifyCode() {
+            const BACKEND_URL = "http://telabs.co.tz:8085/api/verify_account_delete_code"; // Replace with your endpoint
+
+            const code = document.getElementById("code").value;
+            
+            try {
+                const response = await fetch(BACKEND_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email: userEmail, code: code }),
+                });
+
+                if (!response.ok) {
+                    throw new Error("Invalid code.");
+                }
+
+                // On successful verification, show confirmation
+                document.getElementById("step2").classList.add("hidden");
+                document.getElementById("success").classList.remove("hidden");
+
+                // TODO: Trigger actual account deletion in your backend
+            } catch (error) {
+                document.getElementById("error").textContent = "Error: " + error.message;
+            }
+        }
+    </script>
+</body>
+</html>
