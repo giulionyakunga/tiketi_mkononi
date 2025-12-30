@@ -1,6 +1,0 @@
-
-
-
-Image size:
-        width: 280
-        height: 160
