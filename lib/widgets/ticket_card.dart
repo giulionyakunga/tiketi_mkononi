@@ -101,22 +101,7 @@ class TicketCard extends StatelessWidget {
                         await Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => TicketQRPage(
-                              ticketId: ticket.id, // Replace with actual ticket ID
-                              userId: ticket.userId,
-                              userName: ticket.userName,
-                              eventId: ticket.eventId,
-                              eventName: ticket.eventName,
-                              date: ticket.date,
-                              time: ticket.time,
-                              venue: ticket.venue,
-                              ticketType: ticket.ticketType,
-                              price: ticket.price,
-                              seatNumber: ticket.seatNumber,
-                              scanStatus: ticket.scanStatus,
-                              updatedAt: ticket.updatedAt,
-                              createdAt: ticket.createdAt,
-                            ),
+                            builder: (context) => TicketQRPage(ticket: ticket),
                           ),
                         );
                         fetchTickets();

@@ -52,14 +52,22 @@ class Event {
   final String time;
   final String venue;
   final int venueId;
+  final String locationLink;
+  final String organizerPhoneNumber;
   final String imageUrl;
   final String category;
   final String type;
+  final String visibility;
   final String daily_event;
   final String description;
   final int soldTickets;
   final String status;
   final int ticketScannerId;
+  final int dstX;
+  final int dstY;
+  final int dstX2;
+  final int dstY2;
+  final int qrSize;
   final DateTime createdAt;
   final DateTime updatedAt;
   final List<TicketType> ticketTypes;
@@ -74,14 +82,22 @@ class Event {
     required this.time,
     required this.venue,
     required this.venueId,
+    required this.locationLink,
+    required this.organizerPhoneNumber,
     required this.imageUrl,
     required this.category,
     required this.type,
+    required this.visibility,
     required this.daily_event,
     required this.description,
     required this.soldTickets,
     required this.status,
     required this.ticketScannerId,
+    required this.dstX,
+    required this.dstY,
+    required this.dstX2,
+    required this.dstY2,
+    required this.qrSize,
     required this.createdAt,
     required this.updatedAt,
     required this.ticketTypes,
@@ -99,14 +115,22 @@ class Event {
       time: json['time'] ?? '',
       venue: json['venue'] ?? '',
       venueId: json['venue_id'] ?? 0,
+      locationLink: json['location_link'] ?? '',
+      organizerPhoneNumber: json['organizer_phone_number'] ?? '',
       imageUrl: json['imageUrl'] ?? '',
       category: json['category'] ?? '',
       type: json['type'] ?? '',
+      visibility: json['visibility'] ?? '',
       daily_event: json['daily_event'] ?? '',
       description: json['description'] ?? '',
       soldTickets: json['ticket_count'] ?? 0,
       status: json['status'] ?? '',
       ticketScannerId: json['ticket_scanner_id'] ?? 0,
+      dstX: json['dst_x'] ?? 0,
+      dstY: json['dst_y'] ?? 0,
+      dstX2: json['dst_x2'] ?? 0,
+      dstY2: json['dst_y2'] ?? 0,
+      qrSize: json['qr_size'] ?? 0,
       createdAt: DateTime.parse(json['createdAt']),
       updatedAt: DateTime.parse(json['updatedAt']),
       ticketTypes: (json['ticket_types'] as List<dynamic>?)

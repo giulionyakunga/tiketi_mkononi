@@ -10,7 +10,6 @@ import 'package:tiketi_mkononi/widgets/event_card.dart';
 import 'package:tiketi_mkononi/screens/post_event_page.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:tiketi_mkononi/widgets/event_card2.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
 
 class EventsPage extends StatefulWidget {
   const EventsPage({super.key});
@@ -40,15 +39,13 @@ class _EventsPageState extends State<EventsPage> {
     'Theater',
     'Sports',
     'Training',
+    'Wedding',
     'My Events'
   ];
 
   late final StorageService _storageService;
   static const _pageSize = 30;
   final PagingController<int, Event> _pagingController = PagingController(firstPageKey: 1);
-
-  final WebSocketService _webSocketService = WebSocketService();
-  bool _isWebSocketConnected = false;
 
   @override
   void initState() {
@@ -72,26 +69,9 @@ class _EventsPageState extends State<EventsPage> {
     _pagingController.addPageRequestListener((pageKey) {
       _fetchPage(pageKey);
     });
-    _connectWebSocket();
   }
 
-  void _connectWebSocket() {
-    if (_isWebSocketConnected) return;
-    
-    try {
-      final String url = backend_ws_url;
-      _webSocketService.connect(
-        userId,
-        url,
-        onUpdate: _handleWebSocketUpdate,
-      );
-      _isWebSocketConnected = true;
-    } catch (e) {
-        debugPrint('WebSocket connection error: $e');
-    }
-  }
-
-  void _handleWebSocketUpdate({bool useDNS = true}) async {
+  void _handleEventsUpdate({bool useDNS = true}) async {
     if (!mounted) return;
     try {
       final Uri uri = useDNS ? Uri.parse('${backend_url}api/events/$userId?page=1&limit=$_pageSize') // Original URL 
@@ -126,7 +106,7 @@ class _EventsPageState extends State<EventsPage> {
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if (e.osError!.errorCode == 7 && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          _handleWebSocketUpdate(useDNS: false); // Recursive retry
+          _handleEventsUpdate(useDNS: false); // Recursive retry
           return;
         }
       }
@@ -240,16 +220,20 @@ class _EventsPageState extends State<EventsPage> {
     // Apply category filter
     if (_selectedCategory != null && _selectedCategory != 'All') {
       filtered = _selectedCategory == 'My Events'
-          ? filtered.where((event) => event.userId == userId).toList()
-          : filtered.where((event) => event.category == _selectedCategory).toList();
+      ? filtered.where((event) => event.userId == userId).toList()
+      : filtered.where((event) => event.category == _selectedCategory).toList();
     }
-    
+
+    // Apply visibility filter
+    if (_selectedCategory != 'My Events') {
+      filtered = filtered.where((event) => event.visibility == 'public').toList();
+    }
+
     // Apply search filter
     if (_searchQuery.isNotEmpty) {
-      filtered = filtered.where((event) => 
-          event.name.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+      filtered = filtered.where((event) => event.name.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
     }
-    
+
     setState(() {
       numberOfActiveEvents = filtered.where((event) => event.status == "active").length;
     });
@@ -271,7 +255,6 @@ class _EventsPageState extends State<EventsPage> {
 
   @override
   void dispose() {
-    _webSocketService.disconnect();
     _pagingController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -492,7 +475,7 @@ class _EventsPageState extends State<EventsPage> {
                       child: EventCard(
                         event: event,
                         userId: userId,
-                        refreshMethod: _handleWebSocketUpdate,
+                        refreshMethod: _handleEventsUpdate,
                         useDNS: useDNS_2,
                       ),
                     );
@@ -619,7 +602,7 @@ class _EventsPageState extends State<EventsPage> {
                         return EventCard2(
                           event: event,
                           userId: userId,
-                          refreshMethod: _handleWebSocketUpdate,
+                          refreshMethod: _handleEventsUpdate,
                           useDNS: useDNS_2,
                         );
                       },
@@ -728,7 +711,7 @@ class _EventsPageState extends State<EventsPage> {
                   context,
                   MaterialPageRoute(
                     builder: (context) => PostEventPage(
-                        refreshMethod: _handleWebSocketUpdate),
+                        refreshMethod: _handleEventsUpdate),
                   ),
                 );
               },
@@ -753,58 +736,5 @@ class _EventsPageState extends State<EventsPage> {
     if (screenWidth > 1000) return 0.65;
     if (screenWidth > 768) return 0.6;
     return 0.8;
-  }
-}
-
-class WebSocketService {
-  static final WebSocketService _instance = WebSocketService._internal();
-  late WebSocketChannel _channel;
-  Function()? _onUpdateCallback;
-
-  factory WebSocketService() {
-    return _instance;
-  }
-
-  WebSocketService._internal();
-
-  void connect(int userId, String url, {required Function() onUpdate}) {
-    _onUpdateCallback = onUpdate;
-    _channel = WebSocketChannel.connect(Uri.parse(url));
-
-    // Send subscription message
-    final subscriptionMessage = jsonEncode({
-      "user_id": userId,
-      "type": "subscribe",
-      "data": "events_update"
-    });
-    
-    debugPrint("[WebSocket] Sending subscription: $subscriptionMessage");
-    _channel.sink.add(subscriptionMessage);
-    
-    _channel.stream.listen(
-      (message) {
-        final data = jsonDecode(message);
-        debugPrint('Message: $message');
-
-        if (data['type'] == 'events_updated') {
-          debugPrint('Message 2: $message');
-          _onUpdateCallback?.call();
-        }
-      },
-      onError: (error) {
-        debugPrint('WebSocket error: $error');
-      },
-      onDone: () {
-        debugPrint('WebSocket connection closed');
-      },
-    );
-  }
-
-  void disconnect() {
-    _channel.sink.close(1000); // Normal closure
-  }
-
-  void sendMessage(Map<String, dynamic> message) {
-    _channel.sink.add(jsonEncode(message));
   }
 }

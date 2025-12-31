@@ -11,8 +11,6 @@ class UserProfile {
   final String ward;
   final String street;
   final String token;
-  String? selectedCardType;
-  String cardNumber;
   final String? imageUrl;
 
   UserProfile({
@@ -28,8 +26,6 @@ class UserProfile {
     required this.ward,
     required this.street,
     required this.token,
-    required this.selectedCardType,
-    required this.cardNumber,
     this.imageUrl,
   });
 
@@ -47,8 +43,6 @@ class UserProfile {
       'ward': ward,
       'street': street,
       'token': token,
-      'selected_card_type': selectedCardType,
-      'card_number': cardNumber,
       'imageUrl': imageUrl,
     };
   }
@@ -67,8 +61,6 @@ class UserProfile {
       ward: json['ward'] as String,
       street: json['street'] as String,
       token: json['token'] as String,
-      selectedCardType: json['selected_card_type'] as String,
-      cardNumber: json['card_number'] as String,
       imageUrl: json['imageUrl'] as String?,
     );
   }

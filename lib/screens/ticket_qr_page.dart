@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:tiketi_mkononi/models/ticket.dart';
+import 'package:tiketi_mkononi/services/SimpleCodec.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -144,37 +145,11 @@ class WebSocketService {
 }
 
 class TicketQRPage extends ConsumerStatefulWidget {
-  final int ticketId;
-  final int userId;
-  final String userName;
-  final int eventId;
-  final String eventName;
-  final String date;
-  final String time;
-  final String venue;
-  final String ticketType;
-  final double price;
-  final String seatNumber;
-  final int scanStatus;
-  final DateTime updatedAt;
-  final DateTime createdAt;
+  final Ticket ticket;
 
   const TicketQRPage({
     super.key,
-    required this.ticketId,
-    required this.userId,
-    required this.userName,
-    required this.eventId,
-    required this.eventName,
-    required this.date,
-    required this.time,
-    required this.venue,
-    required this.ticketType,
-    required this.price,
-    required this.seatNumber,
-    required this.scanStatus,
-    required this.updatedAt,
-    required this.createdAt,
+    required this.ticket,
   });
 
   @override
@@ -191,16 +166,16 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
   @override
   void initState() {
     super.initState();
-    scanStatus2 = widget.scanStatus;
-    scannedAt = widget.updatedAt;
+    scanStatus2 = widget.ticket.scanStatus;
+    scannedAt = widget.ticket.updatedAt;
 
-    if (widget.scanStatus != 1) {
+    if (widget.ticket.scanStatus != 1) {
       _webSocketService = ref.read(websocketServiceProvider);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _webSocketService.connect(
-          widget.userId,
-          widget.ticketId,
-          widget.scanStatus,
+          widget.ticket.userId,
+          widget.ticket.id,
+          widget.ticket.scanStatus,
         );
       });
     }
@@ -332,27 +307,14 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
     return outputFormat.format(dateTime);
   }
 
-  String _formatDate2(DateTime dateTime) {
-    final DateFormat outputFormat = DateFormat('EEEE, MMMM d, yyyy - hh:mm a');
-    return outputFormat.format(dateTime);
-  }
-
   Widget _buildQRCodeSection(bool isLargeScreen) {
+    String data = SimpleCodec.encode(jsonEncode({
+      "tid": widget.ticket.id,
+      "eid": widget.ticket.eventId,
+      "dt": widget.ticket.date,
+    }));
     return QrImageView(
-      data: jsonEncode({
-        "ticket_id": widget.ticketId,
-        "user_id": widget.userId,
-        "user_name": widget.userName,
-        "event_id": widget.eventId,
-        "event_name": widget.eventName,
-        "date": widget.date,
-        "time": widget.time,
-        "venue": widget.venue,
-        "ticket_type": widget.ticketType,
-        "price": widget.price,
-        "scan_status": widget.scanStatus,
-        "createdAt": widget.createdAt.toIso8601String(),
-      }),
+      data: data,
       version: QrVersions.auto,
       size: isLargeScreen ? 300.0 : 200.0,
     );
@@ -362,7 +324,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
     return Column(
       children: [
         Text(
-          widget.eventName,
+          widget.ticket.eventName,
           style: TextStyle(
             fontSize: isLargeScreen ? 28 : 18,
             fontWeight: FontWeight.bold,
@@ -377,7 +339,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
-            widget.ticketType,
+            widget.ticket.ticketType,
             style: const TextStyle(
               color: Colors.white,
               fontSize: 15,
@@ -387,7 +349,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
         ),
         const SizedBox(height: 4),
         Text(
-            (widget.price > 0.0) ? 'TSH${NumberFormat('#,##0').format(widget.price.toInt())}' : 'Free',
+            (widget.ticket.price > 0.0) ? 'TSH${NumberFormat('#,##0').format(widget.ticket.price.toInt())}' : 'Free',
             style: TextStyle(fontSize: isLargeScreen ? 20 : 14),
         ),
         const SizedBox(height: 4),
@@ -397,7 +359,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
             Icon(Icons.calendar_today, size: isLargeScreen ? 24 : 16),
             const SizedBox(width: 8),
             Text(
-              _formatDate(widget.date),
+              _formatDate(widget.ticket.date),
               style: TextStyle(fontSize: isLargeScreen ? 20 : 14),
             ),
           ],
@@ -409,7 +371,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
             Icon(Icons.access_time, size: isLargeScreen ? 24 : 16),
             const SizedBox(width: 8),
             Text(
-              widget.time,
+              widget.ticket.time,
               style: TextStyle(fontSize: isLargeScreen ? 20 : 14),
             ),
           ],
@@ -420,7 +382,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
           children: [
             Flexible(
               child: Text(
-                widget.venue,
+                widget.ticket.venue,
                 style: TextStyle(fontSize: isLargeScreen ? 20 : 14),
                 textAlign: TextAlign.center,
                 maxLines: 4,
@@ -447,7 +409,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
   }
 
   Widget _buildStatusSection() {
-    if (widget.scanStatus == 1 || _isTicketScanned) {
+    if (widget.ticket.scanStatus == 1 || _isTicketScanned) {
       return Column(
         children: [
           const SizedBox(height: 10),
@@ -500,7 +462,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
             }
 
             final ticket = snapshot.data!;
-            if (ticket.scanStatus == 1 && widget.ticketId == ticket.id) {
+            if (ticket.scanStatus == 1 && widget.ticket.id == ticket.id) {
               // Use a post-frame callback to update state after build
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (!_isTicketScanned) {
@@ -559,7 +521,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
 
                 // Ticket contents
                 pw.Text(
-                  widget.eventName,
+                  widget.ticket.eventName,
                   style: pw.TextStyle(
                     fontSize: 18,
                     fontWeight: pw.FontWeight.bold,
@@ -567,15 +529,15 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
                   textAlign: pw.TextAlign.center,
                 ),
                 pw.SizedBox(height: 10),
-                pw.Text("Ticket ID: ${widget.ticketId}", textAlign: pw.TextAlign.center, style: pw.TextStyle(font: customFont, fontSize: 11)),
-                pw.Text("Name: ${widget.userName}", textAlign: pw.TextAlign.center, style: pw.TextStyle(font: customFont, fontSize: 11)),
-                pw.Text("Date: ${widget.date}", textAlign: pw.TextAlign.center, style: pw.TextStyle(font: customFont, fontSize: 11)),
-                pw.Text("Time: ${widget.time}", textAlign: pw.TextAlign.center, style: pw.TextStyle(font: customFont, fontSize: 11)),
-                pw.Text("Venue: ${widget.venue}", textAlign: pw.TextAlign.center, style: pw.TextStyle(font: customFont, fontSize: 11)),
-                pw.Text("Ticket Type: ${widget.ticketType}", textAlign: pw.TextAlign.center, style: pw.TextStyle(font: customFont, fontSize: 11)),
-                pw.Text("Seat: ${widget.seatNumber}", textAlign: pw.TextAlign.center, style: pw.TextStyle(font: customFont, fontSize: 11)),
+                pw.Text("Ticket ID: ${widget.ticket.id}", textAlign: pw.TextAlign.center, style: pw.TextStyle(font: customFont, fontSize: 11)),
+                pw.Text("Name: ${widget.ticket.userName}", textAlign: pw.TextAlign.center, style: pw.TextStyle(font: customFont, fontSize: 11)),
+                pw.Text("Date: ${widget.ticket.date}", textAlign: pw.TextAlign.center, style: pw.TextStyle(font: customFont, fontSize: 11)),
+                pw.Text("Time: ${widget.ticket.time}", textAlign: pw.TextAlign.center, style: pw.TextStyle(font: customFont, fontSize: 11)),
+                pw.Text("Venue: ${widget.ticket.venue}", textAlign: pw.TextAlign.center, style: pw.TextStyle(font: customFont, fontSize: 11)),
+                pw.Text("Ticket Type: ${widget.ticket.ticketType}", textAlign: pw.TextAlign.center, style: pw.TextStyle(font: customFont, fontSize: 11)),
+                pw.Text("Seat: ${widget.ticket.seatNumber}", textAlign: pw.TextAlign.center, style: pw.TextStyle(font: customFont, fontSize: 11)),
                 pw.Text(
-                  "Price: ${(widget.price > 0) ? 'TSH ${widget.price.toInt()}' : 'Free'}",
+                  "Price: ${(widget.ticket.price > 0) ? 'TSH ${widget.ticket.price.toInt()}' : 'Free'}",
                   textAlign: pw.TextAlign.center,
                   style: pw.TextStyle(font: customFont, fontSize: 11)
                 ),
@@ -584,20 +546,11 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
                 // QR code
                 pw.BarcodeWidget(
                   barcode: pw.Barcode.qrCode(),
-                  data: jsonEncode({
-                    "ticket_id": widget.ticketId,
-                    "user_id": widget.userId,
-                    "user_name": widget.userName,
-                    "event_id": widget.eventId,
-                    "event_name": widget.eventName,
-                    "date": widget.date,
-                    "time": widget.time,
-                    "venue": widget.venue,
-                    "ticket_type": widget.ticketType,
-                    "price": widget.price,
-                    "scan_status": widget.scanStatus,
-                    "createdAt": widget.createdAt.toIso8601String(),
-                  }),
+                  data: SimpleCodec.encode(jsonEncode({
+                    "tid": widget.ticket.id,
+                    "eid": widget.ticket.eventId,
+                    "dt": widget.ticket.date,
+                  })),
                   width: 120,
                   height: 120,
                 ),
@@ -620,7 +573,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
 
     // Save to local file
     final outputDir = await getApplicationDocumentsDirectory();
-    final filePath = '${outputDir.path}/ticket_${widget.ticketId}.pdf';
+    final filePath = '${outputDir.path}/ticket_${widget.ticket.id}.pdf';
     final file = File(filePath);
     await file.writeAsBytes(await pdf.save());
 
@@ -679,7 +632,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
 
                 // Ticket contents
                 pw.Text(
-                  widget.eventName,
+                  widget.ticket.eventName,
                   style: pw.TextStyle(
                     fontSize: 18,
                     fontWeight: pw.FontWeight.bold,
@@ -687,15 +640,15 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
                   textAlign: pw.TextAlign.center,
                 ),
                 pw.SizedBox(height: 10),
-                pw.Text("Ticket ID: ${widget.ticketId}", textAlign: pw.TextAlign.center, style: pw.TextStyle(font: customFont, fontSize: 11)),
-                pw.Text("Name: ${widget.userName}", textAlign: pw.TextAlign.center, style: pw.TextStyle(font: customFont, fontSize: 11)),
-                pw.Text("Date: ${widget.date}", textAlign: pw.TextAlign.center, style: pw.TextStyle(font: customFont, fontSize: 11)),
-                pw.Text("Time: ${widget.time}", textAlign: pw.TextAlign.center, style: pw.TextStyle(font: customFont, fontSize: 11)),
-                pw.Text("Venue: ${widget.venue}", textAlign: pw.TextAlign.center, style: pw.TextStyle(font: customFont, fontSize: 11)),
-                pw.Text("Ticket Type: ${widget.ticketType}", textAlign: pw.TextAlign.center, style: pw.TextStyle(font: customFont, fontSize: 11)),
-                pw.Text("Seat: ${widget.seatNumber}", textAlign: pw.TextAlign.center, style: pw.TextStyle(font: customFont, fontSize: 11)),
+                pw.Text("Ticket ID: ${widget.ticket.id}", textAlign: pw.TextAlign.center, style: pw.TextStyle(font: customFont, fontSize: 11)),
+                pw.Text("Name: ${widget.ticket.userName}", textAlign: pw.TextAlign.center, style: pw.TextStyle(font: customFont, fontSize: 11)),
+                pw.Text("Date: ${widget.ticket.date}", textAlign: pw.TextAlign.center, style: pw.TextStyle(font: customFont, fontSize: 11)),
+                pw.Text("Time: ${widget.ticket.time}", textAlign: pw.TextAlign.center, style: pw.TextStyle(font: customFont, fontSize: 11)),
+                pw.Text("Venue: ${widget.ticket.venue}", textAlign: pw.TextAlign.center, style: pw.TextStyle(font: customFont, fontSize: 11)),
+                pw.Text("Ticket Type: ${widget.ticket.ticketType}", textAlign: pw.TextAlign.center, style: pw.TextStyle(font: customFont, fontSize: 11)),
+                pw.Text("Seat: ${widget.ticket.seatNumber}", textAlign: pw.TextAlign.center, style: pw.TextStyle(font: customFont, fontSize: 11)),
                 pw.Text(
-                  "Price: ${(widget.price > 0) ? 'TSH ${widget.price.toInt()}' : 'Free'}",
+                  "Price: ${(widget.ticket.price > 0) ? 'TSH ${widget.ticket.price.toInt()}' : 'Free'}",
                   textAlign: pw.TextAlign.center,
                   style: pw.TextStyle(font: customFont, fontSize: 11)
                 ),
@@ -704,20 +657,11 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
                 // QR code
                 pw.BarcodeWidget(
                   barcode: pw.Barcode.qrCode(),
-                  data: jsonEncode({
-                    "ticket_id": widget.ticketId,
-                    "user_id": widget.userId,
-                    "user_name": widget.userName,
-                    "event_id": widget.eventId,
-                    "event_name": widget.eventName,
-                    "date": widget.date,
-                    "time": widget.time,
-                    "venue": widget.venue,
-                    "ticket_type": widget.ticketType,
-                    "price": widget.price,
-                    "scan_status": widget.scanStatus,
-                    "createdAt": widget.createdAt.toIso8601String(),
-                  }),
+                  data: SimpleCodec.encode(jsonEncode({
+                    "tid": widget.ticket.id,
+                    "eid": widget.ticket.eventId,
+                    "dt": widget.ticket.date,
+                  })),
                   width: 120,
                   height: 120,
                 ),
@@ -740,7 +684,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
     if (Platform.isWindows) {
        // Save to local file
       final outputDir = await getApplicationDocumentsDirectory();
-      final filePath = '${outputDir.path}/ticket_${widget.ticketId}.pdf';
+      final filePath = '${outputDir.path}/ticket_${widget.ticket.id}.pdf';
       final file = File(filePath);
       await file.writeAsBytes(await pdf.save());
 
@@ -764,7 +708,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
     }else {
       // Save to local file
       final outputDir = await getApplicationDocumentsDirectory();
-      final filePath = '${outputDir.path}/ticket_${widget.ticketId}.pdf';
+      final filePath = '${outputDir.path}/ticket_${widget.ticket.id}.pdf';
       final file = File(filePath);
       await file.writeAsBytes(await pdf.save());
 
@@ -772,7 +716,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
       await Share.shareXFiles(
         // [XFile(filePath)],
         [XFile(filePath, mimeType: 'application/pdf')],
-        text: 'Here is your ticket for ${widget.eventName}!',
+        text: 'Here is your ticket for ${widget.ticket.eventName}!',
       );
 
       await file.delete();
@@ -814,7 +758,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
                               child: Column(
                                 children: [
                                   Text(
-                                    (widget.seatNumber.contains('--') || widget.seatNumber.isEmpty) ? "Ticket ID: ${widget.ticketId}" : "Seat Number: ${widget.seatNumber}",
+                                    (widget.ticket.seatNumber.contains('--') || widget.ticket.seatNumber.isEmpty) ? "Ticket ID: ${widget.ticket.id}" : "Seat Number: ${widget.ticket.seatNumber}",
                                     style: TextStyle(
                                       fontSize: isLargeScreen ? 28 : 18,
                                       fontWeight: FontWeight.normal,
@@ -882,7 +826,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
                       : Column(
                           children: [
                             Text(
-                              (widget.seatNumber.contains('--') || widget.seatNumber.isEmpty) ? "Ticket ID: ${widget.ticketId}" : "Seat Number: ${widget.seatNumber}",
+                              (widget.ticket.seatNumber.contains('--') || widget.ticket.seatNumber.isEmpty) ? "Ticket ID: ${widget.ticket.id}" : "Seat Number: ${widget.ticket.seatNumber}",
                               style: TextStyle(
                                 fontSize: isLargeScreen ? 28 : 18,
                                 fontWeight: FontWeight.normal,

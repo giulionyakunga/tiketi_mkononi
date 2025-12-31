@@ -22,7 +22,6 @@ import 'package:tiketi_mkononi/screens/theater_checkout_page.dart';
 import 'package:tiketi_mkononi/screens/theater_confirm_page.dart';
 import 'package:tiketi_mkononi/screens/tickets_page.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/foundation.dart';
 import 'package:share_plus/share_plus.dart';
@@ -52,8 +51,6 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
   double? _imageHeight;
   double? _imageWidth;
   final double _defaultExpandedHeight = 360;
-  final WebSocketService _webSocketService = WebSocketService();
-  bool _isWebSocketConnected = false;
   String organiser_name = "";
   String organiser_phone_number = "";
   int eventTicketsCount = 0;
@@ -73,7 +70,6 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
     getTicketsCount();
     fetchEvent();
     _loadImageDimensions();
-    _connectWebSocket();
   }
 
   @override
@@ -105,7 +101,6 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
 
   @override
   void dispose() {
-    _webSocketService.disconnect();
     final container = ProviderScope.containerOf(context);
     container.read(selectedEventProvider.notifier).state = null;
 
@@ -124,22 +119,6 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
       setState(() {
         userId = profile.id;
       });
-    }
-  }
-
-  void _connectWebSocket() {
-    if (_isWebSocketConnected) return;
-
-    try {
-      final String url = backend_ws_url;
-      _webSocketService.connect(
-        userId,
-        url,
-        onUpdate: _handleWebSocketUpdate,
-      );
-      _isWebSocketConnected = true;
-    } catch (e) {
-      debugPrint('WebSocket connection error: $e');
     }
   }
 
@@ -189,16 +168,6 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
       return ticketTypesTicketsCount[name];
     }
     return 0;
-  }
-
-  void _handleWebSocketUpdate() async {
-    if (!mounted) return;
-    try {
-      fetchEvent();
-      getTicketsCount();
-    } catch (e) {
-      debugPrint('Silent update error: $e');
-    }
   }
 
   void fetchEvent({bool useDNS = true}) async {
@@ -1378,57 +1347,5 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
     return isDesktop
         ? _buildDesktopLayout(newEvent, context)
         : _buildMobileLayout(newEvent, context);
-  }
-}
-
-class WebSocketService {
-  static final WebSocketService _instance = WebSocketService._internal();
-  late WebSocketChannel _channel;
-  Function()? _onUpdateCallback;
-
-  factory WebSocketService() {
-    return _instance;
-  }
-
-  WebSocketService._internal();
-
-  void connect(int userId, String url, {required Function() onUpdate}) {
-    _onUpdateCallback = onUpdate;
-    _channel = WebSocketChannel.connect(Uri.parse(url));
-
-    final subscriptionMessage = jsonEncode({
-      "user_id": userId,
-      "type": "subscribe",
-      "data": "events_update"
-    });
-
-    debugPrint("[WebSocket] Sending subscription: $subscriptionMessage");
-    _channel.sink.add(subscriptionMessage);
-
-    _channel.stream.listen(
-      (message) {
-        final data = jsonDecode(message);
-        debugPrint('Message: $message');
-
-        if (data['type'] == 'events_updated') {
-          debugPrint('Message 2: $message');
-          _onUpdateCallback?.call();
-        }
-      },
-      onError: (error) {
-        debugPrint('WebSocket error: $error');
-      },
-      onDone: () {
-        debugPrint('WebSocket connection closed');
-      },
-    );
-  }
-
-  void disconnect() {
-    _channel.sink.close(1000);
-  }
-
-  void sendMessage(Map<String, dynamic> message) {
-    _channel.sink.add(jsonEncode(message));
   }
 }

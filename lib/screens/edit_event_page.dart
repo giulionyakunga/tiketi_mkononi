@@ -81,6 +81,7 @@ class _EditEventPageState extends State<EditEventPage> {
   bool _isLoading = false;
   bool _isPaidEvent = true;
   bool _isDailyEvent = false;
+  bool _isPublicEvent = false;
   int eventTicketsCount = 0;
   Map<String, dynamic> ticketTypesTicketsCount = {};
 
@@ -100,6 +101,7 @@ class _EditEventPageState extends State<EditEventPage> {
     'Sports',
     'Festivals',
     'Training',
+    'Wedding',
   ];
 
   List<Venue> venueSuggestions = [];
@@ -118,6 +120,7 @@ class _EditEventPageState extends State<EditEventPage> {
     _isPaidEvent = widget.event.type == 'paid';
     if(widget.event.daily_event == 'no') _selectedDate = format.parse(widget.event.date);
     if(widget.event.daily_event == 'yes') _isDailyEvent = true;
+    _isPublicEvent = widget.event.type == 'public';
     if((widget.event.time.contains(":"))) _selectedTime = parseTime(widget.event.time);
     _selectedCategory = widget.event.category;
   }
@@ -650,6 +653,7 @@ class _EditEventPageState extends State<EditEventPage> {
       if (_isPaidEvent) 'type': "paid",
       if (!_isPaidEvent) 'type': "free",
       'daily_event': _isDailyEvent ? "yes" : "no",
+      'visibility': _isPublicEvent ? "public" : "private",
       'ticket_types': _ticketTypes
           .map((ticket) => {
                 'id': ticket.id,
@@ -1639,6 +1643,32 @@ class _EditEventPageState extends State<EditEventPage> {
                                   ticket.price = 0;
                                 }
                               }
+                            }),
+                            activeColor: Colors.orange[800],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Visibility',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      Row(
+                        children: [
+                          Text(
+                            _isPublicEvent ? 'Public' : 'Private',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                          const SizedBox(width: 8),
+                          Switch(
+                            value: _isPublicEvent,
+                            onChanged: (value) => setState(() {
+                              _isPublicEvent = value;
                             }),
                             activeColor: Colors.orange[800],
                           ),

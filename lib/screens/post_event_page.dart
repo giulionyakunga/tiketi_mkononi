@@ -67,6 +67,7 @@ class _PostEventPageState extends State<PostEventPage> {
   bool _isLoading = false;
   bool _isPaidEvent = true;
   bool _isDailyEvent = false;
+  bool _isPublicEvent = false;
   late final StorageService _storageService;
 
   final List<TicketType> _ticketTypes = [];
@@ -79,6 +80,7 @@ class _PostEventPageState extends State<PostEventPage> {
     'Theater',
     'Sports',
     'Training',
+    'Wedding',
   ];
 
   List<Venue> venueSuggestions = [];
@@ -447,6 +449,7 @@ Future<void> _pickImage() async {
       'description': _descriptionController.text.trim(),
       'type': _isPaidEvent ? "paid" : "free",
       'daily_event': _isDailyEvent ? "yes" : "no",
+      'visibility': _isPublicEvent ? "public" : "private",
       'ticket_types': _ticketTypes.map((ticket) => {
         'name': ticket.name.trim(),
         'price': ticket.price,
@@ -1040,6 +1043,39 @@ Future<void> _pickImage() async {
     );
   }
 
+  Widget _buildEventVisibilityToggle() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        const Text(
+          'Visibility',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        Row(
+          children: [
+            Text(
+              _isPublicEvent ? 'Public' : 'Private',
+              style: const TextStyle(fontSize: 14),
+            ),
+            const SizedBox(width: 8),
+            Switch(
+              value: _isPublicEvent,
+              onChanged: (value) => setState(() {
+                _isPublicEvent = value;
+                if (!_isPublicEvent) {
+                  for (var ticket in _ticketTypes) {
+                    ticket.price = 0;
+                  }
+                }
+              }),
+              activeColor: Colors.orange[800],
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _buildRowsAndSeatsField() {
    
     return Column(
@@ -1146,6 +1182,8 @@ Future<void> _pickImage() async {
                   _buildEventTypeToggle(),
                   const SizedBox(height: 6),
                   _buildDailyEventToggle(),
+                  const SizedBox(height: 6),
+                  _buildEventVisibilityToggle(),
                   const SizedBox(height: 16),
                   _buildImagePicker(isLargeScreen),
                   const SizedBox(height: 16),

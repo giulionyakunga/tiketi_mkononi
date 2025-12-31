@@ -173,8 +173,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ward: responseData['ward'],
         street: responseData['street'],
         token: responseData['token'],
-        selectedCardType: "",// responseData['selected_card_type'],
-        cardNumber: "", // responseData['card_number'],
         imageUrl: responseData['email'],
       );
       await _storageService.saveUserProfile(profile);

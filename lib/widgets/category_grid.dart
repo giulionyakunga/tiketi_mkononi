@@ -29,6 +29,7 @@ class CategoryGrid extends StatelessWidget {
       Category(name: 'Bars & Grills', icon: Icons.wine_bar, color: Colors.pink),
       Category(name: 'Training', icon: Icons.cast_for_education, color: Colors.green[600]!),
       Category(name: 'Theater', icon: Icons.theaters, color: Colors.black),
+      Category(name: 'Wedding', icon: Icons.favorite, color: Colors.red),
     ];
 
     return GridView.builder(

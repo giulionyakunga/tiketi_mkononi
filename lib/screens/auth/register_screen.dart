@@ -1,7 +1,12 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tiketi_mkononi/models/user_profile.dart';
+import 'package:tiketi_mkononi/services/storage_service.dart';
 import '../../env.dart';
 import 'package:http/http.dart' as http;
+import 'package:go_router/go_router.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -36,9 +41,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _wardController = TextEditingController();
   final _streetController = TextEditingController();
   bool _isPasswordVisible = false;
+  bool _isLoading = false;
   bool _isConfirmPasswordVisible = false;
+  late final StorageService _storageService;
 
   bool _isAccountCreated = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeServices();
+  }
+
+  Future<void> _initializeServices() async {
+    final prefs = await SharedPreferences.getInstance();
+    _storageService = StorageService(prefs);
+  }
 
   @override
   void dispose() {
@@ -68,6 +86,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
   }
 
+    Future<void> _saveUserProfile(Map<String, dynamic> user) async {
+    try {
+      debugPrint('User id 2: ${user['id']}');
+
+      final profile = UserProfile(
+        id: user['id'],
+        firstName: user['first_name'],
+        middleName: user['middle_name'],
+        lastName: user['last_name'],
+        email: user['email'],
+        phoneNumber: user['phone_number'],
+        role: user['role'],
+        region: user['region'],
+        district: user['district'],
+        ward: user['ward'],
+        street: user['street'],
+        token: '',
+        imageUrl: '',
+      );
+      await _storageService.saveUserProfile(profile);
+    } catch (e) {
+      if (mounted) _showSnackBar('Failed to update profile');
+    }
+  }
+
   Future<void> _handleRegister({bool useDNS = true}) async {
     if (!_formKey.currentState!.validate()) {
       _scrollToFirstError();
@@ -75,8 +118,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     try {
-      final Uri uri = useDNS ? Uri.parse('${backend_url}api/add_user') // Original URL 
-      : Uri.parse('${backend_url_with_fallback_ip}api/add_user'); // Use IP
+      setState(() {
+        _isLoading = true;
+      });
+
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/add_new_user') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}api/add_new_user'); // Use IP
         
       final response = await http.post(
         uri,
@@ -86,14 +133,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
         body: '{"first_name": "${_firstNameController.text.trim()}", "middle_name": "${_middleNameController.text.trim()}", "last_name": "${_lastNameController.text.trim()}", "email": "${_emailController.text.trim()}", "phone_number": "${_phoneNumberController.text.trim()}", "role": "user", "password": "${_passwordController.text.trim()}", "region": "${_regionController.text.trim()}", "district": "${_districtController.text.trim()}", "ward": "${_wardController.text.trim()}", "street": "${_streetController.text.trim()}"}',
       );
 
-      if (response.statusCode == 200) {
-        if(response.body == "User added successfully!") {
+      setState(() {
+        _isLoading = false;
+      });
+
+      if (response.statusCode == 201) {
+        final responseData = jsonDecode(response.body);
+
+        if(responseData['message'] == "User added successfully!") {
           setState(() {
             _isAccountCreated = true;
           });
+
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text("Account Created Successfully!")),
           );
+
+          await _saveUserProfile(responseData['data']['user']);
+
+          context.go('/home');
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(response.body)),
@@ -398,7 +456,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         const SizedBox(height: 24),
         ElevatedButton(
-          onPressed: _isAccountCreated ? null : _handleRegister,
+          onPressed: (_isAccountCreated || _isLoading) ? null : _handleRegister,
           style: ElevatedButton.styleFrom(
             backgroundColor: _isAccountCreated ? Colors.green : Colors.orange[800],
             disabledBackgroundColor: _isAccountCreated ? Colors.green : Colors.orange[800],
@@ -409,10 +467,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
             padding: const EdgeInsets.symmetric(vertical: 16),
             elevation: 4,
           ),
-          child: Text(
+          child: _isLoading ? const CircularProgressIndicator() :
+          Text(
             _isAccountCreated ? 'Account Created' : 'Create Account',
             style: TextStyle(
-              fontSize: 18, 
+              fontSize: 18,
               color: Colors.white,
               fontWeight: FontWeight.bold,
             ),

@@ -10,6 +10,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:tiketi_mkononi/models/event.dart';
 import 'package:tiketi_mkononi/models/ticket.dart';
+import 'package:tiketi_mkononi/screens/edit_ticket_page.dart';
+import 'package:tiketi_mkononi/screens/ticket_qr_page.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:excel/excel.dart' hide Border;  // Hide Excel's Border
@@ -244,8 +246,55 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
     }
   }
 
+  Future<void> _updateTicketConfirmStatus(int ticketId, int eventId, int confirmStatus, {bool useDNS = true}) async {
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/update_ticket_confirm_status/${eventId}/${DateFormat('d-M-yyyy').format(_selectedDate)}/$ticketId/${confirmStatus}')
+    : Uri.parse('${backend_url_with_fallback_ip}api/update_ticket_confirm_status/${eventId}/${DateFormat('d-M-yyyy').format(_selectedDate)}/$ticketId/${confirmStatus}');
+
+    try {
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        List<dynamic> dataList = jsonDecode(response.body)['tickets'];
+        List<Ticket> tickets = dataList.map((json) => Ticket.fromJson(json)).toList();
+
+        List<dynamic> dataList2 = jsonDecode(response.body)['ticket_types'];
+        List<TicketType> ticketTypes = dataList2.map((json) => TicketType.fromJson(json)).toList();
+
+        setState(() {
+          ticketsList = _filterTickets(tickets);
+          ticketsList2 = tickets;
+          ticketTypesList = ticketTypes;
+        });
+      } else {
+        throw Exception('Failed to load tickets');
+      }
+    }on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if (e.osError!.errorCode == 7 && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await fetchTickets(useDNS: false); // Recursive retry
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching tickets: $e');
+    }
+  }
+
   double getTotalCollection() {
     return ticketsList.fold(0, (sum, ticket) => sum + ticket.price);
+  }
+
+  int countConfirmedTickets() {
+    return ticketsList.where((ticket) => ticket.confirmStatus == 1).length;
   }
 
   Future<void> _selectDate(BuildContext context) async {
@@ -505,7 +554,11 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
                     itemBuilder: (context, index) {
                       return TicketCard(
                         ticket: ticketsList[index],
-                        isMobile: true,
+                        event: widget.event,
+                        isMobile: true, 
+                        userId: userId, 
+                        refreshMethod: _updateTicketConfirmStatus, 
+                        onTicketUpdated: fetchTickets,
                       );
                     },
                   ),
@@ -635,7 +688,11 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
                             itemBuilder: (context, index) {
                               return TicketCard(
                                 ticket: ticketsList[index],
-                                isMobile: false,
+                                event: widget.event,
+                                isMobile: false, 
+                                userId: userId,
+                                refreshMethod: _updateTicketConfirmStatus,
+                                onTicketUpdated: fetchTickets,
                               );
                             },
                           ),
@@ -690,59 +747,267 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
   }
 
   Widget _buildCollectionSummaryCard(BuildContext context) {
+    final bool isPaidEvent = widget.event.type == 'paid';
+    final bool isWedding = widget.event.category.toUpperCase() == "WEDDING";
+    final totalCollection = getTotalCollection().toInt();
+    final totalTickets = ticketsList.length;
+    final confirmedTickets = countConfirmedTickets();
+
     return Card(
-      elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Text(
-              (widget.event.type == 'paid') ? 'Total Collection' : 'Total Confirmations',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            (widget.event.type == 'paid') ?
-            Text(
-              'TSH ${NumberFormat('#,##0').format(getTotalCollection().toInt())}',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: Colors.green,
-              ),
-            ) : Text(
-              '${NumberFormat('#,##0').format(ticketsList.length)}',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: Colors.green,
-              ),
-            ),
-            const SizedBox(height: 8),
-            if(widget.event.type == 'paid')
-            Text(
-              '${NumberFormat('#,##0').format(ticketsList.length)} tickets sold',
-              style: Theme.of(context).textTheme.bodyLarge, 
-            ),
-            const Divider(),
-            Column(
-              children: ticketTypesList.map((ticketType) {
-                if (ticketType.soldTickets < ticketType.numberOfTickets) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(ticketType.name),
-                        Text("${ticketType.soldTickets}"),
-                      ],
+      elevation: 6,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      shadowColor: Colors.black.withOpacity(0.1),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.white,
+              Colors.grey[50]!,
+            ],
+          ),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  );
-                }
-                return const SizedBox.shrink();
-              }).toList(),
-            )
-          ],
+                    child: Icon(
+                      isPaidEvent ? Icons.attach_money : Icons.people_alt,
+                      size: 24,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      isPaidEvent ? 'Total Collection' : 'Total Confirmations',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[800],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+
+              // Main Amount/Count
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.green[50],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.green.withOpacity(0.2),
+                    width: 1,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      isPaidEvent 
+                          ? 'TSH ${NumberFormat('#,##0').format(totalCollection)}'
+                          : NumberFormat('#,##0').format(totalTickets),
+                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green[700],
+                        fontSize: 28,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      isPaidEvent ? 'Total Revenue' : 'Total Attendees',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.green[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Stats Row
+              Row(
+                children: [
+                  // Tickets Sold
+                  Expanded(
+                    child: _buildStatItem(
+                      context,
+                      icon: Icons.confirmation_number,
+                      value: NumberFormat('#,##0').format(totalTickets),
+                      label: 'Tickets ${isPaidEvent ? 'Sold' : 'Confirmed'}',
+                      color: Colors.blue,
+                    ),
+                  ),
+                  
+                  // Wedding Confirmed (if applicable)
+                  if (isWedding) ...[
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildStatItem(
+                        context,
+                        icon: Icons.verified_user,
+                        value: NumberFormat('#,##0').format(confirmedTickets),
+                        label: 'Confirmed',
+                        color: Colors.orange,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+
+              const SizedBox(height: 16),
+
+              // Available Ticket Types
+              if (ticketTypesList.any((type) => type.soldTickets < type.numberOfTickets)) ...[
+                const Divider(
+                  height: 24,
+                  thickness: 1,
+                  color: Colors.grey,
+                ),
+                
+                Text(
+                  'Available Ticket Types',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[700],
+                  ),
+                ),
+                
+                const SizedBox(height: 12),
+                
+                ...ticketTypesList.map((ticketType) {
+                  if (ticketType.soldTickets < ticketType.numberOfTickets) {
+                    final availableTickets = ticketType.numberOfTickets - ticketType.soldTickets;
+                    final percentage = (ticketType.soldTickets / ticketType.numberOfTickets) * 100;
+                    
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey[200]!),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 2,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  ticketType.name,
+                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey[800],
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '$availableTickets available',
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: _getProgressColor(percentage),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              '${ticketType.soldTickets}/${ticketType.numberOfTickets}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  return const SizedBox.shrink();
+                }).toList(),
+              ],
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  // Helper widget for stat items
+  Widget _buildStatItem(BuildContext context, {
+    required IconData icon,
+    required String value,
+    required String label,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 20, color: color),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Colors.grey[600],
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Helper method for progress colors
+  Color _getProgressColor(double percentage) {
+    if (percentage < 50) return Colors.green;
+    if (percentage < 80) return Colors.orange;
+    return Colors.red;
   }
 
   @override
@@ -758,14 +1023,22 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
 
 class TicketCard extends StatelessWidget {
   final Ticket ticket;
+  final Event event;
   final bool isMobile;
+  final int userId;
+  final Function refreshMethod;
+  final Function onTicketUpdated;
 
   const TicketCard({
     super.key,
     required this.ticket,
+    required this.event,
+    required this.userId,
     required this.isMobile,
+    required this.refreshMethod,
+    required this.onTicketUpdated,
   });
-  
+
   Future<void> _launchPhoneCall(BuildContext context, String phoneNumber) async {
     final Uri launchUri = Uri(
       scheme: 'tel',
@@ -780,7 +1053,8 @@ class TicketCard extends StatelessWidget {
     }
   }
 
-  Future<void> _launchEmailApp(BuildContext context, { required String recipient, String? subject, String? body}) async {
+  Future<void> _launchEmailApp(BuildContext context,
+      {required String recipient, String? subject, String? body}) async {
     final Uri launchUri = Uri(
       scheme: 'mailto',
       path: recipient,
@@ -802,106 +1076,296 @@ class TicketCard extends StatelessWidget {
     }
   }
 
+  // Helper method to get card styling based on confirmStatus
+  _CardStyle _getCardStyle(int confirmStatus) {
+    switch (confirmStatus) {
+      case 1: // Confirmed
+        return _CardStyle(
+          backgroundColor: Colors.green[50]!,
+          borderColor: Colors.green,
+          accentColor: Colors.green,
+          statusText: 'Confirmed',
+          statusIcon: Icons.verified,
+        );
+      case 0: // Not confirmed
+        return _CardStyle(
+          backgroundColor: Colors.orange[50]!,
+          borderColor: Colors.orange,
+          accentColor: Colors.orange,
+          statusText: 'Pending',
+          statusIcon: Icons.pending,
+        );
+      default: // Other statuses
+        return _CardStyle(
+          backgroundColor: Colors.grey[50]!,
+          borderColor: Colors.grey,
+          accentColor: Colors.grey,
+          statusText: 'Unknown',
+          statusIcon: Icons.help_outline,
+        );
+    }
+  }
+
+  Widget _buildStatusTicks() {
+    if (ticket.smsSent == true && ticket.whatsappSent == true) {
+      // Two blue ticks
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.done_all, size: 16, color: Colors.blue),
+        ],
+      );
+    } else if (ticket.smsSent == true) {
+      // Two grey ticks (SMS sent but WhatsApp not sent)
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.done_all, size: 16, color: Colors.grey),
+        ],
+      );
+    } else {
+      // One grey tick (nothing sent)
+      return Icon(Icons.done, size: 16, color: Colors.grey);
+    }
+  }
+
+  // Method to navigate to edit ticket page
+  void _navigateToEditTicket(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditTicketPage(
+          userId: userId,
+          ticket: ticket,
+          event: event,
+          refreshMethod: () => onTicketUpdated(),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final cardStyle = _getCardStyle(ticket.confirmStatus);
+
     if (isMobile) {
-      return 
-      Card(
+      return Card(
+        elevation: 4,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(
+            color: cardStyle.borderColor.withOpacity(0.3),
+            width: 1.5,
+          ),
+        ),
         margin: const EdgeInsets.only(bottom: 16),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                cardStyle.backgroundColor,
+                cardStyle.backgroundColor.withOpacity(0.7),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Stack(
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    ticket.userName,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header row with status badge
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            ticket.userName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey[800],
+                                ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: cardStyle.accentColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: cardStyle.accentColor),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                cardStyle.statusIcon,
+                                size: 14,
+                                color: cardStyle.accentColor,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                cardStyle.statusText,
+                                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                      color: cardStyle.accentColor,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  Text(
-                    (ticket.price > 0.0) 
-                        ? 'TSH${NumberFormat('#,##0').format(ticket.price.toInt())}' 
-                        : "Free",
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.green,
-                      fontWeight: FontWeight.bold,
+                    const SizedBox(height: 12),
+                    // Price row
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Ticket Price',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: Colors.grey[600],
+                              ),
+                        ),
+                        Text(
+                          (ticket.price > 0.0)
+                              ? 'TSH${NumberFormat('#,##0').format(ticket.price.toInt())}'
+                              : "Free",
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                color: Colors.green[700],
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4), // Reduced from 8 to 4
-              Text(
-                'Type: ${ticket.ticketType}',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 4), // Uniform spacing
-              TextButton(
-                onPressed: () => _launchPhoneCall(context, ticket.userPhoneNumber),
-                style: TextButton.styleFrom(
-                  alignment: Alignment.centerLeft,
-                  padding: EdgeInsets.zero,
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: RichText(
-                  text: TextSpan(
-                    children: [
-                      TextSpan(
-                        text: 'Phone number: ',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          color: Colors.black,
-                          fontWeight: FontWeight.bold,
+                    const SizedBox(height: 12),
+                    // Ticket type
+                    _InfoRow(
+                      icon: Icons.confirmation_number,
+                      iconColor: cardStyle.accentColor,
+                      label: 'Type:',
+                      value: ticket.ticketType,
+                    ),
+                    const SizedBox(height: 8),
+                    // Contact information
+                    _ContactButton(
+                      icon: Icons.phone,
+                      label: 'Phone:',
+                      value: ticket.userPhoneNumber,
+                      onPressed: () => _launchPhoneCall(context, ticket.userPhoneNumber),
+                      color: cardStyle.accentColor,
+                    ),
+                    const SizedBox(height: 8),
+                    _ContactButton(
+                      icon: Icons.email,
+                      label: 'Email:',
+                      value: ticket.userEmail,
+                      onPressed: () => _launchEmailApp(
+                        context,
+                        recipient: ticket.userEmail,
+                        subject: 'Tiketi_Mkononi',
+                        body: '',
+                      ),
+                      color: cardStyle.accentColor,
+                    ),
+                    const SizedBox(height: 8),
+                    _ContactButton(
+                      icon: ticket.confirmStatus == 0 ? Icons.check_box_outline_blank : Icons.check_box_rounded,
+                      label: ticket.confirmStatus == 0 ? 'Confirm' : 'Unconfirm',
+                      value: '',
+                      onPressed: () => refreshMethod(ticket.id, ticket.eventId, ticket.confirmStatus == 0 ? 1 : 0),
+                      color: cardStyle.accentColor,
+                    ),
+                    if (userId == ticket.userId) const SizedBox(height: 12),
+                    if (userId == ticket.userId)
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => TicketQRPage(ticket: ticket),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.qr_code, size: 20),
+                          label: const Text('Show Ticket QR'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: cardStyle.accentColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            elevation: 2,
+                          ),
                         ),
                       ),
-                      TextSpan(
-                        text: ticket.userPhoneNumber,
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: Colors.blue,
-                          fontWeight: FontWeight.normal,
+                    
+                    // Add extra space at the bottom for the icons
+                    SizedBox(height: 24),
+                  ],
+                ),
+              ),
+
+              // Bottom left: Edit icon (only for ticket owner or admin)
+              if (userId == ticket.userId) // Add your admin check logic here
+                Positioned(
+                  bottom: 8,
+                  left: 8,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 4,
+                          offset: Offset(0, 2),
                         ),
+                      ],
+                    ),
+                    child: IconButton(
+                      icon: Icon(Icons.edit, size: 18, color: Colors.blue),
+                      onPressed: () => _navigateToEditTicket(context),
+                      padding: EdgeInsets.all(6),
+                      constraints: BoxConstraints(),
+                    ),
+                  ),
+                ),
+
+              Positioned(
+                bottom: 8,
+                right: 8,
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 2,
+                        offset: Offset(0, 1),
                       ),
                     ],
                   ),
-                ),
-              ),
-              const SizedBox(height: 4), // Uniform spacing
-              TextButton(
-                onPressed: () => _launchEmailApp(
-                  context,
-                  recipient: ticket.userEmail,
-                  subject: 'Tiketi_Mkononi',
-                  body: '',
-                ),
-                style: TextButton.styleFrom(
-                  alignment: Alignment.centerLeft,
-                  padding: EdgeInsets.zero,
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: RichText(
-                  text: TextSpan(
+                  child: Row(
                     children: [
-                      TextSpan(
-                        text: 'Email: ',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          color: Colors.black,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      TextSpan(
-                        text: ticket.userEmail,
+                      _buildStatusTicks(),
+                      if (ticket.smsSent == true && ticket.whatsappSent == true) SizedBox(width: 4),
+                      if (ticket.smsSent == true && ticket.whatsappSent == true)
+                      Text(
+                        'Sent',
                         style: TextStyle(
-                          fontSize: 18,
-                          color: Colors.blue,
-                          fontWeight: FontWeight.normal,
-                          decoration: TextDecoration.underline,
+                          fontSize: 10,
+                          color: Colors.grey[600],
                         ),
                       ),
                     ],
@@ -913,59 +1377,300 @@ class TicketCard extends StatelessWidget {
         ),
       );
     } else {
+      // Desktop version
       return Card(
+        elevation: 4,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(
+            color: cardStyle.borderColor.withOpacity(0.3),
+            width: 1.5,
+          ),
+        ),
         margin: const EdgeInsets.only(bottom: 16),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                cardStyle.backgroundColor,
+                cardStyle.backgroundColor.withOpacity(0.7),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Stack(
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      ticket.userName,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
+              Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            ticket.userName,
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey[800],
+                                ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: cardStyle.accentColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: cardStyle.accentColor),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                cardStyle.statusIcon,
+                                size: 16,
+                                color: cardStyle.accentColor,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                cardStyle.statusText,
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: cardStyle.accentColor,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _InfoRow(
+                          icon: Icons.confirmation_number,
+                          iconColor: cardStyle.accentColor,
+                          label: 'Ticket Type:',
+                          value: ticket.ticketType,
+                          isDesktop: true,
+                        ),
+                        _InfoRow(
+                          icon: Icons.attach_money,
+                          iconColor: cardStyle.accentColor,
+                          label: 'Price:',
+                          value: (ticket.price > 0.0)
+                              ? 'TSH${NumberFormat('#,##0').format(ticket.price.toInt())}'
+                              : "Free",
+                          valueStyle: TextStyle(
+                            color: Colors.green[700],
+                            fontWeight: FontWeight.bold,
+                          ),
+                          isDesktop: true,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    _InfoRow(
+                      icon: Icons.calendar_today,
+                      iconColor: cardStyle.accentColor,
+                      label: 'Created:',
+                      value: "${ticket.createdAt}",
+                      isDesktop: true,
+                    ),
+                    
+                    // Add extra space at the bottom for the icons
+                    SizedBox(height: 24),
+                  ],
+                ),
+              ),
+
+              // Bottom left: Edit icon (desktop)
+              if (userId == ticket.userId)
+              Positioned(
+                bottom: 12,
+                left: 12,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 4,
+                        offset: Offset(0, 2),
                       ),
-                    ),
+                    ],
                   ),
-                  Text(
-                    (ticket.price > 0.0) ? 'TSH${NumberFormat('#,##0').format(ticket.price.toInt())}' : "Free",
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.green,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  child: IconButton(
+                    icon: Icon(Icons.edit, size: 20, color: Colors.blue),
+                    onPressed: () => _navigateToEditTicket(context),
+                    padding: EdgeInsets.all(8),
+                    constraints: BoxConstraints(),
                   ),
-                ],
+                ),
               ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  const Icon(Icons.confirmation_number, size: 16),
-                  const SizedBox(width: 8),
-                  Text(
-                    ticket.ticketType,
-                    style: Theme.of(context).textTheme.bodyLarge,
+
+              Positioned(
+                bottom: 12,
+                right: 12,
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 2,
+                        offset: Offset(0, 1),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  const Icon(Icons.calendar_today, size: 16),
-                  const SizedBox(width: 8),
-                  Text(
-                    "${ticket.createdAt}",
-                    style: Theme.of(context).textTheme.bodyMedium,
+                  child: Row(
+                    children: [
+                      _buildStatusTicks(),
+                      SizedBox(width: 6),
+                      Text(
+                        'Notification Status',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ],
           ),
         ),
       );
     }
+  }
+}
+
+// Helper class for card styling
+class _CardStyle {
+  final Color backgroundColor;
+  final Color borderColor;
+  final Color accentColor;
+  final String statusText;
+  final IconData statusIcon;
+
+  _CardStyle({
+    required this.backgroundColor,
+    required this.borderColor,
+    required this.accentColor,
+    required this.statusText,
+    required this.statusIcon,
+  });
+}
+
+// Reusable info row widget
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final String value;
+  final TextStyle? valueStyle;
+  final bool isDesktop;
+
+  const _InfoRow({
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    required this.value,
+    this.valueStyle,
+    this.isDesktop = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: isDesktop ? 18 : 16, color: iconColor),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          value,
+          style: valueStyle ??
+              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.grey[800],
+                    fontWeight: FontWeight.w600,
+                  ),
+        ),
+      ],
+    );
+  }
+}
+
+// Reusable contact button widget
+class _ContactButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final VoidCallback onPressed;
+  final Color color;
+
+  const _ContactButton({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.onPressed,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton(
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        alignment: Alignment.centerLeft,
+        padding: EdgeInsets.zero,
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 8),
+          RichText(
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text: '$label ',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                TextSpan(
+                  text: value,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.blue[700],
+                    fontWeight: FontWeight.normal,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

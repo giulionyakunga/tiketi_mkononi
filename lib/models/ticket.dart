@@ -1,6 +1,9 @@
+import 'package:flutter/foundation.dart';
+
 class Ticket {
   final int id;
   final int userId;
+  final String ticketCode;
   final String userName;
   final String userEmail;
   final String userPhoneNumber;
@@ -9,6 +12,7 @@ class Ticket {
   final String date;
   final String time;
   final String venue;
+  final String locationLink;
   final String ticketType;
   final double price;
   final int numberOfTickets;
@@ -16,12 +20,20 @@ class Ticket {
   final String transactionId;
   final String seatNumber;
   final int scanStatus;
+  final int scanTimes;
+  final int maxScanTimes;
+  final bool hasLeft;
+  final int confirmStatus;
+  final DateTime scannedAt;
+  final bool smsSent;
+  final bool whatsappSent;
   final DateTime createdAt;
   final DateTime updatedAt;
 
   Ticket({
     required this.id,
     required this.userId,
+    required this.ticketCode,
     required this.userName,
     required this.userEmail,
     required this.userPhoneNumber,
@@ -30,6 +42,7 @@ class Ticket {
     required this.date,
     required this.time,
     required this.venue,
+    required this.locationLink,
     required this.ticketType,
     required this.price,
     required this.numberOfTickets,
@@ -37,6 +50,13 @@ class Ticket {
     required this.transactionId,
     required this.seatNumber,
     required this.scanStatus,
+    required this.scanTimes,
+    required this.maxScanTimes,
+    required this.hasLeft,
+    required this.confirmStatus,
+    required this.scannedAt,
+    required this.smsSent,
+    required this.whatsappSent,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -46,6 +66,7 @@ class Ticket {
     return Ticket(
       id: json['id'] ?? 0,
       userId: json['user_id'] ?? 0,
+      ticketCode: json['ticket_code'] ?? "",
       userName: json['user_name'] ?? "N/A",
       userEmail: json['user_email'] ?? "N/A",
       userPhoneNumber: json['user_phone_number'] ?? "N/A",
@@ -54,6 +75,7 @@ class Ticket {
       date: json['date'] ?? '',
       time: json['time'] ?? '',
       venue: json['venue'] ?? '',
+      locationLink: json['location_link'] ?? '',
       ticketType: json['ticket_type'] ?? '',
       price: (json['price'] ?? 0).toDouble(),
       numberOfTickets: (json['number_of_tickets'] ?? 0).toInt(),
@@ -61,6 +83,13 @@ class Ticket {
       transactionId: json['transaction_id'] ?? '',
       seatNumber: json['seat_number'] ?? '',
       scanStatus: (json['scan_status'] ?? 0).toInt(),
+      scanTimes: (json['scan_times'] ?? 0).toInt(),
+      maxScanTimes: (json['max_scan_times'] ?? 0).toInt(),
+      hasLeft: json['has_left'] ?? false,
+      confirmStatus: (json['confirm_status'] ?? 0).toInt(),
+      scannedAt: DateTime.parse(json['scannedAt'] ?? DateTime.now().toIso8601String()),
+      smsSent: json['sms_sent'] ?? false,
+      whatsappSent: json['whatsapp_sent'] ?? false,
       createdAt: DateTime.parse(json['createdAt']),
       updatedAt: DateTime.parse(json['updatedAt']),
     );

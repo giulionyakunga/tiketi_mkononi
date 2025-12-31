@@ -8,61 +8,6 @@ import 'package:tiketi_mkononi/services/api_service.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
 import 'package:flutter/services.dart';
 
-// Custom formatter for card number spacing (XXXX XXXX XXXX XXXX)
-class CardNumberFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    if (newValue.text.isEmpty) {
-      return newValue;
-    }
-    
-    // Remove all non-digit characters
-    String input = newValue.text.replaceAll(RegExp(r'[^\d]'), '');
-    
-    // If the input is empty after cleaning, return empty value
-    if (input.isEmpty) {
-      return const TextEditingValue(
-        text: '',
-        selection: TextSelection.collapsed(offset: 0),
-      );
-    }
-    
-    StringBuffer formatted = StringBuffer();
-    
-    for (int i = 0; i < input.length; i++) {
-      // Add space after every 4 digits
-      if (i > 0 && i % 4 == 0) {
-        formatted.write(' ');
-      }
-      formatted.write(input[i]);
-    }
-    
-    // Calculate new cursor position
-    int cursorPosition = formatted.length;
-    
-    // If the user is deleting, adjust cursor position accordingly
-    if (oldValue.text.length > newValue.text.length) {
-      // If the character before the cursor was a space, move back one more position
-      final oldText = oldValue.text;
-      final selectionStart = newValue.selection.start;
-      
-      if (selectionStart < oldText.length && oldText[selectionStart] == ' ') {
-        cursorPosition = selectionStart - 1;
-      } else {
-        cursorPosition = newValue.selection.start;
-      }
-    }
-    
-    return TextEditingValue(
-      text: formatted.toString(),
-      selection: TextSelection.collapsed(offset: cursorPosition),
-    );
-  }
-}
-
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
 
@@ -138,8 +83,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
         _wardController.text = profile.ward;
         _streetController.text = profile.street;
         token = profile.token;
-        _selectedCardType = profile.selectedCardType;
-        _cardNumberController.text = profile.cardNumber;
         role = profile.role;
       });
     }
@@ -197,8 +140,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
         ward: _wardController.text.trim(),
         street: _streetController.text.trim(),
         token: token,
-        selectedCardType: _selectedCardType,
-        cardNumber: _cardNumberController.text.trim(),
         imageUrl: _selectedImage?.path,
       );
 
@@ -1039,139 +980,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ),
             ),
           ),
-          
-          const SizedBox(height: 16),
-          
-          // Card Number Input
-          TextFormField(
-            controller: _cardNumberController, // You'll need to define this controller
-            decoration: InputDecoration(
-              hintText: 'Enter your card number',
-              prefixIcon: const Icon(Icons.credit_card),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey[400]!),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey[400]!),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.orange[800]!, width: 2.0),
-              ),
-              filled: true,
-              fillColor: Colors.grey[200],
-              contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-            ),
-            style: const TextStyle(fontSize: 16),
-            keyboardType: TextInputType.number,
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(19), // Standard card number length
-              CardNumberFormatter(), // You'll need to create this formatter for spacing
-            ],
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter your card number';
-              }
-              
-              // Remove any spaces for validation
-              final cleanedValue = value.replaceAll(' ', '');
-              
-              if (cleanedValue.length < 12) {
-                return 'Card number is too short';
-              }
-              
-              // Basic Luhn algorithm validation for card numbers
-              if (!_isValidLuhn(cleanedValue)) {
-                return 'Invalid card number';
-              }
-              
-              return null;
-            },
-          ),
         ],
       ),
     );
-  }
-
-  // Luhn algorithm validator function
-  bool _isValidLuhn(String cardNumber) {
-    // Remove any spaces or non-digit characters
-    String cleanedInput = cardNumber.replaceAll(RegExp(r'[^\d]'), '');
-    
-    if (cleanedInput.isEmpty) {
-      return false;
-    }
-    
-    int sum = 0;
-    bool shouldDouble = false;
-    
-    // Process digits from right to left
-    for (int i = cleanedInput.length - 1; i >= 0; i--) {
-      int digit = int.parse(cleanedInput[i]);
-      
-      if (shouldDouble) {
-        digit *= 2;
-        if (digit > 9) {
-          digit -= 9;
-        }
-      }
-      
-      sum += digit;
-      shouldDouble = !shouldDouble;
-    }
-    
-    return (sum % 10 == 0);
-  }
-
-  // Optional: Card type detection based on initial digits
-  String? _detectCardType(String cardNumber) {
-    // Remove any spaces or non-digit characters
-    String cleanedInput = cardNumber.replaceAll(RegExp(r'[^\d]'), '');
-    
-    if (cleanedInput.isEmpty) {
-      return null;
-    }
-    
-    // Uhai Card pattern (example: starts with 4)
-    if (cleanedInput.startsWith('4')) {
-      return 'Uhai Card';
-    }
-    
-    // NCard pattern (example: starts with 5)
-    if (cleanedInput.startsWith('5')) {
-      return 'NCard';
-    }
-    
-    return null;
-  }
-
-  // Optional: Auto-format card number method
-  String formatCardNumber(String input) {
-    // Remove all non-digit characters
-    String digitsOnly = input.replaceAll(RegExp(r'[^\d]'), '');
-    
-    if (digitsOnly.isEmpty) {
-      return '';
-    }
-    
-    StringBuffer formatted = StringBuffer();
-    
-    for (int i = 0; i < digitsOnly.length; i++) {
-      if (i > 0 && i % 4 == 0) {
-        formatted.write(' ');
-      }
-      formatted.write(digitsOnly[i]);
-      
-      // Limit to 16 digits (standard card length)
-      if (i >= 15) {
-        break;
-      }
-    }
-    
-    return formatted.toString();
   }
 
   Widget _buildSaveButton(ColorScheme colorScheme) {
