@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -8,6 +9,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
+import 'package:tiketi_mkononi/models/event.dart';
 import 'package:tiketi_mkononi/models/ticket.dart';
 import 'package:tiketi_mkononi/services/SimpleCodec.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -18,6 +20,15 @@ import 'package:share_plus/share_plus.dart';
 import 'package:pdf/pdf.dart';
 import 'package:flutter/services.dart';
 // import 'dart:html' as html; // only for web
+
+import 'dart:typed_data';
+import 'package:image/image.dart' as img;
+import 'package:qr/qr.dart';
+import 'package:http/http.dart' as http;
+import 'package:path/path.dart' as path;
+import 'package:flutter/material.dart';
+
+
 
 final websocketServiceProvider = Provider<WebSocketService>((ref) {
   return WebSocketService();
@@ -146,10 +157,12 @@ class WebSocketService {
 
 class TicketQRPage extends ConsumerStatefulWidget {
   final Ticket ticket;
+  final Event? event; // ← nullable
 
   const TicketQRPage({
     super.key,
     required this.ticket,
+    this.event,
   });
 
   @override
@@ -161,6 +174,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
   late DateTime scannedAt;
   late int scanStatus2;
   bool _isTicketScanned = false;
+  bool _isGenerating = false;
   Printer? selectedPrinter;
 
   @override
@@ -180,8 +194,33 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
       });
     }
 
+    _generateImageWithQr();
     _loadSelectedPrinter();
   }
+
+  Future<void> _generateImageWithQr() async {
+    setState(() {
+      _isGenerating = true;
+    });
+
+    try {
+      if(widget.event != null) {
+        await ImageQrService.generateImageWithQr(
+          ticket:  widget.ticket,
+          event:  widget.event!
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error sharing image: $e')),
+      );
+    } finally {
+      setState(() {
+        _isGenerating = false;
+      });
+    }
+  }
+
 
   Future<void> _loadSelectedPrinter() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -860,5 +899,465 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
         ),
       ),
     );
+  }
+}
+
+
+
+
+class SimpleImageCacheManager {
+  static const Duration _cacheDuration = Duration(days: 7);
+  static const int _maxCacheSize = 100 * 1024 * 1024; // 100MB max cache
+
+  static Future<String> _getCacheDirectory() async {
+    final dir = await getTemporaryDirectory();
+    final cacheDir = Directory('${dir.path}/image_cache');
+    if (!await cacheDir.exists()) {
+      await cacheDir.create(recursive: true);
+    }
+    return cacheDir.path;
+  }
+
+  static String _getCacheKey(String url) {
+    final uri = Uri.parse(url);
+    final fileName = uri.pathSegments.isNotEmpty 
+        ? uri.pathSegments.last 
+        : 'image_${DateTime.now().millisecondsSinceEpoch}';
+    final safeUrl = url.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
+    return '${safeUrl.substring(0, safeUrl.length > 50 ? 50 : safeUrl.length)}_$fileName';
+  }
+
+  static Future<String> getCacheFilePath(String url) async {
+    final cacheDir = await _getCacheDirectory();
+    final key = _getCacheKey(url);
+    return '$cacheDir/$key';
+  }
+
+  static Future<bool> isImageCached(String url) async {
+    try {
+      final filePath = await getCacheFilePath(url);
+      final file = File(filePath);
+      
+      if (await file.exists()) {
+        final lastModified = await file.lastModified();
+        final now = DateTime.now();
+        
+        // Check if cache is expired
+        if (now.difference(lastModified) > _cacheDuration) {
+          await file.delete();
+          return false;
+        }
+        
+        // Verify file is not corrupted (has content)
+        final stat = await file.stat();
+        return stat.size > 0;
+      }
+      return false;
+    } catch (e) {
+      print('Cache check error: $e');
+      return false;
+    }
+  }
+
+  static Future<File> getCachedImage(String url) async {
+    final filePath = await getCacheFilePath(url);
+    return File(filePath);
+  }
+
+  static Future<File> cacheImage(String url, Uint8List bytes) async {
+    try {
+      final filePath = await getCacheFilePath(url);
+      final file = File(filePath);
+      
+      // Create directory if it doesn't exist
+      await file.parent.create(recursive: true);
+      
+      await file.writeAsBytes(bytes);
+      
+      // Clean up old cache if needed
+      await _cleanupCache();
+      
+      return file;
+    } catch (e) {
+      print('Cache error: $e');
+      rethrow;
+    }
+  }
+
+  static Future<void> _cleanupCache() async {
+    try {
+      final cacheDir = await _getCacheDirectory();
+      final directory = Directory(cacheDir);
+      
+      if (!await directory.exists()) return;
+      
+      final files = await directory.list().where((file) => file is File).cast<File>().toList();
+      
+      // Calculate total size
+      int totalSize = 0;
+      final fileSizes = <File, int>{};
+      
+      for (final file in files) {
+        final stat = await file.stat();
+        final size = stat.size;
+        fileSizes[file] = size;
+        totalSize += size;
+      }
+      
+      // Delete oldest files if over limit
+      if (totalSize > _maxCacheSize) {
+        for (final file in files) {
+          final size = fileSizes[file]!;
+          await file.delete();
+          totalSize -= size;
+          
+          if (totalSize <= _maxCacheSize * 0.8) { // Keep at 80% of max
+            break;
+          }
+        }
+      }
+      
+      // Also delete expired files
+      final now = DateTime.now();
+      for (final file in files) {
+        final lastModified = await file.lastModified();
+        if (now.difference(lastModified) > _cacheDuration) {
+          await file.delete();
+        }
+      }
+    } catch (e) {
+      print('Cache cleanup error: $e');
+    }
+  }
+
+  static Future<void> clearCache() async {
+    try {
+      final cacheDir = await _getCacheDirectory();
+      final directory = Directory(cacheDir);
+      if (await directory.exists()) {
+        await directory.delete(recursive: true);
+      }
+    } catch (e) {
+      print('Clear cache error: $e');
+    }
+  }
+
+  static Future<int> getCacheSize() async {
+    try {
+      final cacheDir = await _getCacheDirectory();
+      final directory = Directory(cacheDir);
+      
+      if (!await directory.exists()) return 0;
+      
+      int totalSize = 0;
+      await for (final file in directory.list(recursive: true)) {
+        if (file is File) {
+          final stat = await file.stat();
+          totalSize += stat.size;
+        }
+      }
+      
+      return totalSize;
+    } catch (e) {
+      print('Get cache size error: $e');
+      return 0;
+    }
+  }
+}
+
+class ImageQrService {
+ static Future<File> generateImageWithQr({
+  required Ticket ticket,
+  required Event event,
+}) async {
+  String imageSource = '${backend_url}api/image/${event.imageUrl}';
+  String qrData = SimpleCodec.encode(jsonEncode({
+    "tid": ticket.id,
+    "eid": ticket.eventId,
+    "dt": ticket.date,
+  }));
+  int qrSize = 200;
+  int positionX = 50;
+  int positionY = 50;
+  int borderSize = 10;
+
+  try {
+    // Load base image
+    final image = await ImageLoader.loadImage(imageSource);
+    if (image == null) {
+      throw Exception('Failed to load image');
+    }
+
+    final painter = QrPainter(
+  data: qrData,
+  version: QrVersions.auto,
+  gapless: true,
+);
+
+final ui.Image uiImage = await painter.toImage(qrSize.toDouble());
+
+final ByteData byteData =
+    await uiImage.toByteData(format: ui.ImageByteFormat.png)
+        as ByteData;
+
+final Uint8List pngBytes = byteData.buffer.asUint8List();
+
+final img.Image resizedQr = img.decodePng(pngBytes)!;
+
+    /// 4️⃣ Create white background (slightly larger)
+    final bgSize = qrSize + (borderSize * 2);
+    final whiteBackground = img.Image(
+      width: bgSize,
+      height: bgSize,
+    );
+
+    img.fill(whiteBackground, color: img.ColorRgb8(255, 255, 255));
+
+    /// 5️⃣ Draw QR centered on white background
+    img.compositeImage(
+      whiteBackground,
+      resizedQr,
+      dstX: borderSize,
+      dstY: borderSize,
+    );
+
+    /// ✅ Final QR image with white background
+    final qrImage = whiteBackground;
+
+    /// 6️⃣ Composite QR onto main image
+    img.compositeImage(
+      image,
+      qrImage,
+      dstX: positionX,
+      dstY: positionY,
+    );
+
+    /// 7️⃣ Save result
+    final tempDir = await getTemporaryDirectory();
+    final outputFile = File(
+      '${tempDir.path}/image_with_qr_${DateTime.now().millisecondsSinceEpoch}.jpg',
+    );
+
+    await outputFile.writeAsBytes(img.encodeJpg(image, quality: 90));
+    debugPrint("image save at: ${outputFile.path}");
+    return outputFile;
+  } catch (e) {
+    rethrow;
+  }
+}
+
+
+  static img.Image _addBorderToImage(img.Image image, int borderSize) {
+    final bordered = img.Image(
+      width: image.width + (borderSize * 2),
+      height: image.height + (borderSize * 2),
+    );
+    
+    // Fill with white border
+    img.fill(bordered, color: img.ColorRgba8(255, 255, 255, 255),);
+    
+    // Copy original image in the center
+    // img.copyInto(bordered, image, dstX: borderSize, dstY: borderSize);
+    
+    return bordered;
+  }
+}
+
+class ImageLoader {
+  static Future<img.Image?> loadImage(String source) async {
+    try {
+      print('🔍 Attempting to load image from: $source');
+      
+      // Check if source is a local file path
+      if (_isLocalPath(source)) {
+        print('📁 Detected local path');
+        final image = await _loadLocalImage(source);
+        if (image != null) {
+          print('✅ Successfully loaded local image');
+          return image;
+        }
+      }
+      
+      // Check if source is a network URL
+      if (source.startsWith('http://') || source.startsWith('https://')) {
+        print('🌐 Detected network URL');
+        return await _loadNetworkImage(source);
+      }
+      
+      // Try as local file first, then network (for ambiguous paths)
+      print('🔍 Ambiguous path, trying as local then network...');
+      final localImage = await _loadLocalImage(source);
+      if (localImage != null) {
+        print('✅ Loaded as local image');
+        return localImage;
+      }
+      
+      // Try as network URL
+      return await _loadNetworkImage(source);
+    } catch (e) {
+      print('❌ Error loading image: $e');
+      return null;
+    }
+  }
+
+  static bool _isLocalPath(String pathString) {
+    // Check for common local file patterns
+    return pathString.startsWith('/') || 
+           pathString.startsWith('./') || 
+           pathString.startsWith('../') ||
+           pathString.startsWith('file://') ||
+           pathString.contains(RegExp(r'^[A-Za-z]:[\\/]')) || // Windows path
+           pathString.endsWith('.jpg') || 
+           pathString.endsWith('.jpeg') ||
+           pathString.endsWith('.png') ||
+           pathString.endsWith('.gif') ||
+           pathString.endsWith('.bmp') ||
+           pathString.endsWith('.webp') ||
+           File(pathString).existsSync(); // Direct file existence check
+  }
+
+  static Future<img.Image?> _loadLocalImage(String filePath) async {
+    try {
+      // Clean up file path
+      String cleanPath = filePath;
+      if (filePath.startsWith('file://')) {
+        cleanPath = filePath.substring(7);
+      }
+      
+      // Handle relative paths
+      if (cleanPath.startsWith('./') || cleanPath.startsWith('../')) {
+        final currentDir = Directory.current.path;
+        cleanPath = path.normalize(path.join(currentDir, cleanPath));
+      }
+      
+      final file = File(cleanPath);
+      print('📂 Checking local file: $cleanPath');
+      print('📊 File exists: ${await file.exists()}');
+      
+      if (await file.exists()) {
+        final bytes = await file.readAsBytes();
+        print('📦 File size: ${bytes.length} bytes');
+        
+        final image = img.decodeImage(bytes);
+        if (image == null) {
+          print('⚠️ Failed to decode image - file may be corrupted');
+        }
+        return image;
+      }
+      print('⚠️ Local file not found');
+      return null;
+    } catch (e) {
+      print('❌ Error loading local image: $e');
+      return null;
+    }
+  }
+
+  static Future<img.Image?> _loadNetworkImage(String url) async {
+    try {
+      print('🌐 Checking cache for URL: $url');
+      
+      // Check cache first
+      if (await SimpleImageCacheManager.isImageCached(url)) {
+        print('📦 Cache hit! Loading from cache...');
+        final cachedFile = await SimpleImageCacheManager.getCachedImage(url);
+        final bytes = await cachedFile.readAsBytes();
+        print('📊 Cache file size: ${bytes.length} bytes');
+        
+        final image = img.decodeImage(bytes);
+        if (image != null) {
+          print('✅ Successfully loaded from cache');
+          return image;
+        }
+        print('⚠️ Cached file corrupted, re-downloading...');
+      }
+
+      // Download from network
+      print('⬇️ Downloading from network...');
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'image/*',
+        },
+      );
+      
+      print('📡 HTTP Status: ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        final bytes = response.bodyBytes;
+        print('📦 Downloaded ${bytes.length} bytes');
+        
+        // Decode image first to ensure it's valid
+        final image = img.decodeImage(bytes);
+        if (image == null) {
+          print('❌ Downloaded image is not valid');
+          throw Exception('Downloaded image is not a valid image file');
+        }
+        
+        // Cache the image
+        print('💾 Caching image...');
+        await SimpleImageCacheManager.cacheImage(url, bytes);
+        print('✅ Image cached successfully');
+        
+        return image;
+      } else {
+        print('❌ HTTP Error ${response.statusCode}');
+        throw Exception('Failed to load image: HTTP ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ Error loading network image: $e');
+      
+      // Try to load from cache even if it might be expired
+      try {
+        final cachedFile = await SimpleImageCacheManager.getCachedImage(url);
+        if (await cachedFile.exists()) {
+          print('🔄 Falling back to cached file despite error');
+          final bytes = await cachedFile.readAsBytes();
+          return img.decodeImage(bytes);
+        }
+      } catch (cacheError) {
+        print('⚠️ Cache fallback failed: $cacheError');
+      }
+      
+      return null;
+    }
+  }
+
+  static Future<File> loadAndCacheImage(String source) async {
+    print('🔍 loadAndCacheImage called with: $source');
+    
+    img.Image? image;
+    
+    if (source.startsWith('http://') || source.startsWith('https://')) {
+      // Network image
+      print('🌐 Processing as network image');
+      image = await _loadNetworkImage(source);
+      if (image != null) {
+        final cachedFile = await SimpleImageCacheManager.getCachedImage(source);
+        print('✅ Network image loaded and cached at: ${cachedFile.path}');
+        return cachedFile;
+      }
+    } else {
+      // Local image
+      print('📁 Processing as local image');
+      image = await _loadLocalImage(source);
+      if (image != null) {
+        print('✅ Local image loaded from: $source');
+        return File(source);
+      }
+    }
+    
+    print('❌ Failed to load image from: $source');
+    throw Exception('Failed to load image from: $source');
+  }
+
+  static Future<void> preloadImage(String source) async {
+    try {
+      print('🔍 Preloading image: $source');
+      await loadImage(source);
+      print('✅ Image preloaded successfully');
+    } catch (e) {
+      print('❌ Image preload failed: $e');
+    }
   }
 }

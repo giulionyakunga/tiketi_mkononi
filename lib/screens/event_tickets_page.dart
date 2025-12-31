@@ -1290,7 +1290,7 @@ class TicketCard extends StatelessWidget {
                             await Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => TicketQRPage(ticket: ticket),
+                                builder: (context) => TicketQRPage(ticket: ticket, event: event),
                               ),
                             );
                           },
