@@ -55,7 +55,7 @@ dependencies:
   go_router: ^15.1.2
   share_plus: ^11.0.0
   excel: ^2.0.1
-  open_file: ^3.3.1
+  # open_file: ^3.3.1
   permission_handler: ^11.0.1 # Only for Android to get storage permission (optional)
   # sign_in_with_apple: ^5.0.0
   # sign_in_with_apple: ^4.2.0  # Use an older version

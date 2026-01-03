@@ -16,7 +16,8 @@ import 'package:tiketi_mkononi/services/storage_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:excel/excel.dart' hide Border;  // Hide Excel's Border
 import 'package:path_provider/path_provider.dart';
-import 'package:open_file/open_file.dart';
+import 'package:open_filex/open_filex.dart';
+
 
 class EventTicketsPage extends StatefulWidget {
   final Event event;
@@ -163,7 +164,7 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
           await file.writeAsBytes(excel.encode()!);
 
           // Open the file
-          await OpenFile.open(filePath);
+          await OpenFilex.open(filePath);
         }
       }
     } catch (e) {
