@@ -16,6 +16,7 @@ import 'package:http/http.dart' as http;
 import 'package:tiketi_mkononi/screens/event_providers.dart';
 import 'package:tiketi_mkononi/screens/event_tickets_page.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tiketi_mkononi/screens/generate_cards_page.dart';
 import 'package:tiketi_mkononi/screens/qr_scanner_page.dart';
 import 'package:tiketi_mkononi/screens/set_scanner_page.dart';
 import 'package:tiketi_mkononi/screens/theater_checkout_page.dart';
@@ -66,6 +67,8 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
     }else {
       _initializeServices();
     }
+
+    _savePrefs();
     
     getTicketsCount();
     fetchEvent();
@@ -120,6 +123,15 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
         userId = profile.id;
       });
     }
+  }
+
+  Future<void> _savePrefs() async {
+    final p = await SharedPreferences.getInstance();
+    await p.setDouble('qrX', (widget.event.dstX).toDouble());
+    await p.setDouble('qrY', (widget.event.dstY).toDouble());
+    await p.setDouble('txtX', (widget.event.dstX2).toDouble());
+    await p.setDouble('txtY', (widget.event.dstY2).toDouble());
+    await p.setDouble('qrSize', (widget.event.qrSize).toDouble());
   }
 
   Future<void> getTicketsCount({bool useDNS = true}) async {
@@ -1162,7 +1174,6 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                             },
                           ),
                         ),
-                        const SizedBox(height: 8),
                         if((userId == event.userId) && (event.category.toUpperCase() == "THEATER") && (event.status == "active"))
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -1204,7 +1215,6 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 8),
                         if (userId == event.userId)
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -1231,7 +1241,6 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 8),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                           child: TextButton(
@@ -1255,7 +1264,6 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 8),
                         if ((userId == event.userId) || ((userId != 0) && (userId == event.ticketScannerId)))
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -1283,7 +1291,30 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 8),
+                        if (userId == event.userId)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: TextButton(
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => GenerateCardsPage(event: event),
+                                ),
+                              );
+                            },
+                            child: const Icon(
+                              Icons.assignment,
+                              size: 18,
+                              color: Colors.pink
+                            ),
+                          ),
+                        ),
                         Padding(
                           padding: const EdgeInsets.only(left: 12),
                           child: TextButton(

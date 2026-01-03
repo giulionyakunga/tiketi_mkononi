@@ -2,8 +2,10 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:http/http.dart' as http;
+import 'package:audioplayers/audioplayers.dart';
 
 class QRScannerPage extends StatefulWidget {
   final int userId;
@@ -22,6 +24,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
   final FocusNode _eventIdFocusNode = FocusNode();
   int scannnedToday = 0;
   DateTime _selectedDate = DateTime.now();
+  final AudioPlayer _audioPlayer = AudioPlayer();
 
   @override
   void initState() {
@@ -65,7 +68,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
         debugPrint('  - OS message: ${e.osError!.message}');
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
           await checkTicketsScanStatus(useDNS: false); // Recursive retry
           return;
@@ -147,7 +150,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
     }
   }
 
-  Future<void> _onDetect(BarcodeCapture capture) async {
+  Future<void> _onDetect(BarcodeCapture capture, {bool useDNS = true}) async {
     if (!_isScanning || _isLoading) return;
     
     final List<Barcode> barcodes = capture.barcodes;
@@ -200,14 +203,15 @@ class _QRScannerPageState extends State<QRScannerPage> {
           String message = responseData['message'];
 
           if (message.trim() == "Valid Ticket!") {
+            String ticketType = responseData['ticket_type'];
+            int scanTimes = responseData['scan_times'];
+            int maxScanTimes = responseData['max_scan_times'];
+                                    
+            setState(() {
+              scannnedToday = responseData['scanned_today'];
+            });
 
-            if((responseData['scanned_today']) != null){
-              setState(() {
-                scannnedToday = responseData['scanned_today'];
-              });
-            }
-
-            _showCustomDialog(context, message);
+            _showCustomDialog(context, message, ticketType: ticketType, scanTimes: scanTimes, maxScanTimes: maxScanTimes); 
           } else if (message.trim() == "Used Ticket!") {
             String scannedAt = "N/A";
             if((responseData['scanned_at']) != null){
@@ -248,65 +252,17 @@ class _QRScannerPageState extends State<QRScannerPage> {
         if (e.osError != null) {
           debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
           debugPrint('  - OS message: ${e.osError!.message}');
+          debugPrint('  - errorCode: ${e.osError!.errorCode}');
+          debugPrint('  - useDNS: ${useDNS}');
 
           // Retry with IP if DNS fails (errno = 7) and not already retrying
-          if (e.osError!.errorCode == 7) {
-            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+            debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
+            await _onDetect(capture, useDNS: false); // Recursive retry
 
-            String url = '${backend_url_with_fallback_ip}api/check_ticket/${widget.userId}';
-            url += '?event_id=${_eventIdController.text}';
-
-            final response = await http.post(
-              Uri.parse(url),
-              headers: {'Content-Type': 'application/json'},
-              body: barcode.rawValue,
-            );
-
-            if (response.statusCode == 200) {
-              final responseData = jsonDecode(response.body);
-              String message = responseData['message'];
-
-              if (message.trim() == "Valid Ticket!") {
-
-                if((responseData['scanned_today']) != null){
-                  setState(() {
-                    scannnedToday = responseData['scanned_today'];
-                  });
-                }
-
-                _showCustomDialog(context, message);
-              } else if (message.trim() == "Used Ticket!") {
-                String scannedAt = "N/A";
-                if((responseData['scanned_at']) != null){
-                  debugPrint('Formatted Date (debug): $scannedAt'); // For Flutter debug output
-                  scannedAt = responseData['scanned_at'];
-                }
-
-                _showCustomDialog(context, message, scannedAt:scannedAt);
-              } else if (message.trim() == "Ticket Already Used!") {
-                String scannedAt = "N/A";
-                if((responseData['scanned_at']) != null){
-                  debugPrint('Formatted Date (debug): $scannedAt'); // For Flutter debug output
-                  scannedAt = responseData['scanned_at'];
-                }
-
-                _showCustomDialog(context, message, scannedAt:scannedAt);
-              } else {
-                _showCustomDialog(context, message);
-              }
-
-              showSocketException = false;
-            } else if (response.statusCode == 302) {
-              _handleHTTPRedirect();
-              showSocketException = false;
-            } else {
-              if((response.body.contains("Unexpected token")) || (response.body.contains("Unexpected character"))) {
-                _showCustomDialog(context, "Invalid Ticket!");
-                showSocketException = false;
-              } else {
-                _showErrorSnackbar(context, 'Request failed with status: ${response.statusCode}');
-              }
-            }
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('use_dns', false);
+            return;
           }
         }
 
@@ -366,11 +322,19 @@ class _QRScannerPageState extends State<QRScannerPage> {
     );
   }
 
-  void _showCustomDialog(BuildContext context, String message, {String ticketDate = "", String scannedAt = "", bool isWarning = false}) {
+  Future<void> playBeep(bool success) async {
+    await _audioPlayer.play(
+      AssetSource(success ? 'assets/sounds/success.mp3' : 'assets/sounds/error.mp3'),
+    );
+  }
+  
+  void _showCustomDialog(BuildContext context, String message, { String ticketType = "", int scanTimes = 0, int maxScanTimes = 0, String ticketDate = "", String scannedAt = "", bool isWarning = false}) {
     final isSuccess = message == "Valid Ticket!";
     final isUsedTicket = message == "Used Ticket!";
     final ticketAlreadyUsed = message == "Ticket Already Used!";
     final wrongDayTicket = message == "Wrong Day Ticket!";
+
+    playBeep(isSuccess);
 
     if(!isWarning) {
       showDialog(
@@ -390,6 +354,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
                 size: 80,
               ),
               const SizedBox(height: 20),
+              
               Text(
                 message,
                 style: TextStyle(
@@ -399,10 +364,34 @@ class _QRScannerPageState extends State<QRScannerPage> {
                 ),
                 textAlign: TextAlign.center,
               ),
-
-
-              if(isUsedTicket || ticketAlreadyUsed)
               const SizedBox(height: 5),
+
+              if(isSuccess)
+              Column(
+                children: [
+                  Text(
+                    'Type: $ticketType',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 5),
+                   Text(
+                    'Used: $scanTimes/$maxScanTimes',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.normal,
+                      color: Colors.black,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+
+
               if(isUsedTicket || ticketAlreadyUsed)
               Text(
                 'Used On: $scannedAt',
@@ -413,12 +402,8 @@ class _QRScannerPageState extends State<QRScannerPage> {
                 ),
                 textAlign: TextAlign.center,
               ),
-              if(isUsedTicket || ticketAlreadyUsed)
-              const SizedBox(height: 5),
-
               
-              if(wrongDayTicket)
-              const SizedBox(height: 5),
+              
               if(wrongDayTicket)
               Text(
                 'Booked For: $ticketDate',
@@ -429,8 +414,6 @@ class _QRScannerPageState extends State<QRScannerPage> {
                 ),
                 textAlign: TextAlign.center,
               ),
-              if(wrongDayTicket)
-              const SizedBox(height: 5),
 
 
 
@@ -528,8 +511,6 @@ class _QRScannerPageState extends State<QRScannerPage> {
     );
   }
 
-
-  
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,

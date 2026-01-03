@@ -58,6 +58,11 @@ class CategoryGrid2 extends StatelessWidget {
         icon: Icons.theaters, 
         color: Colors.deepPurple.shade700,
       ),
+      Category(
+        name: 'Wedding', 
+        icon: Icons.favorite, 
+        color: Colors.red
+      ),
     ];
 
     // Calculate event counts for each category

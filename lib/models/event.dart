@@ -55,6 +55,7 @@ class Event {
   final String locationLink;
   final String organizerPhoneNumber;
   final String imageUrl;
+  final String cardUrl;
   final String category;
   final String type;
   final String visibility;
@@ -85,6 +86,7 @@ class Event {
     required this.locationLink,
     required this.organizerPhoneNumber,
     required this.imageUrl,
+    required this.cardUrl,
     required this.category,
     required this.type,
     required this.visibility,
@@ -118,6 +120,7 @@ class Event {
       locationLink: json['location_link'] ?? '',
       organizerPhoneNumber: json['organizer_phone_number'] ?? '',
       imageUrl: json['imageUrl'] ?? '',
+      cardUrl: json['card_url'] ?? '',
       category: json['category'] ?? '',
       type: json['type'] ?? '',
       visibility: json['visibility'] ?? '',

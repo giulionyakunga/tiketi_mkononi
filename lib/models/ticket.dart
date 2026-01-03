@@ -87,11 +87,11 @@ class Ticket {
       maxScanTimes: (json['max_scan_times'] ?? 0).toInt(),
       hasLeft: json['has_left'] ?? false,
       confirmStatus: (json['confirm_status'] ?? 0).toInt(),
-      scannedAt: DateTime.parse(json['scannedAt'] ?? DateTime.now().toIso8601String()),
+      scannedAt: _parseDate(json['scannedAt']),
       smsSent: json['sms_sent'] ?? false,
       whatsappSent: json['whatsapp_sent'] ?? false,
-      createdAt: DateTime.parse(json['createdAt']),
-      updatedAt: DateTime.parse(json['updatedAt']),
+      createdAt: _parseDate(json['createdAt']),
+      updatedAt: _parseDate(json['updatedAt']),
     );
   }
 
@@ -106,6 +106,13 @@ class Ticket {
       (int.parse(timeParts[0]) + 12), // hour // make the ticket a past ticket after 12 hours
       int.parse(timeParts[1]), // minute
     );
+  }
+
+  static DateTime _parseDate(dynamic value) {
+    if (value == null || value.toString().isEmpty) {
+      return DateTime.now();
+    }
+    return DateTime.parse(value.toString());
   }
   
 }

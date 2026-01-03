@@ -401,37 +401,174 @@ class _EventsPageState extends State<EventsPage> {
             },
           ),
           if (!isLargeScreen)
-            PopupMenuButton<String>(
-              icon: Icon(
-                Icons.filter_list,
-                color: Colors.orange[800],
-              ),
-              onSelected: (String category) {
-                setState(() {
-                  _selectedCategory = category == 'All' ? null : category;
-                });
-                _pagingController.itemList = _filterEvents(fetchedEvents);
-              },
-              itemBuilder: (BuildContext context) {
-                return _categories.map((String category) {
-                  return PopupMenuItem<String>(
-                    value: category,
-                    child: Row(
-                      children: [
-                        if (category == _selectedCategory ||
-                            (category == 'All' && _selectedCategory == null))
-                          Icon(
-                            Icons.check,
-                            color: colorScheme.primary,
-                          ),
-                        const SizedBox(width: 8),
-                        Text(category),
-                      ],
-                    ),
-                  );
-                }).toList();
-              },
+          PopupMenuButton<String>(
+  // Use child instead of icon - remove the icon parameter
+  child: Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(8),
+      color: Colors.orange.withOpacity(_selectedCategory != null ? 0.15 : 0.1),
+      border: Border.all(
+        color: Colors.orange.withOpacity(0.2),
+        width: 1,
+      ),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          Icons.filter_list_rounded,
+          color: Colors.orange[800],
+          size: 20,
+        ),
+        if (_selectedCategory != null) ...[
+          const SizedBox(width: 6),
+          Text(
+            _selectedCategory!,
+            style: TextStyle(
+              color: Colors.orange[800],
+              fontWeight: FontWeight.w500,
+              fontSize: 14,
             ),
+          ),
+        ],
+      ],
+    ),
+  ),
+  
+  // Menu styling
+  elevation: 4,
+  shadowColor: Colors.black.withOpacity(0.15),
+  shape: RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(12),
+    side: BorderSide(
+      color: Theme.of(context).dividerColor.withOpacity(0.1),
+      width: 1,
+    ),
+  ),
+  surfaceTintColor: Theme.of(context).colorScheme.surface,
+  
+  tooltip: 'Filter categories',
+  
+  onSelected: (String category) {
+    setState(() {
+      _selectedCategory = category == 'All' ? null : category;
+    });
+    _pagingController.itemList = _filterEvents(fetchedEvents);
+  },
+  
+  itemBuilder: (BuildContext context) {
+    final List<PopupMenuEntry<String>> menuItems = [];
+    
+    // Optional: Add a header
+    menuItems.add(
+      PopupMenuItem<String>(
+        enabled: false,
+        height: 40,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Text(
+          'Filter by',
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.5,
+          ),
+        ),
+      ),
+    );
+    
+    menuItems.add(const PopupMenuDivider(height: 4));
+    
+    for (int i = 0; i < _categories.length; i++) {
+      final category = _categories[i];
+      final bool isSelected = category == _selectedCategory || 
+        (category == 'All' && _selectedCategory == null);
+      
+      // Category item
+      menuItems.add(
+        PopupMenuItem<String>(
+          value: category,
+          height: 40,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Category text with icon
+              Row(
+                children: [
+                  if (category == 'All')
+                    Icon(Icons.all_inclusive_rounded, 
+                      size: 18, 
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                    )
+                  else if (category == 'Sports')
+                    Icon(Icons.sports_soccer_rounded, 
+                      size: 18, 
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                    )
+                  else if (category == 'Music')
+                    Icon(Icons.music_note_rounded, 
+                      size: 18, 
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                    )
+                  else if (category == 'Business')
+                    Icon(Icons.business_rounded, 
+                      size: 18, 
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                    )
+                  else if (category == 'Technology')
+                    Icon(Icons.computer_rounded, 
+                      size: 18, 
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                    ),
+                  if (category != 'All') const SizedBox(width: 12),
+                  Text(
+                    category,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      color: isSelected 
+                          ? Theme.of(context).colorScheme.primary 
+                          : Theme.of(context).colorScheme.onSurface.withOpacity(0.9),
+                    ),
+                  ),
+                ],
+              ),
+              
+              // Checkmark with fade animation
+              AnimatedOpacity(
+                opacity: isSelected ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 200),
+                child: Icon(
+                  Icons.check_rounded,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 20,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      
+      // Add divider (except after the last item)
+      if (i < _categories.length - 1) {
+        menuItems.add(
+          const PopupMenuDivider(
+            height: 8,
+          ),
+        );
+      }
+    }
+    
+    return menuItems;
+  },
+  
+  // Better positioning
+  offset: const Offset(0, 8),
+)
+
+
+
+
         ],
       ),
       body: Column(

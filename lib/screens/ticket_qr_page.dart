@@ -19,14 +19,13 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:pdf/pdf.dart';
 import 'package:flutter/services.dart';
-// import 'dart:html' as html; // only for web
-
 import 'dart:typed_data';
 import 'package:image/image.dart' as img;
-import 'package:qr/qr.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
-import 'package:flutter/material.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'dart:math'; // Make sure you have this import
+// import 'dart:html' as html; // only for web
 
 
 
@@ -34,124 +33,345 @@ final websocketServiceProvider = Provider<WebSocketService>((ref) {
   return WebSocketService();
 });
 
+
+
 class WebSocketService {
   WebSocketChannel? _channel;
-
   Timer? _reconnectTimer;
-  bool _isDisposed = false;
-  int _reconnectAttempts = 0;
-  final int maxReconnectAttempts = 5;
-  final Duration reconnectInterval = const Duration(seconds: 3);
-  final Duration connectionTimeout = const Duration(seconds: 10);
+  Timer? _heartbeatTimer;
+  Timer? _timeoutTimer;
 
-  final _connectionStatusController = StreamController<bool>.broadcast();
-  final _ticketController = StreamController<Ticket>.broadcast();
+  bool _isDisposed = false;
+  bool _isConnected = false;
+  bool _isConnecting = false;
+  int _reconnectAttempts = 0;
+  DateTime? _lastReceivedTime;
+
+  final int maxReconnectAttempts = 20;
+  final Duration reconnectInterval = const Duration(seconds: 2);
+  final Duration heartbeatInterval = const Duration(seconds: 15);
+  final Duration connectionTimeout = const Duration(seconds: 10);
+  final Duration pingTimeout = const Duration(seconds: 30);
+
+  int? _ticketId;
+  int? _scanStatus;
+  bool _useDNS = true;
+
+  late final StreamSubscription _connectivitySubscription;
+
+  final _connectionStatusController = StreamController<bool>.broadcast(sync: true);
+  final _ticketController = StreamController<Ticket>.broadcast(sync: true);
 
   Stream<bool> get connectionStatusStream => _connectionStatusController.stream;
   Stream<Ticket> get ticketStream => _ticketController.stream;
 
-  Future<void> connect(userId, ticketId, scanStatus, {bool useDNS = true}) async {
-    if (scanStatus == 1) return;
+  WebSocketService() {
+    _listenToConnectivity();
+  }
 
-    try {
-      final Uri uri = useDNS ? Uri.parse(backend_ws_url) // Original URL
-      : Uri.parse(backend_ws_url_with_fallback_ip); // Use IP
+  /// 🔌 Listen to network changes
+  void _listenToConnectivity() {
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((result) async {
+      if (_isDisposed) return;
 
-      _connectionStatusController.add(false);
-      _channel = WebSocketChannel.connect(uri);
-      await _channel!.ready;
-      _connectionStatusController.add(true);
+      final hasInternet = result != ConnectivityResult.none;
+      debugPrint('🌐 Connectivity changed: $result (hasInternet: $hasInternet, _isConnected: $_isConnected, _isConnecting: $_isConnecting)');
 
-      _channel!.sink.add(jsonEncode({
-        "user_id": userId,
-        "ticket_id": ticketId,
-        "scan_status": scanStatus,
-        "type": "subscribe",
-        "data": "tickets"
-      }));
+      connect(_ticketId!, _scanStatus!);
 
-      _channel!.stream.listen(
-        (message) => _handleIncomingMessage(message),
-        onError: (error) => _handleConnectionError(userId, ticketId, scanStatus),
-        onDone: () => _handleConnectionError(userId, ticketId, scanStatus),
-      );
-    } on WebSocketChannelException catch (e) {
-      if (e.inner is SocketException) {
-        final socketException = e.inner as SocketException;
-        debugPrint('Network error occurred:');
-        debugPrint('- Exception type: ${e.runtimeType}');
-        debugPrint('- Message: ${e.message}');
-        
-        if (socketException.osError != null) {
-          debugPrint('  - Error number (errno): ${socketException.osError!.errorCode}');
-          debugPrint('  - OS message: ${socketException.osError!.message}');
-
-          // Retry with IP if DNS fails (errno = 7) and not already retrying
-          if (socketException.osError!.errorCode == 7 && useDNS) {
-            debugPrint('DNS failed! Retrying with IP: ${backend_ws_url_with_fallback_ip}...');
-            connect(userId, ticketId, scanStatus, useDNS: false); // Recursive retry
-            return;
-          }
-        }
-      } else {
-        print('WebSocketChannelException: ${e.message}');
-      }
-    } on SocketException catch (e) {
-      debugPrint('Network error occurred:');
-      debugPrint('- Exception type: ${e.runtimeType}');
-      debugPrint('- Message: ${e.message}');
       
-      if (e.osError != null) {
-        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
-        debugPrint('  - OS message: ${e.osError!.message}');
+      // if (!hasInternet) {
+      //   _handleConnectionLost('Connectivity lost');
+      // } else {
+      //   // Wait a moment for network to stabilize
+      //   await Future.delayed(const Duration(seconds: 1));
 
-        // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
-          debugPrint('DNS failed! Retrying with IP: ${backend_ws_url_with_fallback_ip}...');
-          connect(userId, ticketId, scanStatus, useDNS: false); // Recursive retry
-          return;
-        }
-      }
-    } on TimeoutException {
-      _scheduleReconnection(userId, ticketId, scanStatus);
-    } catch (e) {
-      _connectionStatusController.add(false);
-      _scheduleReconnection(userId, ticketId, scanStatus);
-    }
-  }
-
-  void _handleConnectionError(userId, ticketId, scanStatus) {
-    _connectionStatusController.add(false);
-    _scheduleReconnection(userId, ticketId, scanStatus);
-  }
-
-  void _scheduleReconnection(userId, ticketId, scanStatus) {
-    if (_isDisposed || _reconnectAttempts >= maxReconnectAttempts) return;
-
-    _reconnectAttempts++;
-    _connectionStatusController.add(false);
-    
-    _reconnectTimer = Timer(reconnectInterval * _reconnectAttempts, () {
-      connect(userId, ticketId, scanStatus);
+      //   debugPrint('Internet restored → attempting reconnection 0');
+        
+      //   if (!_isConnected && !_isConnecting && _ticketId != null) {
+      //     debugPrint('🌐 Internet restored → attempting reconnection');
+      //     _cancelReconnection();
+      //     _scheduleReconnection(_ticketId!, _scanStatus!, immediate: true);
+      //   }
+      // }
     });
   }
 
-  void _handleIncomingMessage(String message) {
+  /// 🔗 Connect with timeout
+  Future<void> connect(
+    int ticketId,
+    int scanStatus, {
+    bool useDNS = true,
+  }) async {
+    debugPrint('🔌 Connecting to WebSocket (attempt ${_reconnectAttempts + 1}/$maxReconnectAttempts) >>>>>>>> $_isDisposed, $_isConnected, $_isConnecting');
+    if (_isDisposed || scanStatus == 1) return;
+
+    debugPrint('🔌 Connecting to WebSocket (attempt ${_reconnectAttempts + 1}/$maxReconnectAttempts)');
+    
+    _ticketId = ticketId;
+    _scanStatus = scanStatus;
+    _useDNS = useDNS;
+    _isConnecting = true;
+
+    debugPrint('Here -2');
+
+    // Cancel any pending reconnection
+    _cancelReconnection();
+
+    debugPrint('Here -1');
+
+    try {
+      final uri = Uri.parse(
+        useDNS ? backend_ws_url : backend_ws_url_with_fallback_ip,
+      );
+
+      debugPrint('🔗 Connecting to: $uri');
+
+      // Set connection timeout
+      _timeoutTimer?.cancel();
+      _timeoutTimer = Timer(connectionTimeout, () {
+        debugPrint('Here 1');
+        if (_isConnecting) {
+          debugPrint('Here 2');
+          debugPrint('⏰ Connection timeout');
+          _handleConnectionLost('Connection timeout');
+        }
+        debugPrint('Here 3');
+      });
+      debugPrint('Here 4');
+
+      // Close existing socket if any
+      if(_isConnected){
+        await _closeSocket();
+      }
+      debugPrint('Here 5');
+
+      // Create new connection
+      _channel = WebSocketChannel.connect(uri);
+      debugPrint('Here 6');
+      
+      // Wait for connection with timeout
+      await _channel!.ready.timeout(connectionTimeout);
+      debugPrint('Here 7');
+      
+      _timeoutTimer?.cancel();
+      _isConnecting = false;
+      debugPrint('Here 8');
+      
+      _isConnected = true;
+      _reconnectAttempts = 0;
+      _lastReceivedTime = DateTime.now();
+      debugPrint('Here 9');
+      
+      debugPrint('✅ WebSocket connected successfully');
+      _connectionStatusController.add(true);
+      _cancelReconnection();
+      debugPrint('Here 10');
+
+      _startHeartbeat();
+      debugPrint('Here 11');
+
+      // Send subscription message
+      _channel!.sink.add(jsonEncode({
+        "ticket_id": ticketId,
+        "scan_status": scanStatus,
+        "type": "subscribe",
+        "data": "ticket",
+      }));
+
+      // Listen for messages
+      // _channel!.stream.listen(
+      //   _handleIncomingMessage,
+      _channel!.stream.listen(
+        (message) => _handleIncomingMessage(message),
+        onError: (error) {
+          debugPrint('❌ WebSocket error: $error');
+          _handleConnectionLost('WebSocket error: $error');
+        },
+        onDone: () {
+          debugPrint('🔌 WebSocket connection closed');
+          _handleConnectionLost('Connection closed by server');
+        },
+        cancelOnError: true,
+      );
+
+    } catch (e) {
+      _timeoutTimer?.cancel();
+      _isConnecting = false;
+      debugPrint('❌ Connect error: $e');
+      _handleConnectionLost('Connect error: $e');
+    }
+  }
+
+  /// ❤️ Heartbeat with timeout detection
+  void _startHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = Timer.periodic(heartbeatInterval, (_) {
+      if (!_isConnected) return;
+
+      // Check if we haven't received anything in too long
+      if (_lastReceivedTime != null && 
+          DateTime.now().difference(_lastReceivedTime!) > pingTimeout) {
+        debugPrint('⏰ No response for ${pingTimeout.inSeconds}s, assuming dead connection');
+        _handleConnectionLost('Heartbeat timeout');
+        return;
+      }
+
+      try {
+        debugPrint('❤️ Sending ping');
+        _channel?.sink.add(jsonEncode({"type": "ping"}));
+      } catch (_) {
+        _handleConnectionLost('Heartbeat failed');
+      }
+    });
+  }
+
+  /// 📩 Incoming messages
+  void _handleIncomingMessage(dynamic message) {
+    _lastReceivedTime = DateTime.now();
+    
     try {
       final data = jsonDecode(message);
+      debugPrint('📥 Received: ${data['type']}');
+      
+      if (data['type'] == 'pong') {
+        debugPrint('❤️ Received pong');
+        return;
+      }
+      
       if (data['type'] == 'ticket') {
         _ticketController.add(Ticket.fromJson(data['ticket']));
       }
     } catch (e) {
-      print("Error parsing message: $e");
+      debugPrint('⚠️ Parse error: $e');
     }
   }
 
-  void disconnect() {
-    _channel?.sink.close(1000); // Normal closure
-    _connectionStatusController.add(false);
-    _isDisposed = true;
+  /// ❌ Connection lost handler
+  void _handleConnectionLost(String reason) {
+    if (_isDisposed) return;
+    
+    debugPrint('❌ WebSocket disconnected: $reason');
+    
+    // Don't spam the controller
+    if (_isConnected) {
+      _isConnected = false;
+      _connectionStatusController.add(false);
+    }
+    
+    _isConnecting = false;
+    _closeSocket();
+
+    debugPrint(' Ticket Status: _ticketId : $_ticketId, _scanStatus: $_scanStatus');
+    
+    // Schedule reconnection if we have active ticket
+    if (_ticketId != null && _scanStatus != null) {
+      _scheduleReconnection(_ticketId!, _scanStatus!);
+    }
+  }
+
+
+
+void _scheduleReconnection(
+  int ticketId,
+  int scanStatus, {
+  bool immediate = false,
+}) {
+  if (_isDisposed || 
+      _reconnectAttempts >= maxReconnectAttempts ||
+      _isConnecting ||
+      _isConnected) {
+    return;
+  }
+
+  _reconnectAttempts++;
+  
+  // Exponential backoff with jitter
+  final baseDelay = immediate ? 1 : _reconnectAttempts * 2;
+  final delay = Duration(seconds: baseDelay.clamp(1, 60));
+  
+  // Add some jitter to prevent thundering herd
+  final jitter = Random().nextInt(2000) - 1000; // -1000 to +1000 ms
+  final jitteredMilliseconds = delay.inMilliseconds + jitter;
+  
+  // Ensure minimum delay of 100ms
+  final finalMilliseconds = jitteredMilliseconds.clamp(100, 60000);
+  
+  debugPrint('🔁 Reconnecting in ${finalMilliseconds ~/ 1000}s (attempt $_reconnectAttempts/$maxReconnectAttempts)');
+
+  _reconnectTimer?.cancel();
+  _reconnectTimer = Timer(Duration(milliseconds: finalMilliseconds), () {
+    if (!_isDisposed && !_isConnected && !_isConnecting) {
+      connect(ticketId, scanStatus, useDNS: _useDNS);
+    }
+  });
+}
+
+  /// ✋ Cancel pending reconnection
+  void _cancelReconnection() {
     _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+  }
+
+  /// 🔒 Close socket safely
+  Future<void> _closeSocket() async {
+    debugPrint('Here c1');
+    _heartbeatTimer?.cancel();
+    debugPrint('Here c2');
+    _heartbeatTimer = null;
+    debugPrint('Here c3');
+    
+    _timeoutTimer?.cancel();
+    debugPrint('Here c4');
+    _timeoutTimer = null;
+    debugPrint('Here c5');
+    
+    try {
+      debugPrint('Here c6');
+      await _channel?.sink.close(1000);
+      // await _channel?.sink.close(1000, 'Normal closure');
+      debugPrint('Here c7');
+    } catch (e) {
+      debugPrint('⚠️ Error closing socket: $e');
+    } finally {
+      _channel = null;
+    }
+  }
+
+  /// 🔄 Manual reconnect
+  Future<void> reconnect() async {
+    debugPrint('🔄 Manual reconnect requested');
+    _cancelReconnection();
+    _reconnectAttempts = 0;
+    
+    if (_ticketId != null && _scanStatus != null) {
+      await connect(_ticketId!, _scanStatus!, useDNS: _useDNS);
+    }
+  }
+
+  /// ⛔ Manual disconnect (temporary)
+  void disconnect() {
+    debugPrint('⛔ Manual disconnect');
+    _isConnected = false;
+    _isConnecting = false;
+    _cancelReconnection();
+    _closeSocket();
+    _connectionStatusController.add(false);
+  }
+
+  /// 📊 Get connection status
+  bool get isConnected => _isConnected;
+  bool get isConnecting => _isConnecting;
+  int get reconnectAttempts => _reconnectAttempts;
+
+  /// 🧹 Final cleanup
+  void dispose() {
+    debugPrint('🧹 Disposing WebSocketService');
+    _isDisposed = true;
+    disconnect();
+    _connectivitySubscription.cancel();
+    _ticketController.close();
+    _connectionStatusController.close();
   }
 }
 
@@ -169,17 +389,28 @@ class TicketQRPage extends ConsumerStatefulWidget {
   ConsumerState<TicketQRPage> createState() => _TicketQRPageState();
 }
 
-class _TicketQRPageState extends ConsumerState<TicketQRPage> {
+class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindingObserver {
   late final WebSocketService _webSocketService;
   late DateTime scannedAt;
   late int scanStatus2;
   bool _isTicketScanned = false;
-  bool _isGenerating = false;
+  bool _isCardGenerated = false;
+  String cardFilePath = '';
   Printer? selectedPrinter;
+  late OverlayConfig config;
+  bool _isAppActive = true;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    config = const OverlayConfig(
+      qrOffset: Offset(40, 40),
+      textOffset: Offset(40, 260),
+      qrSize: 160,
+    );
+    _loadPrefs();
+
     scanStatus2 = widget.ticket.scanStatus;
     scannedAt = widget.ticket.updatedAt;
 
@@ -187,40 +418,72 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
       _webSocketService = ref.read(websocketServiceProvider);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _webSocketService.connect(
-          widget.ticket.userId,
           widget.ticket.id,
           widget.ticket.scanStatus,
         );
       });
     }
 
-    _generateImageWithQr();
     _loadSelectedPrinter();
   }
 
-  Future<void> _generateImageWithQr() async {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
     setState(() {
-      _isGenerating = true;
+      _isAppActive = state == AppLifecycleState.resumed;
+    });
+  }
+
+  Future<void> _loadPrefs() async {
+    final p = await SharedPreferences.getInstance();
+    setState(() {
+      config = config.copyWith(
+        qrOffset: Offset(
+          p.getDouble('qrX') ?? 40,
+          p.getDouble('qrY') ?? 40,
+        ),
+        textOffset: Offset(
+          p.getDouble('txtX') ?? 40,
+          p.getDouble('txtY') ?? 260,
+        ),
+        qrSize: p.getDouble('qrSize') ?? 160,
+      );
     });
 
+    _generateImageWithQr();
+  }
+
+
+  Future<void> _generateImageWithQr() async {
     try {
-      if(widget.event != null) {
-        await ImageQrService.generateImageWithQr(
-          ticket:  widget.ticket,
-          event:  widget.event!
-        );
-      }
+      if (widget.event == null) return;
+
+      final path = await ImageQrService.generateImageWithQr(
+        ticket: widget.ticket,
+        event: widget.event!,
+        config: config,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        cardFilePath = path;
+        _isCardGenerated = true;
+      });
     } catch (e) {
+      debugPrint('Error sharing image: $e');
+
+      if (!mounted) return;
+
+      setState(() {
+        _isCardGenerated = false;
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error sharing image: $e')),
       );
-    } finally {
-      setState(() {
-        _isGenerating = false;
-      });
     }
   }
-
 
   Future<void> _loadSelectedPrinter() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -318,6 +581,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
   @override
   void dispose() {
     _webSocketService.disconnect();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
@@ -477,12 +741,51 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
           stream: _webSocketService.connectionStatusStream,
           builder: (context, snapshot) {
             bool isConnected = snapshot.data ?? false;
-            return ListTile(
-              title: const Text('Connection Status'),
-              subtitle: Text(isConnected ? 'Connected' : 'Disconnected'),
-              trailing: Icon(
-                isConnected ? Icons.check_circle : Icons.error,
-                color: isConnected ? Colors.green : Colors.red,
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: isConnected 
+                          ? Colors.green.withOpacity(0.1)
+                          : Colors.red.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isConnected 
+                            ? Colors.green.withOpacity(0.3)
+                            : Colors.red.withOpacity(0.3),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Pulsing dot
+                        Container(
+                          width: 8,
+                          height: 8,
+                          margin: const EdgeInsets.only(right: 8),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isConnected ? Colors.green : Colors.red,
+                          ),
+                        ),
+                        // Status text
+                        Text(
+                          isConnected ? '✓ Connected' : '✗ Disconnected',
+                          style: TextStyle(
+                            color: isConnected ? Colors.green : Colors.red,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             );
           },
@@ -762,13 +1065,38 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
     }
   }
 
+  Future<void> _shareCard() async {
+    if (Platform.isWindows) {
+      // Share via WhatsApp/Email/etc
+      await Share.shareXFiles(
+        [XFile(cardFilePath)],
+        // [XFile(filePath, mimeType: 'application/pdf')],
+        text: 'Here is your card for ${widget.ticket.eventName}!',
+      );
+    } else if (kIsWeb) {
+      // Share via WhatsApp/Email/etc
+      await Share.shareXFiles(
+        [XFile(cardFilePath)],
+        // [XFile(filePath, mimeType: 'application/pdf')],
+        text: 'Here is your card for ${widget.ticket.eventName}!',
+      );
+    }else {
+      // Share via WhatsApp/Email/etc
+      await Share.shareXFiles(
+        [XFile(cardFilePath)],
+        // [XFile(filePath, mimeType: 'application/pdf')],
+        text: 'Here is your card for ${widget.ticket.eventName}!',
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isLargeScreen = _isLargeScreen(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ticket QR Code'),
+        title: const Text('Ticket QR Code7'),
         backgroundColor: const Color.fromARGB(255, 240, 244, 247),
       ),
       body: Center(
@@ -807,6 +1135,20 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
                                   const SizedBox(height: 20),
                                   _buildStatusSection(),
                                   const SizedBox(height: 8),
+                                  (widget.event!.category.toUpperCase() == "WEDDING") ?
+                                  ElevatedButton.icon(
+                                    onPressed: _isCardGenerated ? _shareCard : null,
+                                    icon: const Icon(Icons.share),
+                                    label: const Text("Share Card"),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.blue,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                  ) :
                                   ElevatedButton.icon(
                                     onPressed: _shareTicket,
                                     icon: const Icon(Icons.share),
@@ -876,6 +1218,20 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
                             _buildEventInfoSection(isLargeScreen),
                             _buildStatusSection(),
                             const SizedBox(height: 8),
+                            (widget.event!.category.toUpperCase() == "WEDDING") ?
+                            ElevatedButton.icon(
+                              onPressed: _isCardGenerated ? _shareCard : null,
+                              icon: const Icon(Icons.share),
+                              label: const Text("Share Card"),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ) :
                             ElevatedButton.icon(
                               onPressed: _shareTicket,
                               icon: const Icon(Icons.share),
@@ -904,6 +1260,29 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage> {
 
 
 
+class OverlayConfig {
+  final Offset qrOffset;
+  final Offset textOffset;
+  final double qrSize;
+
+  const OverlayConfig({
+    required this.qrOffset,
+    required this.textOffset,
+    required this.qrSize,
+  });
+
+  OverlayConfig copyWith({
+    Offset? qrOffset,
+    Offset? textOffset,
+    double? qrSize,
+  }) {
+    return OverlayConfig(
+      qrOffset: qrOffset ?? this.qrOffset,
+      textOffset: textOffset ?? this.textOffset,
+      qrSize: qrSize ?? this.qrSize,
+    );
+  }
+}
 
 class SimpleImageCacheManager {
   static const Duration _cacheDuration = Duration(days: 7);
@@ -1066,100 +1445,149 @@ class SimpleImageCacheManager {
 }
 
 class ImageQrService {
- static Future<File> generateImageWithQr({
-  required Ticket ticket,
-  required Event event,
-}) async {
-  String imageSource = '${backend_url}api/image/${event.imageUrl}';
-  String qrData = SimpleCodec.encode(jsonEncode({
-    "tid": ticket.id,
-    "eid": ticket.eventId,
-    "dt": ticket.date,
-  }));
-  int qrSize = 200;
-  int positionX = 50;
-  int positionY = 50;
-  int borderSize = 10;
+  static Future<String> generateImageWithQr({
+    required Ticket ticket,
+    required Event event,
+    required  OverlayConfig config,
+  }) async {
+    String imageSource = '${backend_url}api/image/${event.cardUrl}';
+    String qrData = SimpleCodec.encode(jsonEncode({
+      "tid": ticket.id,
+      "eid": ticket.eventId,
+      "dt": ticket.date,
+    }));
 
-  try {
-    // Load base image
-    final image = await ImageLoader.loadImage(imageSource);
-    if (image == null) {
-      throw Exception('Failed to load image');
+    try {
+      // Load base image
+      final image = await ImageLoader.loadImage(imageSource);
+      if (image == null) {
+        throw Exception('Failed to load image');
+      }
+
+      final int qrSize = config.qrSize.toInt();
+      final int borderSize = 1; // quiet zone in pixels
+
+      final painter = QrPainter(
+        data: qrData,
+        version: QrVersions.auto,
+        errorCorrectionLevel: QrErrorCorrectLevel.H, // High error correction
+        gapless: true,
+      );
+
+      // Render QR at full size
+      final ui.Image qrUiImage = await painter.toImage(qrSize.toDouble());
+
+      // Convert to Uint8List
+      final ByteData byteData =
+          await qrUiImage.toByteData(format: ui.ImageByteFormat.png) as ByteData;
+      final Uint8List pngBytes = byteData.buffer.asUint8List();
+
+      // Decode into 'image' package
+      final img.Image qrImage = img.decodePng(pngBytes)!;
+
+      // Create larger white background
+      final int finalSize = qrSize + 2 * borderSize;
+      final img.Image qrWithBorder = img.Image(
+        width: finalSize,
+        height: finalSize,
+      );
+      img.fill(qrWithBorder, color: img.ColorRgb8(255, 255, 255));
+
+      // Center QR on white background
+      img.compositeImage(
+        qrWithBorder,
+        qrImage,
+        dstX: borderSize,
+        dstY: borderSize,
+      );
+
+      /// 6️⃣ Composite QR onto main image
+      img.compositeImage(
+        image,
+        qrWithBorder,
+        dstX: config.qrOffset.dx.round(),
+        dstY: config.qrOffset.dy.round(),
+      );
+
+      ByteData labelAsset;
+      if(ticket.ticketType.trim().toUpperCase() == "DOUBLE") {
+        labelAsset = await rootBundle.load('assets/double.jpeg');
+      } else if(ticket.ticketType.trim().toUpperCase() == "SINGLE") {
+        labelAsset = await rootBundle.load('assets/single.jpeg');
+      } else if(ticket.ticketType.trim().toUpperCase() == "SPECIAL") {
+        labelAsset = await rootBundle.load('assets/special.jpeg');
+      } else {
+        labelAsset = await rootBundle.load('assets/other.jpeg');
+      }
+
+      final Uint8List bytes = labelAsset.buffer.asUint8List();
+      final img.Image labelImage = img.decodeImage(bytes)!;
+
+      int targetWidth = (config.qrSize * 0.6).toInt();
+      final double aspectRatio = labelImage.height / labelImage.width;
+      final int targetHeight = (targetWidth * aspectRatio).round();
+
+      final img.Image resizedLabel = img.copyResize(
+        labelImage,
+        width: targetWidth,
+        height: targetHeight,
+        interpolation: img.Interpolation.cubic,
+      );
+
+      img.compositeImage(
+        image,
+        resizedLabel,
+        dstX: (config.qrOffset.dx + qrWithBorder.width/2 - resizedLabel.width/2).round(),
+        dstY: (config.qrOffset.dy - resizedLabel.height).round(),
+      );
+
+      img.BitmapFont font = img.arial24;
+
+      final img.Color color = img.ColorRgb8(255, 0, 0); // Red
+
+      debugPrint('font.size : ${font.size}');
+
+      int textWidth = 0;
+      if (font.size == 14) {
+        // arial14: ~9px per character
+        textWidth = ticket.userName.length * 9;
+      } else if (font.size == 24) {
+        // arial24: ~15px per character  
+        textWidth = ticket.userName.length * 15;
+      } else if (font.size == 48) {
+        // arial48: ~30px per character
+        textWidth = ticket.userName.length * 30;
+      }else {
+        textWidth = (ticket.userName.length * font.size * 0.625).toInt();
+      }
+  
+      final textHeight = font.lineHeight;
+      
+      // Calculate centered position
+      final x2 = (image.width - textWidth) ~/ 2;
+      final y2 = (image.height - textHeight) ~/ 2;
+
+      img.drawString(
+        image, 
+        ticket.userName, 
+        font: font, 
+        x: config.textOffset.dx.round(), 
+        y: config.textOffset.dy.round(), 
+        color: color
+      );
+
+      /// 7️⃣ Save result
+      final tempDir = await getTemporaryDirectory();
+      final outputFile = File(
+        '${tempDir.path}/image_with_qr.jpg',
+      );
+
+      await outputFile.writeAsBytes(img.encodeJpg(image, quality: 90));
+      debugPrint("image saved at: ${outputFile.path}");
+      return outputFile.path;
+    } catch (e) {
+      rethrow;
     }
-
-    final painter = QrPainter(
-  data: qrData,
-  version: QrVersions.auto,
-  gapless: true,
-);
-
-final ui.Image uiImage = await painter.toImage(qrSize.toDouble());
-
-final ByteData byteData =
-    await uiImage.toByteData(format: ui.ImageByteFormat.png)
-        as ByteData;
-
-final Uint8List pngBytes = byteData.buffer.asUint8List();
-
-final img.Image resizedQr = img.decodePng(pngBytes)!;
-
-    /// 4️⃣ Create white background (slightly larger)
-    final bgSize = qrSize + (borderSize * 2);
-    final whiteBackground = img.Image(
-      width: bgSize,
-      height: bgSize,
-    );
-
-    img.fill(whiteBackground, color: img.ColorRgb8(255, 255, 255));
-
-    /// 5️⃣ Draw QR centered on white background
-    img.compositeImage(
-      whiteBackground,
-      resizedQr,
-      dstX: borderSize,
-      dstY: borderSize,
-    );
-
-    /// ✅ Final QR image with white background
-    final qrImage = whiteBackground;
-
-    /// 6️⃣ Composite QR onto main image
-    img.compositeImage(
-      image,
-      qrImage,
-      dstX: positionX,
-      dstY: positionY,
-    );
-
-    /// 7️⃣ Save result
-    final tempDir = await getTemporaryDirectory();
-    final outputFile = File(
-      '${tempDir.path}/image_with_qr_${DateTime.now().millisecondsSinceEpoch}.jpg',
-    );
-
-    await outputFile.writeAsBytes(img.encodeJpg(image, quality: 90));
-    debugPrint("image save at: ${outputFile.path}");
-    return outputFile;
-  } catch (e) {
-    rethrow;
-  }
-}
-
-
-  static img.Image _addBorderToImage(img.Image image, int borderSize) {
-    final bordered = img.Image(
-      width: image.width + (borderSize * 2),
-      height: image.height + (borderSize * 2),
-    );
-    
-    // Fill with white border
-    img.fill(bordered, color: img.ColorRgba8(255, 255, 255, 255),);
-    
-    // Copy original image in the center
-    // img.copyInto(bordered, image, dstX: borderSize, dstY: borderSize);
-    
-    return bordered;
   }
 }
 

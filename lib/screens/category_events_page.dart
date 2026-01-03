@@ -40,9 +40,6 @@ class _CategoryEventsPageState extends State<CategoryEventsPage> {
   List<Event> fetchedEvents = [];
   bool _isSearchBarVisible = false;
 
-  final WebSocketService _webSocketService = WebSocketService();
-  bool _isWebSocketConnected = false;
-
   @override
   void initState() {
     super.initState();
@@ -66,53 +63,7 @@ class _CategoryEventsPageState extends State<CategoryEventsPage> {
     _pagingController.addPageRequestListener((pageKey) {
       _fetchPage(pageKey);
     });
-    _connectWebSocket();
     setState(() => _isLoading = false);
-  }
-
-  void _connectWebSocket() {
-    if (_isWebSocketConnected) return;
-    
-    try {
-      final String url = backend_ws_url;
-      _webSocketService.connect(
-        userId,
-        url,
-        onUpdate: _handleWebSocketUpdate,
-      );
-      _isWebSocketConnected = true;
-    } catch (e) {
-      debugPrint('WebSocket connection error: $e');
-    }
-  }
-
-  void _handleWebSocketUpdate({bool useDNS = true}) async {
-    if (!mounted) return;
-    
-    try {
-      final Uri uri = useDNS 
-          ? Uri.parse('${backend_url}api/events/$userId?page=1&limit=$_pageSize')
-          : Uri.parse('${backend_url_with_fallback_ip}api/events/$userId?page=1&limit=$_pageSize');
-        
-      final response = await http.get(uri);
-
-      if (response.statusCode == 200) {
-        final List<dynamic> jsonList = jsonDecode(response.body);
-        final newItems = jsonList.map((json) => Event.fromJson(json)).toList();
-        List<Event> events = _getEventsByCategory(newItems);
-        fetchedEvents = events;
-        _pagingController.itemList = events;
-
-        SharedPreferences prefs = await SharedPreferences.getInstance();
-        await prefs.setString('cached_events', jsonEncode(jsonList));
-      }
-    } on SocketException catch (e) {
-      if (e.osError?.errorCode == 7 && useDNS) {
-        _handleWebSocketUpdate(useDNS: false);
-      }
-    } catch (e) {
-      debugPrint('Silent update error: $e');
-    }
   }
 
   Future<void> _initializeServices() async {
@@ -238,7 +189,6 @@ class _CategoryEventsPageState extends State<CategoryEventsPage> {
 
   @override
   void dispose() {
-    _webSocketService.disconnect();
     _pagingController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -416,7 +366,7 @@ PreferredSizeWidget _buildAppBar(BuildContext context) {
                           child: EventCard(
                             event: event,
                             userId: userId,
-                            refreshMethod: _handleWebSocketUpdate,
+                            refreshMethod: _fetchPage,
                             useDNS: useDNS_2,
                           ),
                         );
@@ -532,7 +482,7 @@ PreferredSizeWidget _buildAppBar(BuildContext context) {
                               return EventCard2(
                                 event: event,
                                 userId: userId,
-                                refreshMethod: _handleWebSocketUpdate,
+                                refreshMethod: _fetchPage,
                                 useDNS: useDNS_2,
                               );
                             },
@@ -631,49 +581,5 @@ PreferredSizeWidget _buildAppBar(BuildContext context) {
           ]
         ),
     );
-  }
-}
-
-class WebSocketService {
-  static final WebSocketService _instance = WebSocketService._internal();
-  late WebSocketChannel _channel;
-  Function()? _onUpdateCallback;
-
-  factory WebSocketService() {
-    return _instance;
-  }
-
-  WebSocketService._internal();
-
-  void connect(int userId, String url, {required Function() onUpdate}) {
-    _onUpdateCallback = onUpdate;
-    _channel = WebSocketChannel.connect(Uri.parse(url));
-
-    final subscriptionMessage = jsonEncode({
-      "user_id": userId,
-      "type": "subscribe",
-      "data": "events_update"
-    });
-    
-    _channel.sink.add(subscriptionMessage);
-    
-    _channel.stream.listen(
-      (message) {
-        final data = jsonDecode(message);
-        if (data['type'] == 'events_updated') {
-          _onUpdateCallback?.call();
-        }
-      },
-      onError: (error) => debugPrint('WebSocket error: $error'),
-      onDone: () => debugPrint('WebSocket connection closed'),
-    );
-  }
-
-  void disconnect() {
-    _channel.sink.close(1000);
-  }
-
-  void sendMessage(Map<String, dynamic> message) {
-    _channel.sink.add(jsonEncode(message));
   }
 }

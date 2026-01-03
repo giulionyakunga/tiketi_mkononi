@@ -134,7 +134,7 @@ class EventCard extends StatelessWidget {
                         child: CachedNetworkImage(
                           imageUrl: '${backend_url}api/image/${event.imageUrl}',
                           width: double.infinity,
-                          height: 160, // Reduced from 180
+                          height: 180, // Reduced from 180
                           fit: BoxFit.cover,
                           placeholder: (context, url) => Container(
                             height: 120,
@@ -346,47 +346,62 @@ class EventCard extends StatelessWidget {
 
                         const SizedBox(height: 8), // Reduced from 16
 
-                        // Compact ticket info row
-                        Row(
-                          children: [
-                            // Price
-                            if (mainTicketType != null)
-                              Text(
-                                (event.type == 'paid') ? 'TSH${NumberFormat('#,##0').format(mainTicketType.price.toInt())}' : 'Free',
-                                style: TextStyle(
-                                  fontSize: 14, // Reduced from 18
-                                  fontWeight: FontWeight.bold,
-                                  color: isSoldOut ? Colors.grey : Colors.orange[800],
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: event.ticketTypes.map((ticketType) =>
+
+                            // Compact ticket info row
+                            Row(
+                              children: [
+                                // Price
+
+                                Text(
+                                  '${ticketType.name}: ',
+                                  style: TextStyle(
+                                    fontSize: 14, // Reduced from 18
+                                    fontWeight: FontWeight.bold,
+                                    color: isSoldOut ? Colors.grey : Colors.black,
+                                  ),
                                 ),
-                              ),
-                            
-                            const Spacer(),
-                            
-                            // Tickets sold info - compact
-                            if (event.daily_event == 'no')
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Colors.orange.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(6),
+                                
+                                Text(
+                                  (event.type == 'paid') ? 'TSH${NumberFormat('#,##0').format(ticketType.price.toInt())}' : 'Free',
+                                  style: TextStyle(
+                                    fontSize: 14, // Reduced from 18
+                                    fontWeight: FontWeight.bold,
+                                    color: isSoldOut ? Colors.grey : Colors.orange[800],
+                                  ),
                                 ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.confirmation_number, size: 10, color: Colors.orange[800]),
-                                    const SizedBox(width: 2),
-                                    Text(
-                                      formatNumber(event.soldTickets),
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.orange[800],
-                                      ),
+                                
+                                const Spacer(),
+                                
+                                // Tickets sold info - compact
+                                if (event.daily_event == 'no')
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.orange.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(6),
                                     ),
-                                  ],
-                                ),
-                              ),
-                          ],
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.confirmation_number, size: 10, color: Colors.orange[800]),
+                                        const SizedBox(width: 2),
+                                        Text(
+                                          formatNumber(ticketType.soldTickets),
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.orange[800],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ).toList(),
                         ),
 
                         const SizedBox(height: 8), // Reduced from 16

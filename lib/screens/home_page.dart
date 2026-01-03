@@ -105,10 +105,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (!_isAppActive) return;
 
     try {
+      if(useDNS) {
+        debugPrint('Using dns >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>');
+      }else {
+        debugPrint('retrying without dns >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>');
+      }
       final Uri uri = useDNS ? Uri.parse('${backend_url}api/events/$userId') // Original URL
-      : Uri.parse('${backend_url_with_fallback_ip}api/events/$userId'); // Use IP
+      : Uri.parse('${backend_url_with_fallback_ip}events/$userId'); // Use IP
+    
+      debugPrint('here it the uri: ${uri} >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>');
         
       final response = await http.get(uri);
+
+      debugPrint('response.statusCode: ${response.statusCode} >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>');
 
       if (response.statusCode == 200) {
         List<dynamic> dataList = jsonDecode(response.body);
@@ -137,14 +146,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         if (e.osError != null) {
           debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
           debugPrint('  - OS message: ${e.osError!.message}');
+          debugPrint('  - errorCode: ${e.osError!.errorCode}');
+          debugPrint('  - useDNS: ${useDNS}');
 
           // Retry with IP if DNS fails (errno = 7) and not already retrying
-          if (e.osError!.errorCode == 7 && useDNS) {
+          if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+            debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
+            await fetchEvents(useDNS: false); // Recursive retry
+
             final prefs = await SharedPreferences.getInstance();
             await prefs.setBool('use_dns', false);
-
-            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-            await fetchEvents(useDNS: false); // Recursive retry
             return;
           }
         }
@@ -159,10 +170,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   List<Event> _getFilteredEvents() {
     return _searchQuery.isEmpty
-        ? eventsList
-        : eventsList.where((event) => 
-            event.name.toLowerCase().contains(_searchQuery.toLowerCase()))
-            .toList();
+    ? eventsList.where((event) => event.visibility == 'public').toList() // Apply visibility filter
+    : eventsList.where((event) => (event.name.toLowerCase().contains(_searchQuery.toLowerCase()) && event.visibility == 'public')).toList();
   }
 
 
@@ -181,7 +190,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     try {
       final Uri uri = useDNS ? Uri.parse('${backend_url}api/application_information/$userId/$installedVersion/$operatingSystem') // Original URL 
-      : Uri.parse('${backend_url_with_fallback_ip}api/application_information/$userId/$installedVersion/$operatingSystem'); // Use IP
+      : Uri.parse('${backend_url_with_fallback_ip}application_information/$userId/$installedVersion/$operatingSystem'); // Use IP
 
       final response = await http.get(uri);
       if (response.statusCode == 200) {
@@ -213,7 +222,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         debugPrint('  - OS message: ${e.osError!.message}');
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setBool('use_dns', false);
             
@@ -542,7 +551,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           useDNS: useDNS_2,
         ),
       ],
-    );
+    ); 
   }
 
   Widget _buildCategoriesSection(bool isDarkMode, List<Event> filteredEvents, bool isWideScreen) {
