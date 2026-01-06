@@ -12,6 +12,8 @@ class UserProfile {
   final String street;
   final String token;
   final String? imageUrl;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   UserProfile({
     required this.id,
@@ -27,6 +29,8 @@ class UserProfile {
     required this.street,
     required this.token,
     this.imageUrl,
+    required this.createdAt,
+    required this.updatedAt,
   });
 
   Map<String, dynamic> toJson() {
@@ -60,8 +64,30 @@ class UserProfile {
       district: json['district'] as String,
       ward: json['ward'] as String,
       street: json['street'] as String,
-      token: json['token'] as String,
+      token: json['token'] ?? '',
       imageUrl: json['imageUrl'] as String?,
+      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
+      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
+    );
+  }
+
+  factory UserProfile.fromJson2(Map<String, dynamic> json) {
+    return UserProfile(
+      id: json['id'] as int,
+      firstName: json['first_name'] as String,
+      middleName: json['middle_name'] as String,
+      lastName: json['last_name'] as String,
+      email: json['email'] as String,
+      phoneNumber: json['phone_number'] as String,
+      role: json['role'] as String,
+      region: json['region'] as String,
+      district: json['district'] as String,
+      ward: json['ward'] as String,
+      street: json['street'] as String,
+      token: json['token'] ?? '',
+      imageUrl: json['imageUrl'] ?? '',
+      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
+      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
     );
   }
 }

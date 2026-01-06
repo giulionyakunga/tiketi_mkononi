@@ -4,12 +4,14 @@ import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:tiketi_mkononi/env.dart';
 import 'package:tiketi_mkononi/models/event.dart';
+import 'package:tiketi_mkononi/screens/confirm_attendance_page.dart';
 import 'package:tiketi_mkononi/screens/event_details_page.dart';
 
 class EventDetailsWrapper extends StatefulWidget {
   final int eventId;
+  final String? ticketCode;  // Make nullable
 
-  const EventDetailsWrapper({super.key, required this.eventId});
+  const EventDetailsWrapper({super.key, required this.eventId, this.ticketCode});
 
   @override
   State<EventDetailsWrapper> createState() => _EventDetailsWrapperState();
@@ -73,6 +75,13 @@ class _EventDetailsWrapperState extends State<EventDetailsWrapper> {
             ],
           ),
         )
+      );
+    }
+
+    if(widget.ticketCode!.isNotEmpty){
+      return ConfirmAttendancePage(
+        event: event!,
+        ticketCode: widget.ticketCode!,
       );
     }
 

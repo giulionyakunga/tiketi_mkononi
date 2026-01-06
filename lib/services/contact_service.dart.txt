@@ -1,0 +1,171 @@
+import 'dart:async';
+import 'package:flutter_contacts/flutter_contacts.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+class ContactService {
+  // Singleton instance
+  static final ContactService _instance = ContactService._internal();
+  factory ContactService() => _instance;
+  ContactService._internal();
+
+  // Check and request contact permission
+  Future<bool> _checkAndRequestPermission() async {
+    PermissionStatus status = await Permission.contacts.status;
+
+    if (status.isDenied) {
+      status = await Permission.contacts.request();
+    }
+
+    if (status.isPermanentlyDenied) {
+      // User has permanently denied permission
+      return false;
+    }
+
+    return status.isGranted;
+  }
+
+  // Get all contacts
+  Future<List<Contact>> getAllContacts({bool withThumbnails = false}) async {
+    if (!await _checkAndRequestPermission()) {
+      throw Exception('Contact permission denied');
+    }
+
+    try {
+      final contacts = await FlutterContacts.getContacts(
+        withProperties: true,
+        withThumbnail: withThumbnails,
+      );
+      return contacts;
+    } catch (e) {
+      throw Exception('Failed to fetch contacts: $e');
+    }
+  }
+
+  // Get contacts with pagination
+  Future<List<Contact>> getContactsPaginated({
+    int offset = 0,
+    int limit = 50,
+    bool withThumbnails = false,
+  }) async {
+    final contacts = await getAllContacts(withThumbnails: withThumbnails);
+
+    final endIndex = offset + limit;
+    return contacts.sublist(
+      offset,
+      endIndex > contacts.length ? contacts.length : endIndex,
+    );
+  }
+
+  // Search contacts by name or phone
+  Future<List<Contact>> searchContacts(String query) async {
+    final contacts = await getAllContacts();
+
+    final lowerQuery = query.toLowerCase();
+
+    return contacts.where((contact) {
+      final name = contact.displayName.toLowerCase();
+      final phones = contact.phones.map((p) => p.number.toLowerCase()).toList();
+
+      return name.contains(lowerQuery) ||
+          phones.any((phone) => phone.contains(lowerQuery));
+    }).toList();
+  }
+
+  // Get contact by ID
+  Future<Contact?> getContactById(String id) async {
+    final contacts = await getAllContacts();
+    return contacts.firstWhere(
+      (c) => c.id == id
+    );
+  }
+
+  // Add new contact
+  Future<Contact> addContact(Contact contact) async {
+    await contact.insert();
+    return contact;
+  }
+
+  // Update existing contact
+  Future<Contact> updateContact(Contact contact) async {
+    await contact.update();
+    return contact;
+  }
+
+  // Delete contact
+  Future<void> deleteContact(Contact contact) async {
+    await contact.delete();
+  }
+
+  // Make a phone call
+  Future<void> makePhoneCall(String phoneNumber) async {
+    final url = 'tel:$phoneNumber';
+    if (await canLaunchUrl(Uri.parse(url))) {
+      await launchUrl(Uri.parse(url));
+    } else {
+      throw Exception('Could not launch $url');
+    }
+  }
+
+  // Send SMS
+  Future<void> sendSms(String phoneNumber) async {
+    final url = 'sms:$phoneNumber';
+    if (await canLaunchUrl(Uri.parse(url))) {
+      await launchUrl(Uri.parse(url));
+    } else {
+      throw Exception('Could not launch $url');
+    }
+  }
+
+  // Send Email
+  Future<void> sendEmail(String email) async {
+    final url = 'mailto:$email';
+    if (await canLaunchUrl(Uri.parse(url))) {
+      await launchUrl(Uri.parse(url));
+    } else {
+      throw Exception('Could not launch $url');
+    }
+  }
+
+  // Get contact count
+  Future<int> getContactCount() async {
+    final contacts = await getAllContacts();
+    return contacts.length;
+  }
+
+  // Create a new contact with basic fields
+  Contact createNewContact({
+    String? givenName,
+    String? familyName,
+    String? phoneNumber,
+    String? email,
+    String? company,
+    String? jobTitle,
+  }) {
+    final contact = Contact()
+      ..name.first = givenName ?? ''
+      ..name.last = familyName ?? '';
+
+    if (phoneNumber != null) {
+      contact.phones = [Phone(phoneNumber)];
+    }
+
+    if (email != null) {
+      contact.emails = [Email(email)];
+    }
+
+    return contact;
+  }
+
+  // Get only contacts with phone numbers
+  Future<List<Contact>> getContactsWithPhones() async {
+    final contacts = await getAllContacts();
+    return contacts.where((c) => c.phones.isNotEmpty).toList();
+  }
+
+  // Get only contacts with emails
+  Future<List<Contact>> getContactsWithEmails() async {
+    final contacts = await getAllContacts();
+    return contacts.where((c) => c.emails.isNotEmpty).toList();
+  }
+}

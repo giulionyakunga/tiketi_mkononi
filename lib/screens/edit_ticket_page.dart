@@ -503,27 +503,27 @@ class _EditTicketPageState extends State<EditTicketPage> {
                       return null;
                     },
                   ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _submitTicket,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: _isLoading ? const CircularProgressIndicator() :
-                  Text(
-                    'Save Ticket',
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.orange[800]!,
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _submitTicket,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      child: _isLoading ? const CircularProgressIndicator() :
+                      Text(
+                        'Save Ticket',
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: Colors.orange[800]!,
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
           )
         ),
       ),

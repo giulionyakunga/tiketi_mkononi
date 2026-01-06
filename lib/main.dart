@@ -65,6 +65,14 @@ class TiketiMkononiApp extends StatelessWidget {
           return EventDetailsWrapper(eventId: id);
         },
       ),
+      GoRoute(
+        path: '/confirm/attendance/:id/:ticketCode',
+        builder: (context, state) {
+          final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+          final ticketCode = state.pathParameters['ticketCode'] ?? '';
+          return EventDetailsWrapper(eventId: id, ticketCode:ticketCode);
+        },
+      ),
     ],
   );
 

@@ -1,28 +1,246 @@
-import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
-import 'dart:ui' as ui;
-
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:image/image.dart' as img;
-import 'package:http/http.dart' as http;
+
+
+import 'dart:io';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:tiketi_mkononi/models/event.dart';
+import 'package:tiketi_mkononi/screens/event_providers.dart';
+import 'package:go_router/go_router.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
+
+import 'dart:convert';
+import 'dart:io';
+import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'dart:async';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tiketi_mkononi/env.dart';
+import 'package:tiketi_mkononi/models/event.dart';
+import 'package:tiketi_mkononi/models/ticket.dart';
+import 'package:tiketi_mkononi/services/SimpleCodec.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:flutter/services.dart';
+import 'package:image/image.dart' as img;
+import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 
 
-/// ===============================
-/// CONFIG (NORMALIZED VALUES)
-/// ===============================
+
+class CardViewPage extends StatefulWidget {
+  final Event event;
+
+  const CardViewPage({super.key, required this.event});
+
+  @override
+  State<CardViewPage> createState() => _CardViewPageState();
+}
+
+class _CardViewPageState extends State<CardViewPage> {
+  late OverlayConfig config;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    config = const OverlayConfig(
+      qrOffset: Offset(40, 40),
+      textOffset: Offset(40, 260),
+      qrSize: 160,
+    );
+    _loadPrefs();
+  }
+
+  Future<void> _loadPrefs() async {
+    final p = await SharedPreferences.getInstance();
+    setState(() {
+      config = config.copyWith(
+        qrOffset: Offset(
+          p.getDouble('qrX') ?? 40,
+          p.getDouble('qrY') ?? 40,
+        ),
+        textOffset: Offset(
+          p.getDouble('txtX') ?? 40,
+          p.getDouble('txtY') ?? 260,
+        ),
+        qrSize: p.getDouble('qrSize') ?? 160,
+      );
+    });
+  }
+
+  Future<void> _savePrefs({bool useDNS = true}) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setDouble('qrX', config.qrOffset.dx);
+    await p.setDouble('qrY', config.qrOffset.dy);
+    await p.setDouble('txtX', config.textOffset.dx);
+    await p.setDouble('txtY', config.textOffset.dy);
+    await p.setDouble('qrSize', config.qrSize);
+
+
+    final Map<String, dynamic> requestBody = {
+      'event_id': widget.event.id,
+      'dst_x': config.qrOffset.dx,
+      'dst_y': config.qrOffset.dy,
+      'dst_x2': config.textOffset.dx,
+      'dst_y2': config.textOffset.dy,
+      'qr_size': config.qrSize,
+    };
+
+
+    try {
+      setState(() => _isLoading = true);
+
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/event_card_info') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}api/event_card_info'); // Use IP
+
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(requestBody),
+      );
+
+      if (response.statusCode == 200) {
+        if (response.body == "Event updated successfully!") {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(response.body)),
+          );
+        }
+      } else if (response.statusCode == 302) {
+        _handleHTTPRedirect();
+      } else {
+        if(response.statusCode == 413){
+          _showSnackBar('Request failed: Image is Too Large');
+        } else {
+          _showSnackBar('Request failed: ${response.statusCode}');
+        }
+      }
+    } on SocketException catch (e) {
+        debugPrint('Network error occurred:');
+        debugPrint('- Exception type: ${e.runtimeType}');
+        debugPrint('- Message: ${e.message}');
+        
+        if (e.osError != null) {
+          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+          debugPrint('  - OS message: ${e.osError!.message}');
+
+          // Retry with IP if DNS fails (errno = 7) and not already retrying
+          if (e.osError!.errorCode == 7 && useDNS) {
+            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+            await _savePrefs(useDNS: false); // Recursive retry
+            return;
+          }
+        }
+
+        _handleSocketException(e);
+      } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
+
+  void _handleSocketException(SocketException e) {
+    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 101 || e.osError?.errorCode == 111) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Connection Error'),
+          content: const Text('Could not connect to the server. Please check your internet connection.'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      );
+    } else {
+      _showSnackBar('Connection Error: ${e.message}');
+    }
+  }
+
+  void _handleHTTPRedirect() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Connection Error'),
+        content: const Text('Could not connect to the server. Please check your internet connection.'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Card Editor'),
+        actions: [
+          IconButton(
+            icon: Icon(
+              Icons.save, 
+              color: Colors.orange[800]
+            ),
+            onPressed: () async {
+              await _savePrefs();
+              await ImageExportService.export(
+                event: widget.event,
+                config: config,
+              );
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Image saved successfully')),
+                );
+              }
+            },
+          )
+        ],
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: LivePreviewCanvas(
+              imageUrl: '${backend_url}api/image/${widget.event.cardUrl}',
+              config: config,
+            ),
+          ),
+          EditorControls(
+            config: config,
+            onChanged: (c) => setState(() => config = c),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
 class OverlayConfig {
-  final Offset qrOffset; // 0.0 – 1.0
-  final Offset textOffset; // 0.0 – 1.0
-  final double qrSize; // 0.0 – 1.0 (relative to image width)
+  final Offset qrOffset;
+  final Offset textOffset;
+  final double qrSize;
 
   const OverlayConfig({
     required this.qrOffset,
@@ -43,170 +261,10 @@ class OverlayConfig {
   }
 }
 
-/// ===============================
-/// PAGE
-/// ===============================
-class CardViewPage extends StatefulWidget {
-  final Event event;
-
-  const CardViewPage({super.key, required this.event});
-
-  @override
-  State<CardViewPage> createState() => _CardViewPageState();
-}
-
-class _CardViewPageState extends State<CardViewPage> {
-  late OverlayConfig config;
-  bool _isLoading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    config = const OverlayConfig(
-      qrOffset: Offset(0.1, 0.1),
-      textOffset: Offset(0.1, 0.4),
-      qrSize: 0.25,
-    );
-    _loadPrefs();
-  }
-
-  Future<void> _loadPrefs() async {
-    final p = await SharedPreferences.getInstance();
-    setState(() {
-      config = OverlayConfig(
-        qrOffset: Offset(
-          (p.getDouble('qrOffsetDx') ?? 0.1).clamp(0.1, 1.0),
-          (p.getDouble('qrOffsetDy') ?? 0.1).clamp(0.1, 1.0),
-        ),
-        textOffset: Offset(
-          (p.getDouble('textOffsetDx') ?? 0.1).clamp(0.1, 1.0),
-          (p.getDouble('textOffsetDy') ?? 0.1).clamp(0.1, 1.0),
-        ),
-        qrSize: (p.getDouble('qrSize') ?? 0.1).clamp(0.1, 1.0),
-      );
-    });
-  }
-
- 
 
 
 
-
-
-  Future<void> _savePrefs({bool useDNS = true}) async {
-    final p = await SharedPreferences.getInstance(); 
-    await p.setDouble('qrOffsetDx', config.qrOffset.dx); 
-    await p.setDouble('qrOffsetDy', config.qrOffset.dy); 
-    await p.setDouble('textOffsetDx', config.textOffset.dx); 
-    await p.setDouble('textOffsetDy', config.textOffset.dy);
-    await p.setDouble('qrSize', config.qrSize);
-
-    final Map<String, dynamic> requestBody = {
-      'event_id': widget.event.id,
-      'qr_offset_dx': config.qrOffset.dx,
-      'qr_offset_dy': config.qrOffset.dy,
-      'text_offset_dx': config.textOffset.dx,
-      'text_offset_dy': config.textOffset.dy,
-      'qr_size': config.qrSize,
-    };
-    
-    try {
-
-      setState(() => _isLoading = true);
-
-      final Uri uri = useDNS ? Uri.parse('${backend_url}api/event_card_info') : 
-      Uri.parse('${backend_url_with_fallback_ip}api/event_card_info'); // Use IP 
-      final response = await http.post( 
-        uri, 
-        headers: {'Content-Type': 'application/json'}, 
-        body: jsonEncode(requestBody), 
-      ); 
-      
-      if (response.statusCode == 200) { 
-        if (response.body == "Event updated successfully!") { 
-          ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text(response.body)), ); 
-        } 
-      } else if (response.statusCode == 302) { 
-        _handleHTTPRedirect(); 
-      } else { 
-        if(response.statusCode == 413){ 
-          _showSnackBar('Request failed: Image is Too Large'); 
-        } else {
-          _showSnackBar('Request failed: ${response.statusCode}'); 
-        } 
-      } 
-    } finally { 
-      setState(() => _isLoading = false); 
-    } 
-  }
-
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
-    );
-  }
-
-  void _handleHTTPRedirect() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Connection Error'),
-        content: const Text('Could not connect to the server. Please check your internet connection.'),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-      ),
-    );
-  }
-
-
-  
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Card Editor'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.save),
-            onPressed: _savePrefs,
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Live preview takes remaining space
-          Expanded(
-            child: LivePreviewCanvas(
-              imageUrl: '${backend_url}api/image/${widget.event.cardUrl}',
-              config: config,
-            ),
-          ),
-
-          // Editor controls - make scrollable
-          SizedBox(
-            height: 300, // or whatever fixed height you want
-            child: SingleChildScrollView(
-              child: EditorControls(
-                config: config,
-                onChanged: (c) => setState(() => config = c),
-              ),
-            ),
-          ),
-        ],
-      ),
-
-    );
-  }
-}
-
+//live_preview_canvas.dart
 class LivePreviewCanvas extends StatelessWidget {
   final String imageUrl;
   final OverlayConfig config;
@@ -219,91 +277,53 @@ class LivePreviewCanvas extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final w = constraints.maxWidth;
-        final h = constraints.maxHeight;
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: CachedNetworkImage(
+            imageUrl: imageUrl,
+            fit: BoxFit.cover,
+          ),
+        ),
 
-        final qrX = config.qrOffset.dx * w;
-        final qrY = config.qrOffset.dy * h;
-        final qrSize = config.qrSize * w;
-
-        final txtX = config.textOffset.dx * w;
-        final txtY = config.textOffset.dy * h;
-
-        return Stack(
-          children: [
-            Positioned.fill(
-              child: CachedNetworkImage(
-                imageUrl: imageUrl,
-                fit: BoxFit.contain, // 🔥 IMPORTANT
-              ),
+        /// QR CODE
+        Positioned(
+          left: config.qrOffset.dx,
+          top: config.qrOffset.dy,
+          child: Container(
+            color: Colors.white,
+            padding: const EdgeInsets.all(6),
+            child: QrImageView(
+              data: 'https://telabs.co.tz/',
+              size: config.qrSize,
             ),
+          ),
+        ),
 
-            Positioned(
-              left: qrX,
-              top: qrY, // we’ll adjust using Transform
-              child: Transform.translate(
-                offset: const Offset(0, -20), // move label up by its approximate height (~20px)
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: Colors.black),
-                  ),
-                  child: Text(
-                    'Label',
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
+        /// TEXT
+        Positioned(
+          left: config.textOffset.dx,
+          top: config.textOffset.dy,
+          child: const Text(
+            'https://telabs.co.tz/',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.red,
+              shadows: [
+                Shadow(color: Colors.black, blurRadius: 4),
+              ],
             ),
-
- 
-
-
-            /// QR
-            Positioned(
-              left: qrX,
-              top: qrY,
-              child: Container(
-                color: Colors.white,
-                padding: EdgeInsets.zero,
-                child: QrImageView(
-                  data: 'https://telabs.co.tz/',
-                  size: qrSize,
-                ),
-              ),
-            ),
-
-            /// TEXT
-            Positioned(
-              left: txtX,
-              top: txtY,
-              child: const Text(
-                'Firstname Lastname',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                  shadows: [
-                    Shadow(color: Colors.black, blurRadius: 4),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+          ),
+        ),
+      ],
     );
   }
 }
 
+
+
+// editor_controls.dart
 class EditorControls extends StatelessWidget {
   final OverlayConfig config;
   final ValueChanged<OverlayConfig> onChanged;
@@ -318,15 +338,18 @@ class EditorControls extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(blurRadius: 10)],
+      ),
       child: Column(
         children: [
-          Text('QR Size'),
-          Slider(
-            min: 0.01,
-            max: 1.0,
-            value: config.qrSize,
-            onChanged: (v) =>
-                onChanged(config.copyWith(qrSize: v)),
+          _slider(
+            'QR Size',
+            config.qrSize,
+            80,
+            320,
+            (v) => onChanged(config.copyWith(qrSize: v)),
           ),
           _offset('QR Position', config.qrOffset,
               (o) => onChanged(config.copyWith(qrOffset: o))),
@@ -334,6 +357,22 @@ class EditorControls extends StatelessWidget {
               (o) => onChanged(config.copyWith(textOffset: o))),
         ],
       ),
+    );
+  }
+
+  Widget _slider(
+    String label,
+    double value,
+    double min,
+    double max,
+    ValueChanged<double> onChange,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label),
+        Slider(value: value, min: min, max: max, onChanged: onChange),
+      ],
     );
   }
 
@@ -346,82 +385,30 @@ class EditorControls extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label),
-        Slider(
-          min: 0,
-          max: 1,
-          value: offset.dx,
-          onChanged: (v) => onChange(Offset(v, offset.dy)),
-        ),
-        Slider(
-          min: 0,
-          max: 1,
-          value: offset.dy,
-          onChanged: (v) => onChange(Offset(offset.dx, v)),
-        ),
+        Row(
+          children: [
+            Expanded(
+              child: Slider(
+                value: offset.dx,
+                min: 0,
+                max: 500,
+                onChanged: (v) => onChange(Offset(v, offset.dy)),
+              ),
+            ),
+            Expanded(
+              child: Slider(
+                value: offset.dy,
+                min: 0,
+                max: 800,
+                onChanged: (v) => onChange(Offset(offset.dx, v)),
+              ),
+            ),
+          ],
+        )
       ],
     );
   }
 }
-
-class ImageExportService {
-  static Future<void> export({
-    required Event event,
-    required OverlayConfig config,
-  }) async {
-    final baseImage = await ImageLoader.loadImage(
-      '${backend_url}api/image/${event.cardUrl}',
-    );
-    if (baseImage == null) return;
-
-    final imgW = baseImage.width;
-    final imgH = baseImage.height;
-
-    final qrX = (config.qrOffset.dx * imgW).round();
-    final qrY = (config.qrOffset.dy * imgH).round();
-    final qrSize = (config.qrSize * imgW).round();
-
-    final qrPainter = QrPainter(
-      data: 'https://telabs.co.tz/',
-      version: QrVersions.auto,
-      errorCorrectionLevel: QrErrorCorrectLevel.L,
-      gapless: true,
-    );
-
-    final ui.Image qrUi = await qrPainter.toImage(qrSize.toDouble());
-    final byteData =
-        await qrUi.toByteData(format: ui.ImageByteFormat.png) as ByteData;
-    final qr = img.decodePng(byteData.buffer.asUint8List())!;
-
-    /// White padding (same as preview)
-    final padded = img.Image(
-      width: qr.width + 1,
-      height: qr.height + 1,
-    );
-    img.fill(padded, color: img.ColorRgb8(255, 255, 255));
-    img.compositeImage(padded, qr, dstX: 6, dstY: 6);
-
-    img.compositeImage(
-      baseImage,
-      padded,
-      dstX: qrX,
-      dstY: qrY,
-    );
-
-    img.drawString(
-      baseImage,
-      'https://telabs.co.tz/',
-      font: img.arial24,
-      x: (config.textOffset.dx * imgW).round(),
-      y: (config.textOffset.dy * imgH).round(),
-      color: img.ColorRgb8(255, 0, 0),
-    );
-
-    final dir = await getTemporaryDirectory();
-    final file = File('${dir.path}/final_card.jpg');
-    await file.writeAsBytes(img.encodeJpg(baseImage, quality: 90));
-  }
-}
-
 
 
 class ImageLoader {
@@ -783,3 +770,53 @@ class SimpleImageCacheManager {
     }
   }
 }
+
+
+// image_export_service.dart
+class ImageExportService {
+  static Future<void> export({
+    required Event event,
+    required OverlayConfig config,
+  }) async {
+    final baseImage = await ImageLoader.loadImage(
+      '${backend_url}api/image/${event.cardUrl}',
+    );
+
+    if (baseImage == null) return;
+
+    final qrPainter = QrPainter(
+      data: 'https://telabs.co.tz/',
+      version: QrVersions.auto,
+    );
+
+    final uiImg = await qrPainter.toImage(config.qrSize);
+    final data =
+        await uiImg.toByteData(format: ui.ImageByteFormat.png) as ByteData;
+
+    final qr = img.decodePng(data.buffer.asUint8List())!;
+
+    img.compositeImage(
+      baseImage,
+      qr,
+      dstX: config.qrOffset.dx.toInt(),
+      dstY: config.qrOffset.dy.toInt(),
+    );
+
+    img.drawString(
+      baseImage,
+      'https://telabs.co.tz/',
+      font: img.arial24,
+      x: config.textOffset.dx.toInt(),
+      y: config.textOffset.dy.toInt(),
+      color: img.ColorRgb8(255, 0, 0),
+    );
+
+    final dir = await getTemporaryDirectory();
+    final file = File('${dir.path}/final_card.jpg');
+    await file.writeAsBytes(img.encodeJpg(baseImage, quality: 90));
+  }
+}
+
+
+
+

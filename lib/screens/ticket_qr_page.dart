@@ -24,6 +24,7 @@ import 'package:image/image.dart' as img;
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'dart:math'; // Make sure you have this import
 // import 'dart:html' as html; // only for web
 
@@ -47,7 +48,7 @@ class WebSocketService {
   int _reconnectAttempts = 0;
   DateTime? _lastReceivedTime;
 
-  final int maxReconnectAttempts = 20;
+  final int maxReconnectAttempts = 1000;
   final Duration reconnectInterval = const Duration(seconds: 2);
   final Duration heartbeatInterval = const Duration(seconds: 15);
   final Duration connectionTimeout = const Duration(seconds: 10);
@@ -75,12 +76,15 @@ class WebSocketService {
       if (_isDisposed) return;
 
       final hasInternet = result != ConnectivityResult.none;
-      debugPrint('🌐 Connectivity changed: $result (hasInternet: $hasInternet, _isConnected: $_isConnected, _isConnecting: $_isConnecting)');
-
-      connect(_ticketId!, _scanStatus!);
-
+      debugPrint('🌐 Connectivity changed: $result (hasInternet: $hasInternet, _isDisposed: $_isDisposed, _isConnected: $_isConnected, _isConnecting: $_isConnecting)');
       
+      debugPrint('🌐 Internet restored → attempting reconnection');
+      _handleConnectionLost('Connectivity lost');
+    
+
+    
       // if (!hasInternet) {
+      //   debugPrint('🌐 No Internet, hasInternet: $hasInternet');
       //   _handleConnectionLost('Connectivity lost');
       // } else {
       //   // Wait a moment for network to stabilize
@@ -100,25 +104,18 @@ class WebSocketService {
   /// 🔗 Connect with timeout
   Future<void> connect(
     int ticketId,
-    int scanStatus, {
-    bool useDNS = true,
-  }) async {
-    debugPrint('🔌 Connecting to WebSocket (attempt ${_reconnectAttempts + 1}/$maxReconnectAttempts) >>>>>>>> $_isDisposed, $_isConnected, $_isConnecting');
+    int scanStatus, 
+    { bool useDNS = true }
+  ) async {
     if (_isDisposed || scanStatus == 1) return;
-
-    debugPrint('🔌 Connecting to WebSocket (attempt ${_reconnectAttempts + 1}/$maxReconnectAttempts)');
     
     _ticketId = ticketId;
     _scanStatus = scanStatus;
     _useDNS = useDNS;
     _isConnecting = true;
 
-    debugPrint('Here -2');
-
     // Cancel any pending reconnection
     _cancelReconnection();
-
-    debugPrint('Here -1');
 
     try {
       final uri = Uri.parse(
@@ -130,46 +127,35 @@ class WebSocketService {
       // Set connection timeout
       _timeoutTimer?.cancel();
       _timeoutTimer = Timer(connectionTimeout, () {
-        debugPrint('Here 1');
         if (_isConnecting) {
-          debugPrint('Here 2');
           debugPrint('⏰ Connection timeout');
           _handleConnectionLost('Connection timeout');
         }
-        debugPrint('Here 3');
       });
-      debugPrint('Here 4');
 
       // Close existing socket if any
       if(_isConnected){
         await _closeSocket();
       }
-      debugPrint('Here 5');
 
       // Create new connection
       _channel = WebSocketChannel.connect(uri);
-      debugPrint('Here 6');
       
       // Wait for connection with timeout
       await _channel!.ready.timeout(connectionTimeout);
-      debugPrint('Here 7');
       
       _timeoutTimer?.cancel();
       _isConnecting = false;
-      debugPrint('Here 8');
       
       _isConnected = true;
       _reconnectAttempts = 0;
       _lastReceivedTime = DateTime.now();
-      debugPrint('Here 9');
       
       debugPrint('✅ WebSocket connected successfully');
       _connectionStatusController.add(true);
       _cancelReconnection();
-      debugPrint('Here 10');
 
       _startHeartbeat();
-      debugPrint('Here 11');
 
       // Send subscription message
       _channel!.sink.add(jsonEncode({
@@ -180,8 +166,6 @@ class WebSocketService {
       }));
 
       // Listen for messages
-      // _channel!.stream.listen(
-      //   _handleIncomingMessage,
       _channel!.stream.listen(
         (message) => _handleIncomingMessage(message),
         onError: (error) {
@@ -211,9 +195,8 @@ class WebSocketService {
 
       // Check if we haven't received anything in too long
       if (_lastReceivedTime != null && 
-          DateTime.now().difference(_lastReceivedTime!) > pingTimeout) {
+        DateTime.now().difference(_lastReceivedTime!) > pingTimeout) {
         debugPrint('⏰ No response for ${pingTimeout.inSeconds}s, assuming dead connection');
-        _handleConnectionLost('Heartbeat timeout');
         return;
       }
 
@@ -266,7 +249,11 @@ class WebSocketService {
     
     // Schedule reconnection if we have active ticket
     if (_ticketId != null && _scanStatus != null) {
+      debugPrint('Here hcl2');
       _scheduleReconnection(_ticketId!, _scanStatus!);
+      debugPrint('Here hcl3');
+    }else {
+      debugPrint('Here hcl4');
     }
   }
 
@@ -274,9 +261,9 @@ class WebSocketService {
 
 void _scheduleReconnection(
   int ticketId,
-  int scanStatus, {
-  bool immediate = false,
-}) {
+  int scanStatus,
+  { bool immediate = false }
+) {
   if (_isDisposed || 
       _reconnectAttempts >= maxReconnectAttempts ||
       _isConnecting ||
@@ -298,9 +285,10 @@ void _scheduleReconnection(
   final finalMilliseconds = jitteredMilliseconds.clamp(100, 60000);
   
   debugPrint('🔁 Reconnecting in ${finalMilliseconds ~/ 1000}s (attempt $_reconnectAttempts/$maxReconnectAttempts)');
+  debugPrint('🔁 Reconnecting _isDisposed: ${_isDisposed}, _isConnected: ${_isConnected}, _isConnecting: ${_isConnecting}');
 
   _reconnectTimer?.cancel();
-  _reconnectTimer = Timer(Duration(milliseconds: finalMilliseconds), () {
+  _reconnectTimer = Timer(Duration(milliseconds: 1000), () {
     if (!_isDisposed && !_isConnected && !_isConnecting) {
       connect(ticketId, scanStatus, useDNS: _useDNS);
     }
@@ -311,28 +299,32 @@ void _scheduleReconnection(
   void _cancelReconnection() {
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
+    _timeoutTimer?.cancel();
+    _timeoutTimer = null;
   }
 
   /// 🔒 Close socket safely
   Future<void> _closeSocket() async {
-    debugPrint('Here c1');
+    // debugPrint('Here c1');
     _heartbeatTimer?.cancel();
-    debugPrint('Here c2');
+    // debugPrint('Here c2');
     _heartbeatTimer = null;
-    debugPrint('Here c3');
+    // debugPrint('Here c3');
     
     _timeoutTimer?.cancel();
-    debugPrint('Here c4');
+    // debugPrint('Here c4');
     _timeoutTimer = null;
-    debugPrint('Here c5');
+    // debugPrint('Here c5');
     
     try {
-      debugPrint('Here c6');
+      // debugPrint('Here c6');
       await _channel?.sink.close(1000);
       // await _channel?.sink.close(1000, 'Normal closure');
-      debugPrint('Here c7');
+      // debugPrint('Here c7');
     } catch (e) {
-      debugPrint('⚠️ Error closing socket: $e');
+      // debugPrint('⚠️ Error closing socket: $e');
     } finally {
       _channel = null;
     }
@@ -340,7 +332,7 @@ void _scheduleReconnection(
 
   /// 🔄 Manual reconnect
   Future<void> reconnect() async {
-    debugPrint('🔄 Manual reconnect requested');
+    // debugPrint('🔄 Manual reconnect requested');
     _cancelReconnection();
     _reconnectAttempts = 0;
     
@@ -351,7 +343,7 @@ void _scheduleReconnection(
 
   /// ⛔ Manual disconnect (temporary)
   void disconnect() {
-    debugPrint('⛔ Manual disconnect');
+    debugPrint('⛔ Manual disconnecting'); 
     _isConnected = false;
     _isConnecting = false;
     _cancelReconnection();
@@ -437,16 +429,16 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
   Future<void> _loadPrefs() async {
     final p = await SharedPreferences.getInstance();
     setState(() {
-      config = config.copyWith(
+      config = OverlayConfig(
         qrOffset: Offset(
-          p.getDouble('qrX') ?? 40,
-          p.getDouble('qrY') ?? 40,
+          (p.getDouble('qrOffsetDx') ?? 0.1).clamp(0.1, 1.0),
+          (p.getDouble('qrOffsetDy') ?? 0.1).clamp(0.1, 1.0),
         ),
         textOffset: Offset(
-          p.getDouble('txtX') ?? 40,
-          p.getDouble('txtY') ?? 260,
+          (p.getDouble('textOffsetDx') ?? 0.1).clamp(0.1, 1.0),
+          (p.getDouble('textOffsetDy') ?? 0.1).clamp(0.1, 1.0),
         ),
-        qrSize: p.getDouble('qrSize') ?? 160,
+        qrSize: (p.getDouble('qrSize') ?? 0.1).clamp(0.1, 1.0),
       );
     });
 
@@ -471,7 +463,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
         _isCardGenerated = true;
       });
     } catch (e) {
-      debugPrint('Error sharing image: $e');
+      // debugPrint('Error sharing image: $e');
 
       if (!mounted) return;
 
@@ -580,7 +572,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
 
   @override
   void dispose() {
-    _webSocketService.disconnect();
+    _webSocketService.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -648,6 +640,54 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
               fontSize: 15,
             ),
             textAlign: TextAlign.center,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+            widget.ticket.userName,
+            style: TextStyle(
+              fontSize: isLargeScreen ? 20 : 14,
+              fontWeight: FontWeight.bold,
+            ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+            widget.ticket.ticketCode,
+            style: TextStyle(
+              fontSize: isLargeScreen ? 20 : 14,
+              fontWeight: FontWeight.normal,
+            ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+            widget.ticket.userPhoneNumber,
+            style: TextStyle(
+              fontSize: isLargeScreen ? 20 : 14,
+              fontWeight: FontWeight.normal,
+            ),
+        ),
+
+        TextButton(
+          onPressed: () => _launchPhoneCall(widget.ticket.userPhoneNumber),
+          style: TextButton.styleFrom(
+            alignment: Alignment.centerLeft,
+            padding: EdgeInsets.zero,  // Removed vertical padding
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          child: RichText(
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text:  widget.ticket.userPhoneNumber,
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontSize: isLargeScreen ? 20 : 14,
+                    fontWeight: FontWeight.normal,
+                  ),
+                ),
+              ]
+            )
           ),
         ),
         const SizedBox(height: 4),
@@ -1090,6 +1130,20 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
     }
   }
 
+  Future<void> _launchPhoneCall(String phoneNumber) async {
+    final Uri launchUri = Uri(
+      scheme: 'tel',
+      path: phoneNumber,
+    );
+    if (await canLaunchUrl(launchUri)) {
+      await launchUrl(launchUri);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not launch phone app')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isLargeScreen = _isLargeScreen(context);
@@ -1286,7 +1340,7 @@ class OverlayConfig {
 
 class SimpleImageCacheManager {
   static const Duration _cacheDuration = Duration(days: 7);
-  static const int _maxCacheSize = 100 * 1024 * 1024; // 100MB max cache
+  static const int _maxCacheSize = 1002424; // 100MB max cache
 
   static Future<String> _getCacheDirectory() async {
     final dir = await getTemporaryDirectory();
@@ -1459,31 +1513,85 @@ class ImageQrService {
 
     try {
       // Load base image
+      debugPrint('Loading image');
+
       final image = await ImageLoader.loadImage(imageSource);
       if (image == null) {
         throw Exception('Failed to load image');
       }
 
-      final int qrSize = config.qrSize.toInt();
-      final int borderSize = 1; // quiet zone in pixels
+
+      final int borderSize = 0; // quiet zone in pixels
+      final int qrSize = (config.qrSize * image.width).toInt();
+      final int qrOffsetDx = (config.qrOffset.dx * image.width).toInt();
+      final int qrOffsetDy = (config.qrOffset.dy * image.height).toInt();
+      final int textOffsetDx = (config.textOffset.dx * image.width).toInt();
+      final int textOffsetDy = (config.textOffset.dy * image.height).toInt();
+
+      // final painter = QrPainter(
+      //   data: qrData,
+      //   version: QrVersions.auto,
+      //   errorCorrectionLevel: QrErrorCorrectLevel.L, // High error correction
+      //   gapless: true,
+      // );
+      
+      // // Render QR at full size
+      // final ui.Image qrUiImage = await painter.toImage(qrSize.toDouble());
+
+      // // Convert to Uint8List
+      // final ByteData byteData =
+      //     await qrUiImage.toByteData(format: ui.ImageByteFormat.png) as ByteData;
+      // final Uint8List pngBytes = byteData.buffer.asUint8List();
+
+      // // Decode into 'image' package
+      // final img.Image qrImage = img.decodePng(pngBytes)!;
+
+
+
 
       final painter = QrPainter(
         data: qrData,
         version: QrVersions.auto,
-        errorCorrectionLevel: QrErrorCorrectLevel.H, // High error correction
-        gapless: true,
+        errorCorrectionLevel: QrErrorCorrectLevel.L, // FEW modules
+        gapless: true, // NO gaps
       );
 
-      // Render QR at full size
-      final ui.Image qrUiImage = await painter.toImage(qrSize.toDouble());
+      const double quietZoneRatio = 0.01; // 10% padding (QR spec safe)
 
-      // Convert to Uint8List
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(
+        recorder,
+        Rect.fromLTWH(0, 0, qrSize.toDouble(), qrSize.toDouble()),
+      );
+
+      final padding = qrSize * quietZoneRatio;
+
+      // Move QR inward
+      canvas.translate(padding, padding);
+
+      // Paint QR smaller so edges are not clipped
+      painter.paint(
+        canvas,
+        Size(
+          qrSize - padding * 2,
+          qrSize - padding * 2,
+        ),
+      );
+
+      final ui.Image image2 =
+          await recorder.endRecording().toImage(qrSize, qrSize);
+
       final ByteData byteData =
-          await qrUiImage.toByteData(format: ui.ImageByteFormat.png) as ByteData;
+          await image2.toByteData(format: ui.ImageByteFormat.png) as ByteData;
+
       final Uint8List pngBytes = byteData.buffer.asUint8List();
 
       // Decode into 'image' package
       final img.Image qrImage = img.decodePng(pngBytes)!;
+
+
+
+      
 
       // Create larger white background
       final int finalSize = qrSize + 2 * borderSize;
@@ -1505,8 +1613,8 @@ class ImageQrService {
       img.compositeImage(
         image,
         qrWithBorder,
-        dstX: config.qrOffset.dx.round(),
-        dstY: config.qrOffset.dy.round(),
+        dstX: qrOffsetDx,
+        dstY: qrOffsetDy,
       );
 
       ByteData labelAsset;
@@ -1523,7 +1631,7 @@ class ImageQrService {
       final Uint8List bytes = labelAsset.buffer.asUint8List();
       final img.Image labelImage = img.decodeImage(bytes)!;
 
-      int targetWidth = (config.qrSize * 0.6).toInt();
+      int targetWidth = (qrSize * 0.6).toInt();
       final double aspectRatio = labelImage.height / labelImage.width;
       final int targetHeight = (targetWidth * aspectRatio).round();
 
@@ -1537,15 +1645,15 @@ class ImageQrService {
       img.compositeImage(
         image,
         resizedLabel,
-        dstX: (config.qrOffset.dx + qrWithBorder.width/2 - resizedLabel.width/2).round(),
-        dstY: (config.qrOffset.dy - resizedLabel.height).round(),
+        dstX: (qrOffsetDx + qrWithBorder.width/2 - resizedLabel.width/2).round(),
+        dstY: (qrOffsetDy - resizedLabel.height).round(),
       );
 
       img.BitmapFont font = img.arial24;
 
-      final img.Color color = img.ColorRgb8(255, 0, 0); // Red
+      final img.Color color = img.ColorRgb8(0, 0, 0); // Black
 
-      debugPrint('font.size : ${font.size}');
+      // debugPrint('font.size : ${font.size}');
 
       int textWidth = 0;
       if (font.size == 14) {
@@ -1571,8 +1679,8 @@ class ImageQrService {
         image, 
         ticket.userName, 
         font: font, 
-        x: config.textOffset.dx.round(), 
-        y: config.textOffset.dy.round(), 
+        x: textOffsetDx, 
+        y: textOffsetDy, 
         color: color
       );
 

@@ -1,72 +1,22 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:tiketi_mkononi/models/event.dart';
 import 'package:http/http.dart' as http;
+import 'package:tiketi_mkononi/models/transaction_data.dart';
 import 'package:tiketi_mkononi/screens/tickets_page.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
 import 'package:flutter/services.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 
-// Custom formatter for card number spacing (XXXX XXXX XXXX XXXX)
-class CardNumberFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    if (newValue.text.isEmpty) {
-      return newValue;
-    }
-    
-    // Remove all non-digit characters
-    String input = newValue.text.replaceAll(RegExp(r'[^\d]'), '');
-    
-    // If the input is empty after cleaning, return empty value
-    if (input.isEmpty) {
-      return const TextEditingValue(
-        text: '',
-        selection: TextSelection.collapsed(offset: 0),
-      );
-    }
-    
-    StringBuffer formatted = StringBuffer();
-    
-    for (int i = 0; i < input.length; i++) {
-      // Add space after every 4 digits
-      if (i > 0 && i % 4 == 0) {
-        formatted.write(' ');
-      }
-      formatted.write(input[i]);
-    }
-    
-    // Calculate new cursor position
-    int cursorPosition = formatted.length;
-    
-    // If the user is deleting, adjust cursor position accordingly
-    // if (oldValue.text.length > newValue.text.length) {
-    //   // If the character before the cursor was a space, move back one more position
-    //   final oldText = oldValue.text;
-    //   final selectionStart = newValue.selection.start;
-      
-    //   if (selectionStart < oldText.length && oldText[selectionStart] == ' ') {
-    //     cursorPosition = selectionStart - 1;
-    //   } else {
-    //     cursorPosition = newValue.selection.start;
-    //   }
-    // }
-
-    return TextEditingValue(
-      text: formatted.toString(),
-      // selection: TextSelection.collapsed(offset: cursorPosition),
-    );
-  }
-}
-
-class CheckoutPage extends StatefulWidget {
+class CheckoutPage extends ConsumerStatefulWidget {
   final Event event;
   final Function refreshMethod;
 
@@ -77,12 +27,11 @@ class CheckoutPage extends StatefulWidget {
   });
 
   @override
-  State<CheckoutPage> createState() => _CheckoutPageState();
+  ConsumerState<CheckoutPage> createState() => _CheckoutPageState();
 }
 
-class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver {
+class _CheckoutPageState extends ConsumerState<CheckoutPage> with WidgetsBindingObserver {
   int userId = 0;
-  int trials = 15; 
   late final StorageService _storageService;
   int eventId = 0; 
   int quantity = 1;
@@ -94,8 +43,6 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
   String selectedPaymentMethod = 'MIXX BY YAS';
   final List<String> paymentMethods = ['MIXX BY YAS', 'M-PESA', 'AIRTEL MONEY', 'HALOPESA', 'AZAMPESA'];
   final _phoneNumberController = TextEditingController();
-  String? _selectedCardType = 'Uhai Card'; // Default card type
-  final TextEditingController _cardNumberController = TextEditingController();
   bool _isLoading = false;
   bool _payed = false;
   bool _sold = false;
@@ -111,6 +58,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
   int eventTicketsCount = 0;
   Map<String, dynamic> ticketTypesTicketsCount = {};
   late final profile;
+  late final WebSocketService _webSocketService;
 
   @override
   void initState() {
@@ -118,7 +66,6 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
     getTicketsCount();
     WidgetsBinding.instance.addObserver(this);
     _initializeServices();
-    _startFetchingEventPaymentStatus();
   }
 
   Future<void> _initializeServices() async {
@@ -132,19 +79,9 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
     if (profile != null) {
       StringBuffer formatted = StringBuffer();
 
-      for (int i = 0; i < profile.cardNumber.length; i++) {
-        // Add space after every 4 digits
-        if (i > 0 && i % 4 == 0) {
-          formatted.write(' ');
-        }
-        formatted.write(profile.cardNumber[i]);
-      }
-
       setState(() {
         userId = profile.id;
         _phoneNumberController.text = profile.phoneNumber;
-        _selectedCardType = profile.selectedCardType;
-        _cardNumberController.text = formatted.toString();
       });
     }
   }
@@ -261,6 +198,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
   }
 
   Future<void> _handlePaying({bool useDNS = true}) async {
+    debugPrint(" >>>>>>>>>>>>>>>>>>>>>>>>>> _handlePaying");
     if (_formKey.currentState!.validate() && checkTicketAvailability()){
       if(widget.event.daily_event == 'yes') {
         if (_selectedDate == null) {
@@ -270,6 +208,9 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
           return;
         }
       }
+
+    debugPrint(" >>>>>>>>>>>>>>>>>>>>>>>>>> _handlePaying... 1");
+
 
       String selectedPaymentMethod2 = '';
       if(selectedPaymentMethod == 'M-PESA') {
@@ -293,13 +234,12 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
         'date': (widget.event.daily_event == 'yes') ? _selectedDate?.toIso8601String()  : null ,
         'selected_payment_method': selectedPaymentMethod2,
         'phone_number': formatPhoneNumber(_phoneNumberController.text),
-        'selected_card_type':  _cardNumberController.text,
-        'card_number': _selectedCardType,
       };
 
+
+    debugPrint(" >>>>>>>>>>>>>>>>>>>>>>>>>> _handlePaying... 2");
+
       if (widget.event.category.toUpperCase() == "SPORTS") {
-        profile.cardNumber = _cardNumberController.text;
-        profile.selectedCardType = _selectedCardType;
         await _storageService.saveUserProfile(profile);
       }
 
@@ -315,7 +255,13 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
           body: jsonEncode(requestBody),
         );
 
+    debugPrint(" >>>>>>>>>>>>>>>>>>>>>>>>>> _handlePaying... 3");
+
+
         if (response.statusCode == 200) {
+    debugPrint(" >>>>>>>>>>>>>>>>>>>>>>>>>> _handlePaying... 4");
+    debugPrint(" >>>>>>>>>>>>>>>>>>>>>>>>>> response.body : ${response.body}");
+
           if ((response.body == "Payment failed, Plz check your account!") || 
               (response.body == "Payment Unsuccessful") ||
               response.body.contains("We currently have only")) {
@@ -327,6 +273,14 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
             _showSnackBar("Muamala Haujakamilika: Namba uliyoweka sio sahihi");
           }
           else if (response.body == "Processing payment!") {
+            _webSocketService = ref.read(websocketServiceProvider);
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _webSocketService.connect(
+                userId,
+                eventId,
+              );
+            });
+
             setState(() {
               __processing_payment = true;
               _payed = false;
@@ -465,116 +419,6 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
     );
   }
 
-  void _startFetchingEventPaymentStatus() {
-    _timer = Timer.periodic(const Duration(seconds: 3), (timer) {
-      if (_isAppActive) {
-        fetchEventPaymentStatus();
-      }
-    });
-  }
-
-  Future<void> fetchEventPaymentStatus({bool useDNS = true}) async {
-    if (!_isAppActive || !__processing_payment) return;
-
-    setState(() => trials--);
-
-    if(trials <= 0){
-      setState(() {
-        trials = 15;
-        __processing_payment = false;
-      });
-    }
-
-    final Uri uri = useDNS ? Uri.parse('${backend_url}api/event/$eventId/$userId') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}api/event/$eventId/$userId'); // Use IP
-
-    try {
-      final response = await http.get(uri);
-
-      if (response.statusCode == 200) {
-        debugPrint('response.body : ${response.body}');
-        final responseData = jsonDecode(response.body);
-        final transactionDesc = responseData['transaction_description'];
-
-        if (transactionDesc == "SENDER_NOT_ENOUGH_FUND" || transactionDesc == "Please Confirm to submit the loan request") {
-          if(__processing_payment) {
-            _showSnackBar("Muamala Haujakamilika: Hauna salio la kutosha, Unaweza kuweka namba yenye salio hapo juu");
-            setState(() {
-              trials = 15;
-              __processing_payment = false;
-            });
-          }
-          return;
-        } else if (transactionDesc == "Not routed") {
-          if(__processing_payment) {
-            _showSnackBar("Malipo hayawezi kukamilika kwa M-Pesa. Tafadhali tumia namba ya mtandao tofauti ili kuendelea na malipo yako");
-            setState(() {
-              trials = 15;
-              __processing_payment = false;
-            });
-          }
-          return;
-        } else if ((transactionDesc == "Invalid PIN.") || transactionDesc.contains("wrong PIN") ) {
-          if(__processing_payment) {
-            _showSnackBar("Muamala Haujakamilika: PIN uliyoingiza sio sahihi");
-            setState(() {
-              trials = 15;
-              __processing_payment = false;
-            });
-          }
-          return;
-        } else if (transactionDesc == "User is Barred.") {
-          if(__processing_payment) {
-            _showSnackBar("Muamala Haujakamilika: Akaunti yako imezuiliwa");
-            setState(() {
-              trials = 15;
-              __processing_payment = false;
-            });
-          }
-          return;
-        }  else if (transactionDesc == "Failed in Min and Max Amount") {
-          if(__processing_payment) {
-            _showSnackBar("Muamala Haujakamilika: Failed in Min and Max Amount");
-            setState(() {
-              trials = 15;
-              __processing_payment = false;
-            });
-          }
-          return;
-        }
-
-        bool hasTicket = responseData['has_ticket'];
-
-        if(hasTicket && ((transactionDesc == "Success") || (transactionDesc == "Dear customer, your payment is successfully completed"))) {
-          setState(() {
-            _payed = true;
-            __processing_payment = false;
-          });
-        }
-      } else {
-        throw Exception('Failed to load event');
-      }
-    } on SocketException catch (e) {
-      debugPrint('Network error occurred:');
-      debugPrint('- Exception type: ${e.runtimeType}');
-      debugPrint('- Message: ${e.message}');
-      
-      if (e.osError != null) {
-        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
-        debugPrint('  - OS message: ${e.osError!.message}');
-
-        // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
-          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await fetchEventPaymentStatus(useDNS: false); // Recursive retry
-          return;
-        }
-      }
-    } catch (e) {
-      debugPrint('Error fetching event: $e');
-    }
-  }
-
   Future<void> fetchTickets({bool useDNS = true}) async {
     if (!_isAppActive) return;
 
@@ -666,9 +510,14 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
 
   @override
   void dispose() {
+    _webSocketService.dispose();
     WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     super.dispose();
+  }
+
+  void disconnectWebSocketService() {
+    _webSocketService.disconnect();
   }
 
   @override
@@ -765,10 +614,10 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
                 _buildPhoneNumberInput(),
                 const SizedBox(height: 20),
                 if (widget.event.category.toUpperCase() == "SPORTS")
-                _buildCardNumberInput(),
-                if (widget.event.category.toUpperCase() == "SPORTS")
                 const SizedBox(height: 20),
                 _buildSummaryCard(isVeryLargeScreen),
+                const SizedBox(height: 20),
+                _buildConnectionStatusSection(),
                 const SizedBox(height: 20),
                 (widget.event.userId == userId) ?
                 _buildSellButton() : _buildCheckoutButton(),
@@ -1091,186 +940,146 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
     );
   }
 
-  Widget _buildCardNumberInput() {
-    return Form(
-      key: _formKey2,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(bottom: 8),
-            child: Text(
-              'Card Number',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
+
+
+  Widget _buildConnectionStatusSection() {
+    if (!__processing_payment) {
+      return Center(
+        child: !_payed ? 
+        Text(
+          "Waiting for payment",
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
           ),
-          
-          // Card Type Selection
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.grey[200],
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey[400]!),
+        ) :
+        ElevatedButton.icon(
+          icon: Icon(
+            Icons.logout,
+          ),
+          label: Text(
+            quantity > 1 ? 'View Tickets($quantity)' : 'View Ticket($quantity)',
+            style: TextStyle(
+              fontSize: 14,
+            )
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.white,
+            foregroundColor: Colors.orange[800],
+            padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 5),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _selectedCardType, // You'll need to define this variable
-                isExpanded: true,
-                icon: const Icon(Icons.arrow_drop_down, color: Colors.black54),
-                items: const [
-                  DropdownMenuItem(
-                    value: 'Uhai Card',
-                    child: Text('Uhai Card', style: TextStyle(fontSize: 16)),
-                  ),
-                  DropdownMenuItem(
-                    value: 'NCard',
-                    child: Text('NCard', style: TextStyle(fontSize: 16)),
+            elevation: 2,
+          ),
+          onPressed: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => TicketsPage(eventId: widget.event.id),
+              ),
+            );
+          },
+        )
+      );
+    }
+
+    return Column(
+      children: [
+        const SizedBox(height: 8),
+        StreamBuilder<bool>(
+          stream: _webSocketService.connectionStatusStream,
+          builder: (context, snapshot) {
+            bool isConnected = snapshot.data ?? false;
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: isConnected 
+                          ? Colors.green.withOpacity(0.1)
+                          : Colors.red.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isConnected 
+                            ? Colors.green.withOpacity(0.3)
+                            : Colors.red.withOpacity(0.3),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Pulsing dot
+                        Container(
+                          width: 8,
+                          height: 8,
+                          margin: const EdgeInsets.only(right: 8),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isConnected ? Colors.green : Colors.red,
+                          ),
+                        ),
+                        // Status text
+                        Text(
+                          isConnected ? '✓ Connected' : '✗ Disconnected',
+                          style: TextStyle(
+                            color: isConnected ? Colors.green : Colors.red,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
-                onChanged: (String? newValue) {
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 8),
+        StreamBuilder<TransactionData>(
+          stream: _webSocketService.transactionDataStream,
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) {
+              return const Center(
+                child: Text(
+                  'Waiting for payment confirmation...',
+                  style: TextStyle(fontSize: 14),
+                ),
+              );
+            }
+
+            final transactionData = snapshot.data!;
+            if (transactionData.id > 0 && transactionData.eventId == widget.event.id) {
+              // Use a post-frame callback to update state after build
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (transactionData.hasTicket) {
                   setState(() {
-                    _selectedCardType = newValue;
-                    _cardNumberController.text = "";
+                    _payed = true;
+                    __processing_payment = false;
                   });
-                },
-              ),
-            ),
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Card Number Input
-          TextFormField(
-            controller: _cardNumberController, // You'll need to define this controller
-            decoration: InputDecoration(
-              hintText: 'Enter your card number',
-              prefixIcon: const Icon(Icons.credit_card),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey[400]!),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey[400]!),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.orange[800]!, width: 2.0),
-              ),
-              filled: true,
-              fillColor: Colors.grey[200],
-              contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-            ),
-            style: const TextStyle(fontSize: 16),
-            keyboardType: TextInputType.number,
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(19), // Standard card number length
-              CardNumberFormatter(), // You'll need to create this formatter for spacing
-            ],
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter your card number';
-              }
-              
-              // Remove any spaces for validation
-              final cleanedValue = value.replaceAll(' ', '');
-              
-              if (cleanedValue.length < 12) {
-                return 'Card number is too short';
-              }
-              
-              // Basic Luhn algorithm validation for card numbers
-              if (!_isValidLuhn(cleanedValue)) {
-                return 'Invalid card number';
-              }
-              
-              return null;
-            },
-          ),
-        ],
-      ),
+                  disconnectWebSocketService();
+                }
+              });
+            }
+            return const Text(
+              'Waiting for payment confirmation...',
+              style: TextStyle(fontSize: 16),
+            );
+          },
+        ),
+      ],
     );
   }
 
-  // Luhn algorithm validator function
-  bool _isValidLuhn(String cardNumber) {
-    // Remove any spaces or non-digit characters
-    String cleanedInput = cardNumber.replaceAll(RegExp(r'[^\d]'), '');
-    
-    if (cleanedInput.isEmpty) {
-      return false;
-    }
-    
-    int sum = 0;
-    bool shouldDouble = false;
-    
-    // Process digits from right to left
-    for (int i = cleanedInput.length - 1; i >= 0; i--) {
-      int digit = int.parse(cleanedInput[i]);
-      
-      if (shouldDouble) {
-        digit *= 2;
-        if (digit > 9) {
-          digit -= 9;
-        }
-      }
-      
-      sum += digit;
-      shouldDouble = !shouldDouble;
-    }
-    
-    return (sum % 10 == 0);
-  }
 
-  // Optional: Card type detection based on initial digits
-  String? _detectCardType(String cardNumber) {
-    // Remove any spaces or non-digit characters
-    String cleanedInput = cardNumber.replaceAll(RegExp(r'[^\d]'), '');
-    
-    if (cleanedInput.isEmpty) {
-      return null;
-    }
-    
-    // Uhai Card pattern (example: starts with 4)
-    if (cleanedInput.startsWith('4')) {
-      return 'Uhai Card';
-    }
-    
-    // NCard pattern (example: starts with 5)
-    if (cleanedInput.startsWith('5')) {
-      return 'NCard';
-    }
-    
-    return null;
-  }
 
-  // Optional: Auto-format card number method
-  String formatCardNumber(String input) {
-    // Remove all non-digit characters
-    String digitsOnly = input.replaceAll(RegExp(r'[^\d]'), '');
-    
-    if (digitsOnly.isEmpty) {
-      return '';
-    }
-    
-    StringBuffer formatted = StringBuffer();
-    
-    for (int i = 0; i < digitsOnly.length; i++) {
-      if (i > 0 && i % 4 == 0) {
-        formatted.write(' ');
-      }
-      formatted.write(digitsOnly[i]);
-      
-      // Limit to 16 digits (standard card length)
-      if (i >= 15) {
-        break;
-      }
-    }
-    
-    return formatted.toString();
-  }
+
 
   Widget _buildSummaryCard(final isLargeScreen) {
     return Card(
@@ -1431,7 +1240,7 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
           ),
         ),
         child: Text(
-          'Please wait...$trials',
+          'Please wait...',
           style: const TextStyle(
             fontSize: 16,
             color: Colors.white,
@@ -1517,5 +1326,321 @@ class _CheckoutPageState extends State<CheckoutPage> with WidgetsBindingObserver
             ),
       ),
     );
+  }
+}
+
+
+
+
+final websocketServiceProvider = Provider<WebSocketService>((ref) {
+  return WebSocketService();
+});
+
+
+
+class WebSocketService {
+  WebSocketChannel? _channel;
+  Timer? _reconnectTimer;
+  Timer? _heartbeatTimer;
+  Timer? _timeoutTimer;
+
+  bool _isDisposed = false;
+  bool _isConnected = false;
+  bool _isConnecting = false;
+  int _reconnectAttempts = 0;
+  DateTime? _lastReceivedTime;
+
+  final int maxReconnectAttempts = 1000;
+  final Duration reconnectInterval = const Duration(seconds: 2);
+  final Duration heartbeatInterval = const Duration(seconds: 15);
+  final Duration connectionTimeout = const Duration(seconds: 10);
+  final Duration pingTimeout = const Duration(seconds: 30);
+
+  int? _userId;
+  int? _eventId;
+  bool _useDNS = true;
+
+  late final StreamSubscription _connectivitySubscription;
+
+  final _connectionStatusController = StreamController<bool>.broadcast(sync: true);
+  final _transactionDataController = StreamController<TransactionData>.broadcast(sync: true);
+
+  Stream<bool> get connectionStatusStream => _connectionStatusController.stream;
+  Stream<TransactionData> get transactionDataStream => _transactionDataController.stream;
+
+  WebSocketService() {
+    _listenToConnectivity();
+  }
+
+  /// 🔌 Listen to network changes
+  void _listenToConnectivity() {
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((result) async {
+      if (_isDisposed) return;
+
+      final hasInternet = result != ConnectivityResult.none;
+      debugPrint('🌐 Connectivity changed: $result (hasInternet: $hasInternet, _isDisposed: $_isDisposed, _isConnected: $_isConnected, _isConnecting: $_isConnecting)');
+      
+      debugPrint('🌐 Internet restored → attempting reconnection');
+      _handleConnectionLost('Connectivity lost');
+    });
+  }
+
+  /// 🔗 Connect with timeout
+  Future<void> connect(
+    int userId,
+    int eventId,
+    { bool useDNS = true }
+  ) async {
+    if (_isDisposed) return;
+    
+    _userId = userId;
+    _eventId = eventId;
+    _useDNS = useDNS;
+    _isConnecting = true;
+
+    // Cancel any pending reconnection
+    _cancelReconnection();
+
+    try {
+      final uri = Uri.parse(
+        useDNS ? backend_ws_url : backend_ws_url_with_fallback_ip,
+      );
+
+      debugPrint('🔗 Connecting to: $uri');
+
+      // Set connection timeout
+      _timeoutTimer?.cancel();
+      _timeoutTimer = Timer(connectionTimeout, () {
+        if (_isConnecting) {
+          debugPrint('⏰ Connection timeout');
+          _handleConnectionLost('Connection timeout');
+        }
+      });
+
+      // Close existing socket if any
+      if(_isConnected){
+        await _closeSocket();
+      }
+
+      // Create new connection
+      _channel = WebSocketChannel.connect(uri);
+      
+      // Wait for connection with timeout
+      await _channel!.ready.timeout(connectionTimeout);
+      
+      _timeoutTimer?.cancel();
+      _isConnecting = false;
+      
+      _isConnected = true;
+      _reconnectAttempts = 0;
+      _lastReceivedTime = DateTime.now();
+      
+      debugPrint('✅ WebSocket connected successfully');
+      _connectionStatusController.add(true);
+      _cancelReconnection();
+
+      _startHeartbeat();
+
+      // Send subscription message
+      _channel!.sink.add(jsonEncode({
+        "user_id": userId,
+        "event_id": eventId,
+        "type": "subscribe",
+        "data": "transaction",
+      }));
+
+      // Listen for messages
+      _channel!.stream.listen(
+        (message) => _handleIncomingMessage(message),
+        onError: (error) {
+          debugPrint('❌ WebSocket error: $error');
+          _handleConnectionLost('WebSocket error: $error');
+        },
+        onDone: () {
+          debugPrint('🔌 WebSocket connection closed');
+          _handleConnectionLost('Connection closed by server');
+        },
+        cancelOnError: true,
+      );
+
+    } catch (e) {
+      _timeoutTimer?.cancel();
+      _isConnecting = false;
+      debugPrint('❌ Connect error: $e');
+      _handleConnectionLost('Connect error: $e');
+    }
+  }
+
+  /// ❤️ Heartbeat with timeout detection
+  void _startHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = Timer.periodic(heartbeatInterval, (_) {
+      if (!_isConnected) return;
+
+      // Check if we haven't received anything in too long
+      if (_lastReceivedTime != null && 
+        DateTime.now().difference(_lastReceivedTime!) > pingTimeout) {
+        debugPrint('⏰ No response for ${pingTimeout.inSeconds}s, assuming dead connection');
+        return;
+      }
+
+      try {
+        debugPrint('❤️ Sending ping');
+        _channel?.sink.add(jsonEncode({"type": "ping"}));
+      } catch (_) {
+        _handleConnectionLost('Heartbeat failed');
+      }
+    });
+  }
+
+  /// 📩 Incoming messages
+  void _handleIncomingMessage(dynamic message) {
+    _lastReceivedTime = DateTime.now();
+    
+    try {
+      final data = jsonDecode(message);
+      debugPrint('📥 Received: ${data['type']}');
+      
+      if (data['type'] == 'pong') {
+        debugPrint('❤️ Received pong');
+        return;
+      }
+      
+      if (data['type'] == 'transaction') {
+        _transactionDataController.add(TransactionData.fromJson(data['transaction']));
+      }
+    } catch (e) {
+      debugPrint('⚠️ Parse error: $e');
+    }
+  }
+
+  /// ❌ Connection lost handler
+  void _handleConnectionLost(String reason) {
+    if (_isDisposed) return;
+    
+    debugPrint('❌ WebSocket disconnected: $reason');
+    
+    // Don't spam the controller
+    if (_isConnected) {
+      _isConnected = false;
+      _connectionStatusController.add(false);
+    }
+    
+    _isConnecting = false;
+    _closeSocket();
+
+    debugPrint(' Date : _userId : $_userId, _eventId: $_eventId');
+    
+    _scheduleReconnection(_userId!, _eventId!);
+    debugPrint('Here hcl3');
+  
+  }
+
+
+
+void _scheduleReconnection(
+  int userId,
+  int eventId,
+  { bool immediate = false }
+) {
+  if (_isDisposed || 
+      _reconnectAttempts >= maxReconnectAttempts ||
+      _isConnecting ||
+      _isConnected) {
+    return;
+  }
+
+  _reconnectAttempts++;
+  
+  // Exponential backoff with jitter
+  final baseDelay = immediate ? 1 : _reconnectAttempts * 2;
+  final delay = Duration(seconds: baseDelay.clamp(1, 60));
+  
+  // Add some jitter to prevent thundering herd
+  final jitter = Random().nextInt(2000) - 1000; // -1000 to +1000 ms
+  final jitteredMilliseconds = delay.inMilliseconds + jitter;
+  
+  // Ensure minimum delay of 100ms
+  final finalMilliseconds = jitteredMilliseconds.clamp(100, 60000);
+  
+  debugPrint('🔁 Reconnecting in ${finalMilliseconds ~/ 1000}s (attempt $_reconnectAttempts/$maxReconnectAttempts)');
+  debugPrint('🔁 Reconnecting _isDisposed: ${_isDisposed}, _isConnected: ${_isConnected}, _isConnecting: ${_isConnecting}');
+
+  _reconnectTimer?.cancel();
+  _reconnectTimer = Timer(Duration(milliseconds: 1000), () {
+    if (!_isDisposed && !_isConnected && !_isConnecting) {
+      connect(userId, eventId, useDNS: _useDNS);
+    }
+  });
+}
+
+  /// ✋ Cancel pending reconnection
+  void _cancelReconnection() {
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
+    _timeoutTimer?.cancel();
+    _timeoutTimer = null;
+  }
+
+  /// 🔒 Close socket safely
+  Future<void> _closeSocket() async {
+    // debugPrint('Here c1');
+    _heartbeatTimer?.cancel();
+    // debugPrint('Here c2');
+    _heartbeatTimer = null;
+    // debugPrint('Here c3');
+    
+    _timeoutTimer?.cancel();
+    // debugPrint('Here c4');
+    _timeoutTimer = null;
+    // debugPrint('Here c5');
+    
+    try {
+      // debugPrint('Here c6');
+      await _channel?.sink.close(1000);
+      // debugPrint('Here c7');
+    } catch (e) {
+      // debugPrint('⚠️ Error closing socket: $e');
+    } finally {
+      _channel = null;
+    }
+  }
+
+  /// 🔄 Manual reconnect
+  Future<void> reconnect() async {
+    // debugPrint('🔄 Manual reconnect requested');
+    _cancelReconnection();
+    _reconnectAttempts = 0;
+    
+    if (_userId != null && _eventId != null) {
+      await connect(_userId!, _eventId!, useDNS: _useDNS);
+    }
+  }
+
+  /// ⛔ Manual disconnect (temporary)
+  void disconnect() {
+    debugPrint('⛔ Manual disconnecting'); 
+    _isConnected = false;
+    _isConnecting = false;
+    _cancelReconnection();
+    _closeSocket();
+    _connectionStatusController.add(false);
+  }
+
+  /// 📊 Get connection status
+  bool get isConnected => _isConnected;
+  bool get isConnecting => _isConnecting;
+  int get reconnectAttempts => _reconnectAttempts;
+
+  /// 🧹 Final cleanup
+  void dispose() {
+    debugPrint('🧹 Disposing WebSocketService');
+    _isDisposed = true;
+    disconnect();
+    _connectivitySubscription.cancel();
+    _transactionDataController.close();
+    _connectionStatusController.close();
   }
 }

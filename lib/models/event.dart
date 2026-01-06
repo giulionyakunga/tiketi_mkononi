@@ -64,11 +64,11 @@ class Event {
   final int soldTickets;
   final String status;
   final int ticketScannerId;
-  final int dstX;
-  final int dstY;
-  final int dstX2;
-  final int dstY2;
-  final int qrSize;
+  final double qrOffsetDx;
+  final double qrOffsetDy;
+  final double textOffsetDx;
+  final double textOffsetDy;
+  final double qrSize;
   final DateTime createdAt;
   final DateTime updatedAt;
   final List<TicketType> ticketTypes;
@@ -95,10 +95,10 @@ class Event {
     required this.soldTickets,
     required this.status,
     required this.ticketScannerId,
-    required this.dstX,
-    required this.dstY,
-    required this.dstX2,
-    required this.dstY2,
+    required this.qrOffsetDx,
+    required this.qrOffsetDy,
+    required this.textOffsetDx,
+    required this.textOffsetDy,
     required this.qrSize,
     required this.createdAt,
     required this.updatedAt,
@@ -108,7 +108,7 @@ class Event {
   });
 
   // Factory method to create an Event from JSON
-  factory Event.fromJson(Map<String, dynamic> json) {
+  factory Event.fromJson(Map<String, dynamic> json) {    
     return Event(
       id: json['id'] ?? 0,
       userId: json['user_id'] ?? 0,
@@ -129,11 +129,11 @@ class Event {
       soldTickets: json['ticket_count'] ?? 0,
       status: json['status'] ?? '',
       ticketScannerId: json['ticket_scanner_id'] ?? 0,
-      dstX: json['dst_x'] ?? 0,
-      dstY: json['dst_y'] ?? 0,
-      dstX2: json['dst_x2'] ?? 0,
-      dstY2: json['dst_y2'] ?? 0,
-      qrSize: json['qr_size'] ?? 0,
+      qrOffsetDx: json['qr_offset_dx'] ?? 0.1,
+      qrOffsetDy: json['qr_offset_dy'] ?? 0.1,
+      textOffsetDx: json['text_offset_dx'] ?? 0.1,
+      textOffsetDy: json['text_offset_dy'] ?? 0.1,
+      qrSize: json['qr_size'] ?? 0.1,
       createdAt: DateTime.parse(json['createdAt']),
       updatedAt: DateTime.parse(json['updatedAt']),
       ticketTypes: (json['ticket_types'] as List<dynamic>?)

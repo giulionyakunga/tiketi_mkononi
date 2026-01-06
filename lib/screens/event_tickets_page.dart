@@ -226,7 +226,7 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
       } else {
         throw Exception('Failed to load tickets');
       }
-    }on SocketException catch (e) {
+    } on SocketException catch (e) {
       debugPrint('Network error occurred:');
       debugPrint('- Exception type: ${e.runtimeType}');
       debugPrint('- Message: ${e.message}');
@@ -234,11 +234,16 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
       if (e.osError != null) {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
-          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
           await fetchTickets(useDNS: false); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
           return;
         }
       }
@@ -269,7 +274,7 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
       } else {
         throw Exception('Failed to load tickets');
       }
-    }on SocketException catch (e) {
+    } on SocketException catch (e) {
       debugPrint('Network error occurred:');
       debugPrint('- Exception type: ${e.runtimeType}');
       debugPrint('- Message: ${e.message}');
@@ -277,11 +282,16 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
       if (e.osError != null) {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
-          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
           await fetchTickets(useDNS: false); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
           return;
         }
       }
@@ -424,6 +434,34 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
     );
   }
 
+  PopupMenuItem<String> _buildMenuItem({
+    required IconData icon,
+    required String text,
+    required String value,
+  }) {
+    return PopupMenuItem<String>(
+      value: value,
+      height: 44,
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 20,
+            color: Colors.grey.shade800,
+          ),
+          const SizedBox(width: 12),
+          Text(
+            text,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMobileLayout(bool isDarkMode, bool isLargeScreen) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
@@ -452,9 +490,14 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
                   PopupMenuButton<String>(
                     padding: EdgeInsets.zero,
                     tooltip: 'More Options',
+                    elevation: 8,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     icon: Icon(
                       Icons.more_vert,
-                      color: Colors.orange[800],
+                      color: Colors.orange.shade800,
+                      size: 22,
                     ),
                     onSelected: (value) {
                       if (value == 'download') {
@@ -469,19 +512,23 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
                         });
                       }
                     },
-                    itemBuilder: (BuildContext context) => [
-                      PopupMenuItem(
+                    itemBuilder: (context) => [
+                      _buildMenuItem(
+                        icon: Icons.download_rounded,
+                        text: 'Download Excel',
                         value: 'download',
-                        child: Text('Download Excel'),
                       ),
-                      if(!kIsWeb)
-                      PopupMenuItem(
-                        value: 'share',
-                        child: Text('Share Excel'),
-                      ),
-                      PopupMenuItem(
+                      if (!kIsWeb)
+                        _buildMenuItem(
+                          icon: Icons.share_rounded,
+                          text: 'Share Excel',
+                          value: 'share',
+                        ),
+                      const PopupMenuDivider(),
+                      _buildMenuItem(
+                        icon: Icons.search_rounded,
+                        text: 'Search Ticket',
                         value: 'search',
-                        child: Text('Search Ticket'),
                       ),
                     ],
                   ),
@@ -563,33 +610,20 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
                       );
                     },
                   ),
-                  
+
                   // Collection Tab
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      children: [
-                        _buildCollectionSummaryCard(context),
-                        const SizedBox(height: 16),
-                        Expanded(
-                          child: ListView.builder(
-                            itemCount: ticketsList.length,
-                            itemBuilder: (context, index) {
-                              final ticket = ticketsList[index];
-                              return ListTile(
-                                title: Text(ticket.userName),
-                                subtitle: Text(ticket.ticketType),
-                                trailing: (widget.event.type == 'paid') ? Text(
-                                  'TSH${NumberFormat('#,##0').format(ticket.price.toInt())}',
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
-                                ) : Text(""),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
+                  SingleChildScrollView(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        children: [
+                          _buildCollectionSummaryCard(context),
+                        ],
+                      ),
                     ),
                   ),
+
+
                 ],
               ),
       ),
@@ -705,40 +739,14 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
                   const SizedBox(width: 24),
                   
                   // Collection Summary
-                  Expanded(
-                    flex: 1,
-                    child: Column(
-                      children: [
-                        _buildCollectionSummaryCard(context),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'Recent Sales',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Expanded(
-                          child: ListView.builder(
-                            itemCount: ticketsList.length,
-                            itemBuilder: (context, index) {
-                              final ticket = ticketsList[index];
-                              return Card(
-                                margin: const EdgeInsets.only(bottom: 8),
-                                child: ListTile(
-                                  title: Text(ticket.userName),
-                                  subtitle: Text(ticket.ticketType),
-                                  trailing: (widget.event.type == 'paid') ? Text(
-                                    'TSH${NumberFormat('#,##0').format(ticket.price.toInt())}',
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
-                                  ) : Text("Free"),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
+                  SingleChildScrollView(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        children: [
+                          _buildCollectionSummaryCard(context),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -1172,10 +1180,15 @@ class TicketCard extends StatelessWidget {
             ),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Stack(
+          child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.only(
+                  top: 16,
+                  left: 16,
+                  right: 16,
+                  bottom: 0,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1308,71 +1321,30 @@ class TicketCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                    
-                    // Add extra space at the bottom for the icons
-                    SizedBox(height: 24),
                   ],
                 ),
               ),
 
-              // Bottom left: Edit icon (only for ticket owner or admin)
-              if (userId == ticket.userId) // Add your admin check logic here
-                Positioned(
-                  bottom: 8,
-                  left: 8,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 4,
-                          offset: Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: IconButton(
-                      icon: Icon(Icons.edit, size: 18, color: Colors.blue),
-                      onPressed: () => _navigateToEditTicket(context),
+              Padding(
+                padding: const EdgeInsets.only(
+                  top: 0,
+                  left: 16,
+                  right: 16,
+                  bottom: 4,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.edit, size: 16, color: Colors.grey),
+                      onPressed: (userId == ticket.userId) ? () => _navigateToEditTicket(context) : null,
                       padding: EdgeInsets.all(6),
                       constraints: BoxConstraints(),
                     ),
-                  ),
-                ),
-
-              Positioned(
-                bottom: 8,
-                right: 8,
-                child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 2,
-                        offset: Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      _buildStatusTicks(),
-                      if (ticket.smsSent == true && ticket.whatsappSent == true) SizedBox(width: 4),
-                      if (ticket.smsSent == true && ticket.whatsappSent == true)
-                      Text(
-                        'Sent',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+                    _buildStatusTicks(),
+                  ],
+                )
+              )
             ],
           ),
         ),
@@ -1401,7 +1373,7 @@ class TicketCard extends StatelessWidget {
             ),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Stack(
+          child: Column(
             children: [
               Padding(
                 padding: const EdgeInsets.all(20.0),
@@ -1489,64 +1461,26 @@ class TicketCard extends StatelessWidget {
                 ),
               ),
 
-              // Bottom left: Edit icon (desktop)
-              if (userId == ticket.userId)
-              Positioned(
-                bottom: 12,
-                left: 12,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 4,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: IconButton(
-                    icon: Icon(Icons.edit, size: 20, color: Colors.blue),
-                    onPressed: () => _navigateToEditTicket(context),
-                    padding: EdgeInsets.all(8),
-                    constraints: BoxConstraints(),
-                  ),
+              Padding(
+                padding: const EdgeInsets.only(
+                  top: 0,
+                  left: 16,
+                  right: 16,
+                  bottom: 4,
                 ),
-              ),
-
-              Positioned(
-                bottom: 12,
-                right: 12,
-                child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 2,
-                        offset: Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      _buildStatusTicks(),
-                      SizedBox(width: 6),
-                      Text(
-                        'Notification Status',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey[600],
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.edit, size: 16, color: Colors.grey),
+                      onPressed: (userId == ticket.userId) ? () => _navigateToEditTicket(context) : null,
+                      padding: EdgeInsets.all(6),
+                      constraints: BoxConstraints(),
+                    ),
+                    _buildStatusTicks(),
+                  ],
+                )
+              )
             ],
           ),
         ),

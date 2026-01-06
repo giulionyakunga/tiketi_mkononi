@@ -141,6 +141,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
         street: _streetController.text.trim(),
         token: token,
         imageUrl: _selectedImage?.path,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
       );
 
       String password = _passwordController.text.trim();
@@ -451,7 +453,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
             return null;
           },
         ),
-        _buildCardNumberInput(),
         _buildTextField(
           key: _emailKey,
           controller: _emailController,
@@ -666,8 +667,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
             return null;
           },
         ),
-        const SizedBox(height: 12),
-        _buildCardNumberInput(),
         const SizedBox(height: 12),
         _buildTextField(
           key: _emailKey,
@@ -931,57 +930,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
         fontSize: 15,
       ),
       validator: validator,
-    );
-  }
-
-  Widget _buildCardNumberInput() {
-    return Form(
-      key: _formKey2,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(bottom: 8),
-            child: Text(
-              'Card Number',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-          ),
-          
-          // Card Type Selection
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.grey[200],
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey[400]!),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _selectedCardType, // You'll need to define this variable
-                isExpanded: true,
-                icon: const Icon(Icons.arrow_drop_down, color: Colors.black54),
-                items: const [
-                  DropdownMenuItem(
-                    value: 'Uhai Card',
-                    child: Text('Uhai Card', style: TextStyle(fontSize: 16)),
-                  ),
-                  DropdownMenuItem(
-                    value: 'NCard',
-                    child: Text('NCard', style: TextStyle(fontSize: 16)),
-                  ),
-                ],
-                onChanged: (String? newValue) {
-                  setState(() {
-                    _selectedCardType = newValue;
-                    _cardNumberController.text = "";
-                  });
-                },
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 

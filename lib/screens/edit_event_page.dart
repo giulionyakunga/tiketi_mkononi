@@ -68,6 +68,7 @@ class _EditEventPageState extends State<EditEventPage> {
   final _nameController = TextEditingController();
   final _venueController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _organizerPhoneNumberController = TextEditingController();
   TextEditingController _rowsController = TextEditingController(text: '0');
   TextEditingController _seatsController = TextEditingController(text: '0');
   final _scrollController = ScrollController();
@@ -115,7 +116,7 @@ class _EditEventPageState extends State<EditEventPage> {
     _nameController.text = widget.event.name;
     _venueController.text = widget.event.venue;
     _descriptionController.text = widget.event.description;
-
+    _organizerPhoneNumberController.text = widget.event.organizerPhoneNumber;
     DateFormat format = DateFormat("dd-MM-yyyy");
     _isPaidEvent = widget.event.type == 'paid';
     if(widget.event.daily_event == 'no') _selectedDate = format.parse(widget.event.date);
@@ -178,6 +179,7 @@ class _EditEventPageState extends State<EditEventPage> {
     _rowsController.dispose();
     _seatsController.dispose();
     _descriptionController.dispose();
+    _organizerPhoneNumberController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -634,6 +636,7 @@ class _EditEventPageState extends State<EditEventPage> {
     String eventName = _nameController.text.trim();
     String eventVenue = _venueController.text.trim();
     String eventDescription = _descriptionController.text.trim();
+    String organizerPhoneNumber = _organizerPhoneNumberController.text.trim();
 
     for (var ticket in _ticketTypes) {
       ticket.name = ticket.name.trim();
@@ -2028,6 +2031,68 @@ class _EditEventPageState extends State<EditEventPage> {
                   if (value.length > 1000) {
                     return 'Description must be 1000 characters or less';
                   }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _organizerPhoneNumberController,
+                maxLength: 15,
+                decoration: InputDecoration(
+                  labelText: 'Organizer\'s Phone Number',
+                  labelStyle: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 16,
+                  ),
+                  prefixIcon: Icon(
+                    Icons.phone,
+                    color: Colors.grey[600],
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                    borderSide: BorderSide(
+                      color: Colors.grey[400]!,
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                    borderSide: BorderSide(
+                      color: Colors.grey[400]!,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                    borderSide: BorderSide(
+                      color: Colors.orange[800]!,
+                      width: 2.0,
+                    ),
+                  ),
+                  filled: true,
+                  fillColor: Colors.grey[200],
+                  contentPadding: const EdgeInsets.symmetric(
+                      vertical: 16.0, horizontal: 16.0),
+                ),
+                style: const TextStyle(
+                  color: Colors.black87,
+                  fontSize: 16,
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter organizer\'s phone number';
+                  }
+
+                  final phone = value.trim();
+
+                  if (phone.length > 15) {
+                    return 'Phone number cannot exceed 15 characters';
+                  }
+
+                  final regex = RegExp(r'^(0\d{9}|255\d{9})$');
+
+                  if (!regex.hasMatch(phone)) {
+                    return 'Invalid number format. Use 0XXXXXXXXX or 255XXXXXXXXX';
+                  }
+
                   return null;
                 },
               ),

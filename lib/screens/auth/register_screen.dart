@@ -104,6 +104,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         street: user['street'],
         token: '',
         imageUrl: '',
+         createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
       );
       await _storageService.saveUserProfile(profile);
     } catch (e) {
@@ -362,10 +364,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
           labelText: 'Phone Number',
           icon: Icons.phone,
           validator: (value) {
-            if (value == null || value.isEmpty) return 'Please enter your phone number';
-            if (value.length > 15) return 'Phone number cannot exceed 15 characters';
-            final regex = RegExp(r'^\d{1,3}\d{9}$');
-            if (!regex.hasMatch(value.trim())) return 'Invalid number, Number format: 255xxxxxxxxxx';
+            if (value == null || value.trim().isEmpty) {
+              return 'Please enter your phone number';
+            }
+
+            final phone = value.trim();
+
+            if (phone.length > 15) {
+              return 'Phone number cannot exceed 15 characters';
+            }
+
+            final regex = RegExp(r'^(0\d{9}|255\d{9})$');
+
+            if (!regex.hasMatch(phone)) {
+              return 'Invalid number format. Use 0XXXXXXXXX or 255XXXXXXXXX';
+            }
+
             return null;
           },
         ),

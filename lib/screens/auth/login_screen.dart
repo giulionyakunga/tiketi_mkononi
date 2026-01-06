@@ -174,6 +174,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         street: responseData['street'],
         token: responseData['token'],
         imageUrl: responseData['email'],
+        createdAt: DateTime.parse(responseData['createdAt']),
+        updatedAt: DateTime.parse(responseData['updatedAt']),
       );
       await _storageService.saveUserProfile(profile);
     } catch (e) {

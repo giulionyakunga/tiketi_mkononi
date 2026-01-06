@@ -1,0 +1,543 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_contacts/contact.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:tiketi_mkononi/services/contact_service.dart';
+import 'package:tiketi_mkononi/services/permission_service.dart';
+
+class ContactPage extends StatefulWidget {
+  @override
+  _ContactPageState createState() => _ContactPageState();
+}
+
+class _ContactPageState extends State<ContactPage> {
+  final ContactService _contactService = ContactService();
+  final PermissionService _permissionService = PermissionService();
+  List<Contact> _contacts = [];  // Now Contact type is recognized
+  bool _isLoading = false;
+  String _errorMessage = '';
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _checkPermissionsAndLoadContacts();
+  }
+
+  Future<void> _checkPermissionsAndLoadContacts() async {
+    // First check if permission is already granted
+    final hasPermission = await _permissionService.isContactPermissionGranted();
+    
+    if (!hasPermission) {
+      // Request permission
+      final status = await _permissionService.requestContactPermission();
+      
+      if (status.isGranted) {
+        _loadContacts();
+      } else {
+        setState(() {
+          _errorMessage = 'Permission denied. Please enable contacts access in settings.';
+        });
+      }
+    } else {
+      _loadContacts();
+    }
+  }
+
+  Future<void> _loadContacts() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = '';
+    });
+
+    try {
+      final contacts = await _contactService.getAllContacts();
+      setState(() {
+        _contacts = contacts;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Failed to load contacts: ${e.toString()}';
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _addSampleContact() async {
+    final newContact = _contactService.createNewContact(
+      givenName: 'John',
+      familyName: 'Doe',
+      phoneNumber: '+1234567890',
+      email: 'john.doe@example.com',
+      company: 'Example Corp',
+      jobTitle: 'Developer',
+    );
+
+    try {
+      await _contactService.addContact(newContact);
+      _loadContacts(); // Refresh the list
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Contact added successfully')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to add contact: $e')),
+      );
+    }
+  }
+
+  Future<void> _deleteContact(Contact contact) async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Contact'),
+        content: Text('Are you sure you want to delete ${contact.displayName ?? "this contact"}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              try {
+                await _contactService.deleteContact(contact);
+                _loadContacts(); // Refresh the list
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Contact deleted')),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Failed to delete contact: $e')),
+                );
+              }
+            },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _searchContacts(String query) async {
+    if (query.isEmpty) {
+      _loadContacts();
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final contacts = await _contactService.searchContacts(query);
+      setState(() {
+        _contacts = contacts;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Failed to search contacts: ${e.toString()}';
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _viewContactDetails(Contact contact) async {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => ContactDetailsSheet(contact: contact),
+    );
+  }
+
+  Future<void> _callContact(Contact contact) async {
+    final phone = contact.phones.isNotEmpty
+    ? contact.phones.first.number
+    : null;
+
+    if (phone != null) {
+      try {
+        await _contactService.makePhoneCall(phone);
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to make call: $e')),
+        );
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No phone number available')),
+      );
+    }
+  }
+
+  Future<void> _sendMessage(Contact contact) async {
+    final phone = contact.phones.isNotEmpty
+    ? contact.phones.first.number
+    : null;
+
+    if (phone != null) {
+      try {
+        await _contactService.sendSms(phone);
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to send message: $e')),
+        );
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No phone number available')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Contacts'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: _addSampleContact,
+            tooltip: 'Add Sample Contact',
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadContacts,
+            tooltip: 'Refresh Contacts',
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Search Bar
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search contacts...',
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                ),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          _loadContacts();
+                        },
+                      )
+                    : null,
+              ),
+              onChanged: _searchContacts,
+            ),
+          ),
+          // Contact Count
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '${_contacts.length} contacts',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.secondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                if (_errorMessage.isNotEmpty)
+                  GestureDetector(
+                    onTap: _checkPermissionsAndLoadContacts,
+                    child: Text(
+                      'Fix Permission',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          // Contacts List
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _errorMessage.isNotEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                              const SizedBox(height: 16),
+                              Text(
+                                _errorMessage,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(fontSize: 16),
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: _checkPermissionsAndLoadContacts,
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : _contacts.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.contacts_outlined, size: 64, color: Colors.grey),
+                                const SizedBox(height: 16),
+                                const Text(
+                                  'No contacts found',
+                                  style: TextStyle(fontSize: 18, color: Colors.grey),
+                                ),
+                                if (_searchController.text.isNotEmpty)
+                                  TextButton(
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      _loadContacts();
+                                    },
+                                    child: const Text('Clear search'),
+                                  ),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
+                            itemCount: _contacts.length,
+                            itemBuilder: (context, index) {
+                              final contact = _contacts[index];
+                              return ContactListItem(
+                                contact: contact,
+                                onTap: () => _viewContactDetails(contact),
+                                onDelete: () => _deleteContact(contact),
+                                onCall: () => _callContact(contact),
+                                onMessage: () => _sendMessage(contact),
+                              );
+                            },
+                          ),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _addSampleContact,
+        child: const Icon(Icons.person_add),
+        tooltip: 'Add Contact',
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+}
+
+// Contact List Item Widget
+class ContactListItem extends StatelessWidget {
+  final Contact contact;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
+  final VoidCallback onCall;
+  final VoidCallback onMessage;
+
+  const ContactListItem({
+    Key? key,
+    required this.contact,
+    required this.onTap,
+    required this.onDelete,
+    required this.onCall,
+    required this.onMessage,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPhone = contact.phones?.isNotEmpty ?? false;
+    
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: Theme.of(context).primaryColor,
+          child: Text(
+            '',
+            style: const TextStyle(color: Colors.white),
+          ),
+        ),
+        title: Text(
+          contact.displayName ?? 'Unknown',
+          style: const TextStyle(fontWeight: FontWeight.w500),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              contact.phones.isNotEmpty
+                  ? contact.phones.first.number
+                  : 'No number',
+            ),
+            Text(
+              contact.emails.isNotEmpty
+                  ? contact.emails.first.address
+                  : '',
+              style: const TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (hasPhone)
+              IconButton(
+                icon: const Icon(Icons.call),
+                onPressed: onCall,
+                tooltip: 'Call',
+                color: Colors.green,
+              ),
+            if (hasPhone)
+              IconButton(
+                icon: const Icon(Icons.message),
+                onPressed: onMessage,
+                tooltip: 'Message',
+                color: Colors.blue,
+              ),
+            IconButton(
+              icon: const Icon(Icons.delete, color: Colors.red),
+              onPressed: onDelete,
+              tooltip: 'Delete',
+            ),
+          ],
+        ),
+        onTap: onTap,
+      ),
+    );
+  }
+}
+
+// Contact Details Bottom Sheet
+class ContactDetailsSheet extends StatelessWidget {
+  final Contact contact;
+
+  const ContactDetailsSheet({Key? key, required this.contact}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: CircleAvatar(
+              radius: 40,
+              backgroundColor: Theme.of(context).primaryColor,
+              child: Text(
+                '',
+                style: const TextStyle(fontSize: 24, color: Colors.white),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Center(
+            child: Text(
+              contact.displayName,
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+          ),
+          const Divider(height: 32),
+          if (contact.phones.isNotEmpty) ...[
+            const Text(
+              'Phone Numbers',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            ...contact.phones.map((phone) => ListTile(
+                  leading: const Icon(Icons.phone),
+                  title: Text(phone.number ?? ''),
+                  subtitle: Text(phone.number),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.call, color: Colors.green),
+                        onPressed: () async {
+                          if (phone.number != null) {
+                            final contactService = ContactService();
+                            try {
+                              await contactService.makePhoneCall(phone.number);
+                            } catch (e) {
+                              // Handle error
+                            }
+                          }
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.message, color: Colors.blue),
+                        onPressed: () async {
+                          if (phone.number != null) {
+                            final contactService = ContactService();
+                            try {
+                              await contactService.sendSms(phone.number);
+                            } catch (e) {
+                              // Handle error
+                            }
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                )),
+            const SizedBox(height: 16),
+          ],
+          if (contact.emails?.isNotEmpty ?? false) ...[
+            const Text(
+              'Email Addresses',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            ...contact.emails!.map((email) => ListTile(
+                  leading: const Icon(Icons.email),
+                  title: Text(email.address ?? ''),
+                  subtitle: Text(email.address ?? 'Other'),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.send, color: Colors.blue),
+                    onPressed: () async {
+                      if (email.address != null) {
+                        final contactService = ContactService();
+                        try {
+                          await contactService.sendEmail(email.address);
+                        } catch (e) {
+                          // Handle error
+                        }
+                      }
+                    },
+                  ),
+                )),
+          ],
+          const SizedBox(height: 16),
+          if (contact.phones?.isEmpty ?? true) ...[
+            const Text(
+              'No contact information available',
+              style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+            ),
+          ],
+          const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
+}

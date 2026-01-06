@@ -77,6 +77,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   @override
   void dispose() {
     _timer?.cancel();
+    _timer = null;
     _searchController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();

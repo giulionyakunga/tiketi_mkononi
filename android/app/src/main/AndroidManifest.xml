@@ -1,6 +1,8 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.telabs.tiketimkononi">
+    <uses-permission android:name="android.permission.INTERNET"/>
+
     <application
-        android:label="tiketi_mkononi"
+        android:label="Tiketi Mkononi"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

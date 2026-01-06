@@ -189,7 +189,7 @@ class _EventsPageState extends State<EventsPage> {
       } else {
         _pagingController.error = 'Failed to load events';
       }
-    }  on SocketException catch (e) {
+    } on SocketException catch (e) {
       debugPrint('Network error occurred:');
       debugPrint('- Exception type: ${e.runtimeType}');
       debugPrint('- Message: ${e.message}');
@@ -197,11 +197,17 @@ class _EventsPageState extends State<EventsPage> {
       if (e.osError != null) {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
-          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
           await _fetchPage(pageKey, useDNS: false); // Recursive retry
+
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
           return;
         }
       }
@@ -402,172 +408,166 @@ class _EventsPageState extends State<EventsPage> {
           ),
           if (!isLargeScreen)
           PopupMenuButton<String>(
-  // Use child instead of icon - remove the icon parameter
-  child: Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(8),
-      color: Colors.orange.withOpacity(_selectedCategory != null ? 0.15 : 0.1),
-      border: Border.all(
-        color: Colors.orange.withOpacity(0.2),
-        width: 1,
-      ),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          Icons.filter_list_rounded,
-          color: Colors.orange[800],
-          size: 20,
-        ),
-        if (_selectedCategory != null) ...[
-          const SizedBox(width: 6),
-          Text(
-            _selectedCategory!,
-            style: TextStyle(
-              color: Colors.orange[800],
-              fontWeight: FontWeight.w500,
-              fontSize: 14,
-            ),
-          ),
-        ],
-      ],
-    ),
-  ),
-  
-  // Menu styling
-  elevation: 4,
-  shadowColor: Colors.black.withOpacity(0.15),
-  shape: RoundedRectangleBorder(
-    borderRadius: BorderRadius.circular(12),
-    side: BorderSide(
-      color: Theme.of(context).dividerColor.withOpacity(0.1),
-      width: 1,
-    ),
-  ),
-  surfaceTintColor: Theme.of(context).colorScheme.surface,
-  
-  tooltip: 'Filter categories',
-  
-  onSelected: (String category) {
-    setState(() {
-      _selectedCategory = category == 'All' ? null : category;
-    });
-    _pagingController.itemList = _filterEvents(fetchedEvents);
-  },
-  
-  itemBuilder: (BuildContext context) {
-    final List<PopupMenuEntry<String>> menuItems = [];
-    
-    // Optional: Add a header
-    menuItems.add(
-      PopupMenuItem<String>(
-        enabled: false,
-        height: 40,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Text(
-          'Filter by',
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.5,
-          ),
-        ),
-      ),
-    );
-    
-    menuItems.add(const PopupMenuDivider(height: 4));
-    
-    for (int i = 0; i < _categories.length; i++) {
-      final category = _categories[i];
-      final bool isSelected = category == _selectedCategory || 
-        (category == 'All' && _selectedCategory == null);
-      
-      // Category item
-      menuItems.add(
-        PopupMenuItem<String>(
-          value: category,
-          height: 40,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Category text with icon
-              Row(
-                children: [
-                  if (category == 'All')
-                    Icon(Icons.all_inclusive_rounded, 
-                      size: 18, 
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                    )
-                  else if (category == 'Sports')
-                    Icon(Icons.sports_soccer_rounded, 
-                      size: 18, 
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                    )
-                  else if (category == 'Music')
-                    Icon(Icons.music_note_rounded, 
-                      size: 18, 
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                    )
-                  else if (category == 'Business')
-                    Icon(Icons.business_rounded, 
-                      size: 18, 
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                    )
-                  else if (category == 'Technology')
-                    Icon(Icons.computer_rounded, 
-                      size: 18, 
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                    ),
-                  if (category != 'All') const SizedBox(width: 12),
-                  Text(
-                    category,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                      color: isSelected 
-                          ? Theme.of(context).colorScheme.primary 
-                          : Theme.of(context).colorScheme.onSurface.withOpacity(0.9),
-                    ),
-                  ),
-                ],
-              ),
-              
-              // Checkmark with fade animation
-              AnimatedOpacity(
-                opacity: isSelected ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 200),
-                child: Icon(
-                  Icons.check_rounded,
-                  color: Theme.of(context).colorScheme.primary,
-                  size: 20,
+            // Use child instead of icon - remove the icon parameter
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                color: Colors.orange.withOpacity(_selectedCategory != null ? 0.15 : 0.1),
+                border: Border.all(
+                  color: Colors.orange.withOpacity(0.2),
+                  width: 1,
                 ),
               ),
-            ],
-          ),
-        ),
-      );
-      
-      // Add divider (except after the last item)
-      if (i < _categories.length - 1) {
-        menuItems.add(
-          const PopupMenuDivider(
-            height: 8,
-          ),
-        );
-      }
-    }
-    
-    return menuItems;
-  },
-  
-  // Better positioning
-  offset: const Offset(0, 8),
-)
-
-
-
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.filter_list_rounded,
+                    color: Colors.orange[800],
+                    size: 20,
+                  ),
+                  if (_selectedCategory != null) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      _selectedCategory!,
+                      style: TextStyle(
+                        color: Colors.orange[800],
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            
+            // Menu styling
+            elevation: 4,
+            shadowColor: Colors.black.withOpacity(0.15),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: Theme.of(context).dividerColor.withOpacity(0.1),
+                width: 1,
+              ),
+            ),
+            surfaceTintColor: Theme.of(context).colorScheme.surface,
+            
+            tooltip: 'Filter categories',
+            
+            onSelected: (String category) {
+              setState(() {
+                _selectedCategory = category == 'All' ? null : category;
+              });
+              _pagingController.itemList = _filterEvents(fetchedEvents);
+            },
+            
+            itemBuilder: (BuildContext context) {
+              final List<PopupMenuEntry<String>> menuItems = [];
+              
+              // Optional: Add a header
+              menuItems.add(
+                PopupMenuItem<String>(
+                  enabled: false,
+                  height: 40,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    'Filter by',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: Colors.black,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+              );
+              
+              menuItems.add(const PopupMenuDivider(height: 4));
+              
+              for (int i = 0; i < _categories.length; i++) {
+                final category = _categories[i];
+                final bool isSelected = category == _selectedCategory || (category == 'All' && _selectedCategory == null);
+                
+                // Category item
+                menuItems.add(
+                  PopupMenuItem<String>(
+                    value: category,
+                    height: 40,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Category text with icon
+                        Row(
+                          children: [
+                            if (category == 'All')
+                              Icon(Icons.all_inclusive_rounded, 
+                                size: 18, 
+                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                              )
+                            else if (category == 'Sports')
+                              Icon(Icons.sports_soccer_rounded, 
+                                size: 18, 
+                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                              )
+                            else if (category == 'Concerts')
+                              Icon(Icons.music_note_rounded, 
+                                size: 18, 
+                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                              )
+                            else if (category == 'Wedding')
+                              Icon(Icons.favorite,
+                                size: 18, 
+                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                              )
+                            else if (category == 'Technology')
+                              Icon(Icons.computer_rounded, 
+                                size: 18, 
+                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                              ),
+                            if (category != 'All') const SizedBox(width: 12),
+                            Text(
+                              category,
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                color: isSelected ? Colors.orange[800] : Colors.black,
+                              ),
+                            ),
+                          ],
+                        ),
+                        
+                        // Checkmark with fade animation
+                        AnimatedOpacity(
+                          opacity: isSelected ? 1.0 : 0.0,
+                          duration: const Duration(milliseconds: 200),
+                          child: Icon(
+                            Icons.check_rounded,
+                            color: Colors.orange[800],
+                            size: 20,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+                
+                // Add divider (except after the last item)
+                if (i < _categories.length - 1) {
+                  menuItems.add(
+                    const PopupMenuDivider(
+                      height: 8,
+                    ),
+                  );
+                }
+              }
+              
+              return menuItems;
+            },
+            
+            // Better positioning
+            offset: const Offset(0, 8),
+          )
 
         ],
       ),

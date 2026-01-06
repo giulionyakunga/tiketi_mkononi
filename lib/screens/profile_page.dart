@@ -8,7 +8,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:tiketi_mkononi/screens/app_info_updates_page.dart';
 import 'package:tiketi_mkononi/screens/apply_to_be_organizer_page.dart';
+// import 'package:tiketi_mkononi/screens/contact_page.dart';
 import 'package:tiketi_mkononi/screens/edit_profile_page.dart';
+import 'package:tiketi_mkononi/screens/event_organizers_page.dart';
 import 'package:tiketi_mkononi/screens/favorite_events_page.dart';
 import 'package:tiketi_mkononi/screens/help_support_page.dart';
 import 'package:tiketi_mkononi/screens/language_settings_page.dart';
@@ -17,6 +19,7 @@ import 'package:tiketi_mkononi/screens/organizer_requests_page.dart';
 import 'package:tiketi_mkononi/screens/privacy_security_page.dart';
 import 'package:tiketi_mkononi/screens/purchase_history_page.dart';
 import 'package:tiketi_mkononi/screens/qr_scanner_page.dart';
+import 'package:tiketi_mkononi/screens/system_users_page.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
 import 'package:http/http.dart' as http;
 
@@ -603,6 +606,57 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
             );
           },
         ),
+
+        if(role == "admin")
+        _buildActionTile(
+          context,
+          icon: Icons.remove_red_eye,
+          iconColor: Colors.orange[800]!,
+          title: 'Event Organizers',
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => EventOrganizersPage(userId: userId),
+              ),
+            );
+          },
+        ),
+
+        if(role == "admin")
+        _buildActionTile(
+          context,
+          icon: Icons.remove_red_eye,
+          iconColor:Colors.orange[800]!,
+          title: 'System Users',
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => SystemUsersPage(userId: userId),
+              ),
+            );
+          },
+        ),
+
+        // if(role == "admin")
+        // _buildActionTile(
+        //   context,
+        //   icon: Icons.remove_red_eye,
+        //   iconColor:Colors.orange[800]!,
+        //   title: 'Contacts',
+        //   onTap: () {
+        //     Navigator.pop(context);
+        //     Navigator.push(
+        //       context,
+        //       MaterialPageRoute(
+        //         builder: (context) => ContactPage(),
+        //       ),
+        //     );
+        //   },
+        // ),
         
         const SizedBox(height: 8),
       ],

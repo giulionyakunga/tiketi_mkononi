@@ -127,10 +127,10 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
 
   Future<void> _savePrefs() async {
     final p = await SharedPreferences.getInstance();
-    await p.setDouble('qrX', (widget.event.dstX).toDouble());
-    await p.setDouble('qrY', (widget.event.dstY).toDouble());
-    await p.setDouble('txtX', (widget.event.dstX2).toDouble());
-    await p.setDouble('txtY', (widget.event.dstY2).toDouble());
+    await p.setDouble('qrOffsetDx', (widget.event.qrOffsetDx).toDouble());
+    await p.setDouble('qrOffsetDy', (widget.event.qrOffsetDy).toDouble());
+    await p.setDouble('textOffsetDx', (widget.event.textOffsetDx).toDouble());
+    await p.setDouble('textOffsetDy', (widget.event.textOffsetDy).toDouble());
     await p.setDouble('qrSize', (widget.event.qrSize).toDouble());
   }
 
@@ -342,6 +342,12 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
     }
   }
 
+  Future<void> _launchUrl(String url) async {
+    final Uri uri = Uri.parse(url);
+    if (!await launchUrl(uri)) {
+      throw Exception('Could not launch $url');
+    }
+  }
 
   Widget _buildEventDetailsCard(Event event, BuildContext context) {
     return 
@@ -356,6 +362,39 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
             (event.daily_event == 'yes') ? Text('📅 Everyday') : Text('📅 ${_formatDate(event.date)}'),
             (event.time.contains(":")) ? Text('⏰ ${event.time}') : Text('⏰ Everytime'),
             Text('📍 ${event.venue}'),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => _launchUrl(event.locationLink),                  
+              style: TextButton.styleFrom(
+                alignment: Alignment.centerLeft,
+                padding: EdgeInsets.zero,  // Removed vertical padding
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: RichText(
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: 'Location ',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold
+                      ),
+                    ),
+                    TextSpan(
+                      text: 'link ->',
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: Colors.blue,
+                        fontWeight: FontWeight.normal
+                      ),
+                    ),
+                  ]
+                )
+              ),
+            ),
+            
             const SizedBox(height: 16),
             const Text(
               'Event Details',
@@ -898,7 +937,6 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                     },
                                   ),
                                 ),
-                                const SizedBox(height: 8),
                                 if((userId == event.userId) && (event.status == "active"))
                                 Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -922,16 +960,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                             ),
                                           );
                                         } else {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (context) => TheaterConfirmPage(
-                                                event: event,
-                                                theaterName: 'Confirm',
-                                                refreshMethod: fetchEvent,
-                                              ),
-                                            ),
-                                          );
+                                          goToConfirmPage(event);
                                         }
                                       } else {
                                         if(event.type == 'paid') {
@@ -948,7 +977,6 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                     ),
                                   ),
                                 ),
-                                const SizedBox(height: 8),
                                 if (userId == event.userId)
                                 Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -975,7 +1003,6 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                     ),
                                   ),
                                 ),
-                                const SizedBox(height: 8),
                                 Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 8),
                                   child: TextButton(
@@ -999,7 +1026,6 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                     ),
                                   ),
                                 ),
-                                const SizedBox(height: 8),
                                 if ((userId == event.userId) || ((userId != 0) && (userId == event.ticketScannerId)))
                                 Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -1027,7 +1053,30 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                     ),
                                   ),
                                 ),
-                                const SizedBox(height: 8),
+                                if ((userId == event.userId) && (event.category.toUpperCase() == "WEDDING"))
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  child: TextButton(
+                                    style: TextButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      minimumSize: Size.zero,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => GenerateCardsPage(event: event),
+                                        ),
+                                      );
+                                    },
+                                    child: const Icon(
+                                      Icons.assignment,
+                                      size: 18,
+                                      color: Colors.pink
+                                    ),
+                                  ),
+                                ),
                                 Padding(
                                   padding: const EdgeInsets.only(left: 12),
                                   child: TextButton(
@@ -1174,7 +1223,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                             },
                           ),
                         ),
-                        if((userId == event.userId) && (event.category.toUpperCase() == "THEATER") && (event.status == "active"))
+                        if((userId == event.userId) && (event.status == "active"))
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                           child: TextButton(
@@ -1196,16 +1245,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                   ),
                                 );
                               } else {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => TheaterConfirmPage(
-                                      event: event,
-                                      theaterName: 'Confirm',
-                                      refreshMethod: fetchEvent,
-                                    ),
-                                  ),
-                                );
+                                goToConfirmPage(event);
                               }
                             },
                             child: const Icon(
@@ -1291,7 +1331,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                             ),
                           ),
                         ),
-                        if (userId == event.userId)
+                        if ((userId == event.userId) && (event.category.toUpperCase() == "WEDDING"))
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                           child: TextButton(
