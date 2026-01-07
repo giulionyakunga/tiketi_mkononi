@@ -27,7 +27,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
       try {
         final Uri uri = useDNS ? Uri.parse('${backend_url}api/forgot_password') // Original URL
-        : Uri.parse('${backend_url_with_fallback_ip}api/forgot_password'); // Use IP 
+        : Uri.parse('${backend_url_with_fallback_ip}forgot_password'); // Use IP 
 
         final response = await http.post(
           uri,
@@ -61,15 +61,16 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         if (e.osError != null) {
           debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
           debugPrint('  - OS message: ${e.osError!.message}');
+          debugPrint('  - errorCode: ${e.osError!.errorCode}');
+          debugPrint('  - useDNS: ${useDNS}');
 
           // Retry with IP if DNS fails (errno = 7) and not already retrying
-          if (e.osError!.errorCode == 7 && useDNS) {
-            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-            await _submitResetRequest(useDNS: false); // Recursive retry
+          if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+            debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
+            _submitResetRequest(useDNS: false); // Recursive retry
             return;
           }
         }
-
         _handleSocketException(e);
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(

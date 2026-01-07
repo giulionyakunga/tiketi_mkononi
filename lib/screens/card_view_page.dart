@@ -115,10 +115,10 @@ class _CardViewPageState extends State<CardViewPage> {
       setState(() => _isLoading = true);
 
       final Uri uri = useDNS ? Uri.parse('${backend_url}api/event_card_info') : 
-      Uri.parse('${backend_url_with_fallback_ip}api/event_card_info'); // Use IP 
+      Uri.parse('${backend_url_with_fallback_ip}event_card_info'); // Use IP 
       final response = await http.post( 
         uri, 
-        headers: {'Content-Type': 'application/json'}, 
+        headers: {'Content-Type': 'application/json'},
         body: jsonEncode(requestBody), 
       ); 
       
@@ -135,9 +135,48 @@ class _CardViewPageState extends State<CardViewPage> {
           _showSnackBar('Request failed: ${response.statusCode}'); 
         } 
       } 
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
+          await _savePrefs(useDNS: false); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
+          return;
+        }
+      }
+      _handleSocketException(e);
     } finally { 
       setState(() => _isLoading = false); 
     } 
+  }
+
+  void _handleSocketException(SocketException e) {
+    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 101 || e.osError?.errorCode == 111) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Connection Error'),
+          content: const Text('Could not connect to the server. Please check your internet connection.'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      );
+    } else {
+      _showSnackBar('Connection Error: ${e.message}');
+    }
   }
 
   void _showSnackBar(String message) {

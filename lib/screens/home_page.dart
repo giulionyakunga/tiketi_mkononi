@@ -88,6 +88,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     setState(() {
       _isAppActive = state == AppLifecycleState.resumed;
     });
+    debugPrint(" AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA state : $state");
   }
 
   Future<void> _loadCachedEvents() async {
@@ -106,19 +107,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (!_isAppActive) return;
 
     try {
-      if(useDNS) {
-        debugPrint('Using dns >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>');
-      }else {
-        debugPrint('retrying without dns >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>');
-      }
       final Uri uri = useDNS ? Uri.parse('${backend_url}api/events/$userId') // Original URL
       : Uri.parse('${backend_url_with_fallback_ip}events/$userId'); // Use IP
-    
-      debugPrint('here it the uri: ${uri} >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>');
-        
+            
       final response = await http.get(uri);
-
-      debugPrint('response.statusCode: ${response.statusCode} >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>');
 
       if (response.statusCode == 200) {
         List<dynamic> dataList = jsonDecode(response.body);
@@ -238,6 +230,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       setState(() {
         _isNewVerionAvailable = true;
       });
+      showNewUpdateAvailableDialog();
     }
   }
 
@@ -259,6 +252,29 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (!await launchUrl(storeUrl, mode: LaunchMode.externalApplication)) {
       throw Exception("Could not launch $storeUrl");
     }
+  }
+
+  void showNewUpdateAvailableDialog() {
+     showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text("Update Available"),
+          content: const Text("A new version of the app is available. Please update to enjoy the latest features."),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Later"),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _launchStore();
+              },
+              child: const Text("Update Now"),
+            ),
+          ],
+        ),
+      );
   }
 
   @override
@@ -300,28 +316,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           IconButton(
             icon: const Icon(Icons.system_update_rounded),
             color: Colors.blue,
-            onPressed: () => 
-            // New update available
-            showDialog(
-              context: context,
-              builder: (context) => AlertDialog(
-                title: const Text("Update Available"),
-                content: const Text("A new version of the app is available. Please update to enjoy the latest features."),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text("Later"),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _launchStore();
-                    },
-                    child: const Text("Update Now"),
-                  ),
-                ],
-              ),
-            ),
+            onPressed: () => showNewUpdateAvailableDialog(),
           ),
           if(kIsWeb && isAndroidWeb())
           IconButton(

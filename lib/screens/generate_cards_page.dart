@@ -12,6 +12,7 @@ import 'package:mime/mime.dart';
 import 'package:path/path.dart' as path;
 import 'package:tiketi_mkononi/models/event.dart';
 import 'package:tiketi_mkononi/screens/card_view_page.dart';
+import 'package:tiketi_mkononi/screens/event_tickets_page.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:open_filex/open_filex.dart';
@@ -1022,6 +1023,32 @@ Widget _buildFeatureChip(IconData icon, String label) {
                 );
               },
             ),
+            ElevatedButton.icon(
+              icon: Icon(
+                Icons.logout,
+              ),
+              label: Text('Tickets(${widget.event.soldTickets})', style: TextStyle(
+                fontSize: 14,
+              )
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.orange[800],
+                padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 5),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                elevation: 2,
+              ),
+              onPressed: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => EventTicketsPage(event: widget.event),
+                  ),
+                );
+              },
+            ),
           ],
           bottom: TabBar(
             tabs: [
@@ -1059,6 +1086,32 @@ Widget _buildFeatureChip(IconData icon, String label) {
                 context,
                 MaterialPageRoute(
                   builder: (context) => CardViewPage(event: widget.event),
+                ),
+              );
+            },
+          ),
+          ElevatedButton.icon(
+            icon: Icon(
+              Icons.logout,
+            ),
+            label: Text('Tickets(${widget.event.soldTickets})', style: TextStyle(
+              fontSize: 14,
+            )
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.orange[800],
+              padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 5),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              elevation: 2,
+            ),
+            onPressed: () {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => EventTicketsPage(event: widget.event),
                 ),
               );
             },

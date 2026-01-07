@@ -21,9 +21,9 @@ class _QRScannerPageState extends State<QRScannerPage> {
   bool _isScanning = true;
   bool _isCheckingTicketsByCode = false;
   bool _isLoading = false;
+  bool _isScanningTickets = true;
   final TextEditingController _eventIdController = TextEditingController();
   final TextEditingController _ticketCodeController = TextEditingController();
-  final FocusNode _eventIdFocusNode = FocusNode();
   int scannnedToday = 0;
   DateTime _selectedDate = DateTime.now();
   final AudioPlayer _audioPlayer = AudioPlayer();
@@ -40,7 +40,6 @@ class _QRScannerPageState extends State<QRScannerPage> {
     cameraController.dispose();
     _eventIdController.dispose();
     _ticketCodeController.dispose();
-    _eventIdFocusNode.dispose();
     super.dispose();
   }
 
@@ -295,7 +294,132 @@ class _QRScannerPageState extends State<QRScannerPage> {
     }
   }
 
-  
+  Future<void> _onDetect2(BarcodeCapture capture, {bool useDNS = true}) async {
+    if (!_isScanning || _isLoading) return;
+    
+    final List<Barcode> barcodes = capture.barcodes;
+    
+    for (final barcode in barcodes) {
+      if (barcode.rawValue == null) return;
+      
+      setState(() {
+        _isScanning = false;
+        _isLoading = true;
+      });
+      
+      try {
+
+        // Include event ID if provided
+        if (_eventIdController.text.isEmpty) {
+          _showErrorSnackbar(context, 
+            'Please enter event ID'
+          );
+          return;
+        }
+
+        String eventId = _eventIdController.text;
+        int event_id = jsonDecode(barcode.rawValue!)['event_id'];
+        String event_date = jsonDecode(barcode.rawValue!)['date'];
+        
+        if (int.tryParse(eventId) != event_id) {
+          _showCustomDialog(context, "Invalid Ticket!");
+          return;
+        }
+
+        if(!isSameDay(event_date)) {
+          String event_time = jsonDecode(barcode.rawValue!)['time'];
+          String message = "Wrong Day Ticket!";
+          _showCustomDialog(context, message, ticketDate: '${formatDateTime(event_date)} - $event_time');
+          return;
+        }
+
+        String url =  useDNS ? '${backend_url}api/mark_as_left/${widget.userId}' : '${backend_url_with_fallback_ip}api/mark_as_left/${widget.userId}';
+        url += '?event_id=${_eventIdController.text}';
+
+        final response = await http.post(
+          Uri.parse(url),
+          headers: {'Content-Type': 'application/json'},
+          body: barcode.rawValue,
+        );
+
+        if (response.statusCode == 200) {
+          final responseData = jsonDecode(response.body);
+          String message = responseData['message'];
+
+          if (message.trim() == "Marked As Left!") {
+            String ticketType = responseData['ticket_type'];
+            int scanTimes = responseData['scan_times'];
+            int maxScanTimes = responseData['max_scan_times'];
+
+            _showCustomDialog2(context, message, ticketType: ticketType, scanTimes: scanTimes, maxScanTimes: maxScanTimes); 
+          } else if (message.trim() == "Ticket Not Scanned!") {
+            String scannedAt = "N/A";
+            if((responseData['scanned_at']) != null){
+              debugPrint('Formatted Date (debug): $scannedAt'); // For Flutter debug output
+              scannedAt = responseData['scanned_at'];
+            }
+
+            _showCustomDialog2(context, message, scannedAt:scannedAt);
+          } else {
+            _showCustomDialog(context, message);
+          }
+
+        } else if (response.statusCode == 302) {
+          _handleHTTPRedirect();
+        } else {
+          if((response.body.contains("Unexpected token")) || (response.body.contains("Unexpected character"))) {
+            _showCustomDialog(context, "Invalid Ticket!");
+          } else {
+            _showErrorSnackbar(context, 'Request failed with status: ${response.statusCode}');
+          }
+        }
+      } on SocketException catch (e) {
+        debugPrint('Network error occurred:');
+        debugPrint('- Exception type: ${e.runtimeType}');
+        debugPrint('- Message: ${e.message}');
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+
+        bool showSocketException = true;
+        
+        if (e.osError != null) {
+          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+          debugPrint('  - OS message: ${e.osError!.message}');
+          debugPrint('  - errorCode: ${e.osError!.errorCode}');
+          debugPrint('  - useDNS: ${useDNS}');
+
+          // Retry with IP if DNS fails (errno = 7) and not already retrying
+          if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+            debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
+            await _onDetect2(capture, useDNS: false); // Recursive retry
+
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('use_dns', false);
+            return;
+          }
+        }
+
+        Future.delayed(const Duration(seconds: 10), () {
+          if (mounted) setState(() => _isScanning = true);
+        });
+        if(showSocketException) _handleSocketException(e);
+      } catch (e) {
+        debugPrint('An error occurred: ${e.toString()}');
+
+        if((e.toString().contains("Unexpected token")) || (e.toString().contains("Unexpected character"))) {
+          _showCustomDialog(context, "Invalid Ticket!");
+        } else {
+          _showErrorSnackbar(context, 'An error occurred: ${e.toString()}');
+        }
+
+      } finally {
+        setState(() => _isLoading = false);
+        // Future.delayed(const Duration(seconds: 10), () {
+        //   if (mounted) setState(() => _isScanning = true);
+        // });
+      }
+    }
+  }
+
   Future<void> _checkTicketsByCode({bool useDNS = true}) async {
     if (_isLoading) return;
   
@@ -414,6 +538,112 @@ class _QRScannerPageState extends State<QRScannerPage> {
       }
   }
 
+  Future<void> _markAsLeftByCode({bool useDNS = true}) async {
+    if (_isLoading) return;
+  
+      setState(() {
+        _isLoading = true;
+      });
+      
+      try {
+
+        // Include event ID if provided
+        if (_eventIdController.text.isEmpty) {
+          _showErrorSnackbar(context, 
+            'Please enter ticket code'
+          );
+          return;
+        }
+
+        final Map<String, dynamic> requestBody = {
+          'user_id': widget.userId,
+          'event_id': widget.eventId,
+          'ticket_code': _ticketCodeController.text.trim(),
+        };
+
+        String url =  useDNS ? '${backend_url}api/mark_as_left_by_code' : '${backend_url_with_fallback_ip}api/check_ticket_by_code';
+        url += '?event_id=${_eventIdController.text}';
+
+        final response = await http.post(
+          Uri.parse(url),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(requestBody),
+        );
+
+        if (response.statusCode == 200) {
+          final responseData = jsonDecode(response.body);
+          String message = responseData['message'];
+
+          if (message.trim() == "Marked As Left!") {
+            String ticketType = responseData['ticket_type'];
+            int scanTimes = responseData['scan_times'];
+            int maxScanTimes = responseData['max_scan_times'];                        
+
+            _showCustomDialog2(context, message, ticketType: ticketType, scanTimes: scanTimes, maxScanTimes: maxScanTimes); 
+          } else if (message.trim() == "Ticket Not Scanned!") {
+            String scannedAt = "N/A";
+            if((responseData['scanned_at']) != null){
+              debugPrint('Formatted Date (debug): $scannedAt'); // For Flutter debug output
+              scannedAt = responseData['scanned_at'];
+            }
+
+            _showCustomDialog(context, message, scannedAt:scannedAt);
+          } else {
+            _showCustomDialog2(context, message);
+          }
+
+        } else if (response.statusCode == 302) {
+          _handleHTTPRedirect();
+        } else {
+          if((response.body.contains("Unexpected token")) || (response.body.contains("Unexpected character"))) {
+            _showCustomDialog(context, "Invalid Ticket!");
+          } else {
+            _showErrorSnackbar(context, 'Request failed with status: ${response.statusCode}');
+          }
+        }
+      } on SocketException catch (e) {
+        debugPrint('Network error occurred:');
+        debugPrint('- Exception type: ${e.runtimeType}');
+        debugPrint('- Message: ${e.message}');
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+
+        bool showSocketException = true;
+        
+        if (e.osError != null) {
+          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+          debugPrint('  - OS message: ${e.osError!.message}');
+          debugPrint('  - errorCode: ${e.osError!.errorCode}');
+          debugPrint('  - useDNS: ${useDNS}');
+
+          // Retry with IP if DNS fails (errno = 7) and not already retrying
+          if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+            debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
+            await _checkTicketsByCode(useDNS: false); // Recursive retry
+
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('use_dns', false);
+            return;
+          }
+        }
+
+        Future.delayed(const Duration(seconds: 10), () {
+          if (mounted) setState(() => _isScanning = true);
+        });
+        if(showSocketException) _handleSocketException(e);
+      } catch (e) {
+        debugPrint('An error occurred: ${e.toString()}');
+
+        if((e.toString().contains("Unexpected token")) || (e.toString().contains("Unexpected character"))) {
+          _showCustomDialog(context, "Invalid Ticket!");
+        } else {
+          _showErrorSnackbar(context, 'An error occurred: ${e.toString()}');
+        }
+
+      } finally {
+        setState(() => _isLoading = false);
+      }
+  }
+
   void _showSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
@@ -449,12 +679,13 @@ class _QRScannerPageState extends State<QRScannerPage> {
   }
 
   Future<void> playBeep(bool success) async {
+    debugPrint('Trying to play: ${success ? 'success' : 'error'}');
     await _audioPlayer.play(
-      AssetSource(success ? 'assets/sounds/success.mp3' : 'assets/sounds/error.mp3'),
+      AssetSource(success ? 'sounds/success.mp3' : 'sounds/error.mp3')
     );
   }
-  
-  void _showCustomDialog(BuildContext context, String message, { String ticketType = "", int scanTimes = 0, int maxScanTimes = 0, String ticketDate = "", String scannedAt = "", bool isWarning = false}) {
+   
+  void _showCustomDialog(BuildContext context, String message, { String ticketType = "", int scanTimes = 0, int maxScanTimes = 0, String ticketDate = "", String scannedAt = ""}) {
     final isSuccess = message == "Valid Ticket!";
     final isUsedTicket = message == "Used Ticket!";
     final ticketAlreadyUsed = message == "Ticket Already Used!";
@@ -462,159 +693,185 @@ class _QRScannerPageState extends State<QRScannerPage> {
 
     playBeep(isSuccess);
 
-    if(!isWarning) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          backgroundColor: Colors.white,
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                isSuccess ? Icons.check_circle : Icons.error,
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        backgroundColor: Colors.white,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSuccess ? Icons.check_circle : Icons.error,
+              color: isSuccess ? Colors.green : Colors.red,
+              size: 80,
+            ),
+            const SizedBox(height: 20),
+            Text(
+              message,
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
                 color: isSuccess ? Colors.green : Colors.red,
-                size: 80,
               ),
-              const SizedBox(height: 20),
-              
-              Text(
-                message,
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: isSuccess ? Colors.green : Colors.red,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 5),
+              textAlign: TextAlign.center,
+            ),
 
-              if(isSuccess)
-              Column(
-                children: [
+            const SizedBox(height: 5),
+
+            if(isSuccess)
+            Column(
+              children: [
+                Text(
+                  'Type: $ticketType',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 5),
                   Text(
-                    'Type: $ticketType',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
-                    textAlign: TextAlign.center,
+                  'Used: $scanTimes/$maxScanTimes',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.normal,
+                    color: Colors.black,
                   ),
-                  const SizedBox(height: 5),
-                   Text(
-                    'Used: $scanTimes/$maxScanTimes',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.normal,
-                      color: Colors.black,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-
-
-              if(isUsedTicket || ticketAlreadyUsed)
-              Text(
-                'Used On: $scannedAt',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
+              ],
+            ),
+
+            if(isUsedTicket || ticketAlreadyUsed)
+            Text(
+              'Used On: $scannedAt',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
               ),
-              
-              
-              if(wrongDayTicket)
-              Text(
-                'Booked For: $ticketDate',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
-                textAlign: TextAlign.center,
+              textAlign: TextAlign.center,
+            ),
+
+            if(wrongDayTicket)
+            Text(
+              'Booked For: $ticketDate',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
               ),
+              textAlign: TextAlign.center,
+            ),
 
-
-
-              const SizedBox(height: 20),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: isSuccess ? Colors.green : Colors.red,
-                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                onPressed: () {
-                  Navigator.pop(context);
-                  setState(() => _isScanning = true);
-                },
-                child: const Text(
-                  'OK',
-                  style: TextStyle(fontSize: 18, color: Colors.white),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isSuccess ? Colors.green : Colors.red,
+                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
                 ),
               ),
-            ],
-          ),
+              onPressed: () {
+                Navigator.pop(context);
+                setState(() => _isScanning = true);
+              },
+              child: const Text(
+                'OK',
+                style: TextStyle(fontSize: 18, color: Colors.white),
+              ),
+            ),
+          ],
         ),
-      );
-    }else {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          backgroundColor: Colors.white,
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.check_circle,
-                color: Colors.yellow,
-                size: 80,
-              ),
-              const SizedBox(height: 20),
-              Text(
-                message,
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.yellow,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.yellow,
-                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                onPressed: () {
-                  Navigator.pop(context);
-                  setState(() => _isScanning = true);
-                },
-                child: const Text(
-                  'OK',
-                  style: TextStyle(fontSize: 18, color: Colors.white),
-                ),
-              ),
-            ],
-          ),
+      ),
+    );
+  }
+
+  void _showCustomDialog2(BuildContext context, String message, { String ticketType = "", int scanTimes = 0, int maxScanTimes = 0, String ticketDate = "", String scannedAt = ""}) {
+    final isSuccess = message == "Marked As Left!";
+
+    playBeep(isSuccess);
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
         ),
-      );
-    }
+        backgroundColor: Colors.white,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSuccess ? Icons.check_circle : Icons.error,
+              color: isSuccess ? Colors.green : Colors.red,
+              size: 80,
+            ),
+            const SizedBox(height: 20),
+            Text(
+              message,
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: isSuccess ? Colors.green : Colors.red,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 5),
+            if(isSuccess)
+            Column(
+              children: [
+                Text(
+                  'Type: $ticketType',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 5),
+                  Text(
+                  'Used: $scanTimes/$maxScanTimes',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.normal,
+                    color: Colors.black,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 20),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isSuccess ? Colors.green : Colors.red,
+                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              onPressed: () {
+                Navigator.pop(context);
+                setState(() => _isScanning = true);
+              },
+              child: const Text(
+                'OK',
+                style: TextStyle(fontSize: 18, color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showErrorSnackbar(BuildContext context, String message) {
@@ -686,7 +943,33 @@ class _QRScannerPageState extends State<QRScannerPage> {
     );
   }
 
-
+  PopupMenuItem<String> _buildMenuItem({
+    required IconData icon,
+    required String text,
+    required String value,
+  }) {
+    return PopupMenuItem<String>(
+      value: value,
+      height: 44,
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 20,
+            color: Colors.grey.shade800,
+          ),
+          const SizedBox(width: 12),
+          Text(
+            text,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -695,11 +978,15 @@ class _QRScannerPageState extends State<QRScannerPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'QR Code Scanner',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        title: Text(
+          _isScanningTickets ? 'Scan Tickets' : 'Mark As Left',
+          style: TextStyle(
+            fontWeight: FontWeight.bold, 
+            fontSize: 18
+          ),
         ),
-        centerTitle: true,
+        centerTitle: false,
+        titleSpacing: 0,
         elevation: 0,
         flexibleSpace: Container(
           decoration: BoxDecoration(
@@ -711,7 +998,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
               end: Alignment.bottomRight,
             ),
           ),
-        ),
+        ), 
         actions: [
           IconButton(
             icon: ValueListenableBuilder(
@@ -739,13 +1026,65 @@ class _QRScannerPageState extends State<QRScannerPage> {
             ),
             onPressed: () => cameraController.switchCamera(),
           ),
+
+          PopupMenuButton<String>(
+            padding: EdgeInsets.zero,
+            tooltip: 'More Options',
+            elevation: 8,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            icon: Icon(
+              Icons.more_vert,
+              color: Colors.white,
+              size: 22,
+            ),
+            onSelected: (value) {
+              if ((value == 'mark_as_left') || (value == 'scan_tickets')) {
+                setState(() {
+                  _isScanningTickets = !_isScanningTickets;
+                });
+              } else if (value == 'exit') {
+                Navigator.pop(context);
+              }
+            },
+            itemBuilder: (context) => [
+              if(!_isScanningTickets)
+              _buildMenuItem(
+                icon: Icons.qr_code_scanner,
+                text: 'Scan tickets',
+                value: 'scan_tickets',
+              ),
+              if(_isScanningTickets)
+              _buildMenuItem(
+                icon: Icons.person_off,
+                text: 'Mark as left',
+                value: 'mark_as_left',
+              ),
+              const PopupMenuDivider(),
+              _buildMenuItem(
+                icon: Icons.exit_to_app,
+                text: 'Exit',
+                value: 'exit',
+              ),
+            ],
+          ),
         ],
       ),
       body: Stack(
         children: [
           MobileScanner(
             controller: cameraController,
-            onDetect: _onDetect,
+            // onDetect: _onDetect,
+
+            onDetect: (BarcodeCapture barcode) {
+              if (_isScanningTickets) {
+                _onDetect(barcode);
+              } else {
+                _onDetect2(barcode);
+              }
+            },
+
           ),
 
           Positioned.fill(
@@ -807,7 +1146,6 @@ class _QRScannerPageState extends State<QRScannerPage> {
                     ),
                     child: TextField(
                       controller: _ticketCodeController,
-                      focusNode: _eventIdFocusNode,
                       style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
                         hintText: 'Ticket Code',
@@ -829,7 +1167,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
                     ),
                   ),
                 ),
-
+                const SizedBox(height: 20),
                 Center(
                   child: Wrap(
                   spacing: 16,
@@ -840,7 +1178,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
                         child: const Icon(Icons.close, color: Colors.white),
                       ),
                       FloatingActionButton(
-                        onPressed: _isCheckingTicketsByCode ? () => _checkTicketsByCode() : 
+                        onPressed: _isCheckingTicketsByCode ? _isScanningTickets ? () => _checkTicketsByCode() : () => _markAsLeftByCode() : 
                         () => setState(() {
                           _isCheckingTicketsByCode = !_isCheckingTicketsByCode;
                         }), 
@@ -872,7 +1210,6 @@ class _QRScannerPageState extends State<QRScannerPage> {
                 ),
                 child: TextField(
                   controller: _eventIdController,
-                  focusNode: _eventIdFocusNode,
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
                     hintText: 'Event ID',

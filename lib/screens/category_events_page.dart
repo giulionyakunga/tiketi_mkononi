@@ -111,7 +111,7 @@ class _CategoryEventsPageState extends State<CategoryEventsPage> {
     try {
       final Uri uri = useDNS 
           ? Uri.parse('${backend_url}api/events/$userId?page=$pageKey&limit=$_pageSize')
-          : Uri.parse('${backend_url_with_fallback_ip}api/events/$userId?page=$pageKey&limit=$_pageSize');
+          : Uri.parse('${backend_url_with_fallback_ip}events/$userId?page=$pageKey&limit=$_pageSize');
         
       final response = await http.get(uri);
 
@@ -145,11 +145,29 @@ class _CategoryEventsPageState extends State<CategoryEventsPage> {
         _pagingController.error = 'Failed to load events';
       }
     } on SocketException catch (e) {
-      if (e.osError?.errorCode == 7 && useDNS) {
-        await _fetchPage(pageKey, useDNS: false);
-      } else {
-        _pagingController.error = e;
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
+          await _fetchPage(pageKey, useDNS: false);
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
+          return;
+        }else {
+          _pagingController.error = e;
+        }
       }
+      _handleSocketException(e);
     } catch (error) {
       _pagingController.error = error;
     } finally {
@@ -157,6 +175,35 @@ class _CategoryEventsPageState extends State<CategoryEventsPage> {
         _isReloading = false;
       });
     }
+  }
+
+  void _handleSocketException(SocketException e) {
+    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 101 || e.osError?.errorCode == 111) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Connection Error'),
+          content: const Text('Could not connect to the server. Please check your internet connection.'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      );
+    } else {
+      _showSnackBar('Connection Error: ${e.message}');
+    }
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
   }
 
   List<Event> _filterEvents(List<Event> events) {

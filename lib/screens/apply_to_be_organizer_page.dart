@@ -30,7 +30,7 @@ class _ApplyToBeOrganizerPageState extends State<ApplyToBeOrganizerPage> {
       setState(() => _isLoading = true);
 
       final Uri uri = useDNS ? Uri.parse('${backend_url}api/apply_to_be_organizer') // Original URL 
-      : Uri.parse('${backend_url_with_fallback_ip}api/apply_to_be_organizer'); // Use IP
+      : Uri.parse('${backend_url_with_fallback_ip}apply_to_be_organizer'); // Use IP
         
       final response = await http.post(
         uri,
@@ -56,17 +56,19 @@ class _ApplyToBeOrganizerPageState extends State<ApplyToBeOrganizerPage> {
         _showSnackBar('Request failed: ${response.statusCode}');
       }
     } on SocketException catch (e) {
-        debugPrint('Network error occurred:');
+      debugPrint('Network error occurred:');
         debugPrint('- Exception type: ${e.runtimeType}');
         debugPrint('- Message: ${e.message}');
         
         if (e.osError != null) {
           debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
           debugPrint('  - OS message: ${e.osError!.message}');
+          debugPrint('  - errorCode: ${e.osError!.errorCode}');
+          debugPrint('  - useDNS: ${useDNS}');
 
           // Retry with IP if DNS fails (errno = 7) and not already retrying
-          if (e.osError!.errorCode == 7 && useDNS) {
-            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+            debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
             await _submitApplication(useDNS: false); // Recursive retry
             return;
           }

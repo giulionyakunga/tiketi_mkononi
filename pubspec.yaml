@@ -67,6 +67,8 @@ dependencies:
   open_filex: ^4.7.0
   connectivity_plus: ^7.0.0
   audioplayers: ^6.5.1
+  contacts_service_plus: ^0.0.2
+  # permission_handler: ^10.4.0  # For requesting permission
 
 
 dev_dependencies:

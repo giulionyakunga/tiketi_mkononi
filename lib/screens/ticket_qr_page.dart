@@ -390,7 +390,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
   String cardFilePath = '';
   Printer? selectedPrinter;
   late OverlayConfig config;
-  bool _isAppActive = true;
+  bool _isAppActive = false;
 
   @override
   void initState() {
@@ -421,6 +421,8 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    
+
     setState(() {
       _isAppActive = state == AppLifecycleState.resumed;
     });
@@ -445,6 +447,80 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
     _generateImageWithQr();
   }
 
+  Future<void> _updateTicketSmsSentStatus(int ticketId, int eventId, {bool useDNS = true}) async {
+    debugPrint(" ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss");
+    debugPrint(" ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss");
+    debugPrint(" ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss");
+
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/update_ticket_sms_sent_status/$eventId/$ticketId')
+    : Uri.parse('${backend_url_with_fallback_ip}api/update_ticket_confirm_status/$eventId/$ticketId');
+
+    try {
+      final response = await http.get(uri);
+      debugPrint(" rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr response.body : ${response.body}");
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
+          await _updateTicketSmsSentStatus(ticketId, eventId, useDNS: false); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching tickets: $e');
+    }
+  }
+
+  Future<void> _updateTicketWhatsappSentStatus(int ticketId, int eventId, {bool useDNS = true}) async {
+    
+    debugPrint(" wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww");
+    debugPrint(" wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww");
+    debugPrint(" wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww");
+
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/update_ticket_whatsapp_sent_status/$eventId/$ticketId')
+    : Uri.parse('${backend_url_with_fallback_ip}api/update_ticket_whatsapp_sent_status/$eventId/$ticketId');
+
+    try {
+      final response = await http.get(uri);
+      debugPrint(" rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrwwwwwwwwwwwwww response.body : ${response.body}");
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
+          await _updateTicketSmsSentStatus(ticketId, eventId, useDNS: false); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching tickets: $e');
+    }
+  }
 
   Future<void> _generateImageWithQr() async {
     try {
@@ -666,31 +742,43 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
               fontWeight: FontWeight.normal,
             ),
         ),
-
-        TextButton(
-          onPressed: () => _launchPhoneCall(widget.ticket.userPhoneNumber),
-          style: TextButton.styleFrom(
-            alignment: Alignment.centerLeft,
-            padding: EdgeInsets.zero,  // Removed vertical padding
-            minimumSize: Size.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-          child: RichText(
-            text: TextSpan(
-              children: [
-                TextSpan(
-                  text:  widget.ticket.userPhoneNumber,
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontSize: isLargeScreen ? 20 : 14,
-                    fontWeight: FontWeight.normal,
-                  ),
+        const SizedBox(height: 8),
+        Center(
+          child: Wrap(
+          spacing: 16,
+            children: [
+              TextButton(
+                onPressed: () => _shareCardCode(),
+                style: TextButton.styleFrom(
+                  alignment: Alignment.centerLeft,
+                  padding: EdgeInsets.zero,  // Removed vertical padding
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-              ]
-            )
-          ),
+                child: const Icon(
+                  Icons.sms,
+                  size: 40,
+                  color: Colors.blue
+                ),
+              ),
+              TextButton(
+                onPressed: () => _launchPhoneCall(widget.ticket.userPhoneNumber),
+                style: TextButton.styleFrom(
+                  alignment: Alignment.centerLeft,
+                  padding: EdgeInsets.zero,  // Removed vertical padding
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Icon(
+                  Icons.phone,
+                  size: 40,
+                  color: Colors.green
+                ),
+              ),
+            ]
+          )
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 8),
         Text(
             (widget.ticket.price > 0.0) ? 'TSH${NumberFormat('#,##0').format(widget.ticket.price.toInt())}' : 'Free',
             style: TextStyle(fontSize: isLargeScreen ? 20 : 14),
@@ -1105,29 +1193,86 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
     }
   }
 
+    String getTimeOfDay(String time24) {
+    // Parse "HH:mm"
+    final parts = time24.split(':');
+    if (parts.length != 2) return "Invalid time format";
+
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+
+    // Validate
+    if (hour == null ||
+        minute == null ||
+        hour < 0 ||
+        hour > 23 ||
+        minute < 0 ||
+        minute > 59) {
+      return "Invalid time format";
+    }
+
+    // Determine time of day
+    if (hour >= 5 && hour < 12) {
+      return "Asubuhi"; // Morning
+    } else if (hour >= 12 && hour < 17) {
+      return "Mchana"; // Afternoon
+    } else if (hour >= 17 && hour < 21) {
+      return "Jioni"; // Evening
+    } else {
+      return "Usiku"; // Night (21:00–04:59)
+    }
+  }
+
   Future<void> _shareCard() async {
-    if (Platform.isWindows) {
+    _updateTicketWhatsappSentStatus(widget.ticket.id, widget.event!.id);
+
+    String text = "Habari ${widget.ticket.userName},\nUmealikwa kwenye sherehe ya ${widget.ticket.eventName}, Itakayofanyika tarehe ${widget.ticket.date}, katika ukumbi wa ${widget.ticket.venue}, kuanzia saa ${widget.ticket.time} ${getTimeOfDay(widget.ticket.time)}. Hii ni kadi yako. Fika nayo siku ya Tukio. Namba ya kadi yako ni: ${widget.ticket.ticketCode} (${widget.ticket.ticketType}).\nBofya kiungo hiki kuthibitisha uwepo wako -> https://tiketimkononi.telabs.co.tz/confirm/attendance/${widget.ticket.eventId}/${widget.ticket.ticketCode}\nKiungo cha mahali -> ${widget.ticket.locationLink}\nKwa msaada piga namba ${widget.event!.organizerPhoneNumber}.\n#TiketiMkononi, #SimuYakoTiketiYako";
+    await Clipboard.setData(ClipboardData(text: text));
+    
+    if (Platform.isWindows || kIsWeb) {
       // Share via WhatsApp/Email/etc
       await Share.shareXFiles(
         [XFile(cardFilePath)],
         // [XFile(filePath, mimeType: 'application/pdf')],
-        text: 'Here is your card for ${widget.ticket.eventName}!',
+        text: text,
       );
-    } else if (kIsWeb) {
+    } else {
       // Share via WhatsApp/Email/etc
       await Share.shareXFiles(
         [XFile(cardFilePath)],
         // [XFile(filePath, mimeType: 'application/pdf')],
-        text: 'Here is your card for ${widget.ticket.eventName}!',
-      );
-    }else {
-      // Share via WhatsApp/Email/etc
-      await Share.shareXFiles(
-        [XFile(cardFilePath)],
-        // [XFile(filePath, mimeType: 'application/pdf')],
-        text: 'Here is your card for ${widget.ticket.eventName}!',
+        text: text,
       );
     }
+  }
+
+  Future<void> _shareCardCode() async {
+    _updateTicketSmsSentStatus(widget.ticket.id, widget.event!.id);
+    
+    await Clipboard.setData(ClipboardData(text: widget.ticket.userPhoneNumber));
+
+    String text = "";
+    if(widget.event!.category.toUpperCase() == "WEDDING"){
+      text = "Habari ${widget.ticket.userName},\nUmealikwa kwenye sherehe ya ${widget.ticket.eventName}, Itakayofanyika tarehe ${widget.ticket.date}, katika ukumbi wa ${widget.ticket.venue}, kuanzia saa ${widget.ticket.time} ${getTimeOfDay(widget.ticket.time)}. Hii ni kadi yako. Fika nayo siku ya Tukio. Namba ya kadi yako ni: ${widget.ticket.ticketCode} (${widget.ticket.ticketType}).\nBofya kiungo hiki kuthibitisha uwepo wako -> https://tiketimkononi.telabs.co.tz/confirm/attendance/${widget.ticket.eventId}/${widget.ticket.ticketCode}\nKiungo cha mahali -> ${widget.ticket.locationLink}\nKwa msaada piga namba ${widget.event!.organizerPhoneNumber}.\n#TiketiMkononi, #SimuYakoTiketiYako";
+    } else {
+      text = "Habari ${widget.ticket.userName},\n"
+      "${widget.ticket.ticketCode} (${widget.ticket.ticketType}) ni namba ya tiketi yako ya "
+      "${widget.ticket.eventName}, itakayofanyika tarehe ${widget.ticket.date} "
+      "${widget.ticket.venue}, kuanzia saa ${widget.ticket.time} "
+      "${getTimeOfDay(widget.ticket.time)}.\n"
+      "Tafadhali bofya kiungo kifuatacho kuthibitisha uwepo wako:\n"
+      "https://tiketimkononi.telabs.co.tz/confirm/attendance/${widget.ticket.eventId}/${widget.ticket.ticketCode}\n"
+      "Kiungo cha mahali: ${widget.ticket.locationLink}\n"
+      "Kwa msaada au maelezo zaidi, piga simu ${widget.event!.organizerPhoneNumber}.\n"
+      "#TiketiMkononi #SimuYakoTiketiYako";
+    }
+
+
+    await SharePlus.instance.share(
+      ShareParams(
+        text: text,
+      ),
+    );
   }
 
   Future<void> _launchPhoneCall(String phoneNumber) async {
@@ -1528,27 +1673,6 @@ class ImageQrService {
       final int textOffsetDx = (config.textOffset.dx * image.width).toInt();
       final int textOffsetDy = (config.textOffset.dy * image.height).toInt();
 
-      // final painter = QrPainter(
-      //   data: qrData,
-      //   version: QrVersions.auto,
-      //   errorCorrectionLevel: QrErrorCorrectLevel.L, // High error correction
-      //   gapless: true,
-      // );
-      
-      // // Render QR at full size
-      // final ui.Image qrUiImage = await painter.toImage(qrSize.toDouble());
-
-      // // Convert to Uint8List
-      // final ByteData byteData =
-      //     await qrUiImage.toByteData(format: ui.ImageByteFormat.png) as ByteData;
-      // final Uint8List pngBytes = byteData.buffer.asUint8List();
-
-      // // Decode into 'image' package
-      // final img.Image qrImage = img.decodePng(pngBytes)!;
-
-
-
-
       final painter = QrPainter(
         data: qrData,
         version: QrVersions.auto,
@@ -1588,10 +1712,6 @@ class ImageQrService {
 
       // Decode into 'image' package
       final img.Image qrImage = img.decodePng(pngBytes)!;
-
-
-
-      
 
       // Create larger white background
       final int finalSize = qrSize + 2 * borderSize;
@@ -1692,6 +1812,7 @@ class ImageQrService {
 
       await outputFile.writeAsBytes(img.encodeJpg(image, quality: 90));
       debugPrint("image saved at: ${outputFile.path}");
+
       return outputFile.path;
     } catch (e) {
       rethrow;

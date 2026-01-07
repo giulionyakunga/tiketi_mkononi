@@ -136,7 +136,7 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
         setState(() => _isLoading = true);
 
         final Uri uri = useDNS ? Uri.parse('${backend_url}api/add_application_information') // Original URL 
-        : Uri.parse('${backend_url_with_fallback_ip}api/add_application_information'); // Use IP
+        : Uri.parse('${backend_url_with_fallback_ip}add_application_information'); // Use IP
         
         final response = await http.post(
           uri,
@@ -163,15 +163,19 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
         if (e.osError != null) {
           debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
           debugPrint('  - OS message: ${e.osError!.message}');
+          debugPrint('  - errorCode: ${e.osError!.errorCode}');
+          debugPrint('  - useDNS: ${useDNS}');
 
           // Retry with IP if DNS fails (errno = 7) and not already retrying
-          if (e.osError!.errorCode == 7 && useDNS) {
-            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+            debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
             await _handleAddApplicationInformation(useDNS: false); // Recursive retry
+
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('use_dns', false);
             return;
           }
         }
-
         _handleSocketException(e);
       } catch (e) {
         debugPrint('An error occurred: $e');
@@ -331,10 +335,11 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
     }
 
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/application_information/$userId/$installedVersion2/$operatingSystem') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}api/application_information/$userId/$installedVersion2/$operatingSystem'); // Use IP
+    : Uri.parse('${backend_url_with_fallback_ip}application_information/$userId/$installedVersion2/$operatingSystem'); // Use IP
         
     try {
       final response = await http.get(uri);
+
       if (response.statusCode == 200) {
         final applicationInformation = jsonDecode(response.body);
         if (applicationInformation['app_version'] != "") {
@@ -352,23 +357,28 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
         _showSnackBar('Request failed: ${response.statusCode}');
       }
     } on SocketException catch (e) {
-        debugPrint('Network error occurred:');
-        debugPrint('- Exception type: ${e.runtimeType}');
-        debugPrint('- Message: ${e.message}');
-        
-        if (e.osError != null) {
-          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
-          debugPrint('  - OS message: ${e.osError!.message}');
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
-          // Retry with IP if DNS fails (errno = 7) and not already retrying
-          if (e.osError!.errorCode == 7 && useDNS) {
-            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-            await checkForUpdates(useDNS: false); // Recursive retry
-            return;
-          }
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
+          await checkForUpdates(useDNS: false); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
+          return;
         }
+      }
 
-        _handleSocketException(e);
+      _handleSocketException(e);
     } catch (e) {
       debugPrint('Error checking for updates: $e');
     } finally {
@@ -410,12 +420,12 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
   
   Future<void> getServerMetrics({bool useDNS = true}) async {
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/metrics') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}api/metrics'); // Use IP
+    : Uri.parse('${backend_url_with_fallback_ip}metrics'); // Use IP
         
     try {
       final response = await http.get(uri);
+
       if (response.statusCode == 200) {        
-        
         setState(() {
           serverMetrics = ServerMetrics.fromJson(jsonDecode(response.body));
           serverMetrics.dnsResolution = useDNS;
@@ -428,23 +438,27 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
         _showSnackBar('Request failed: ${response.statusCode}');
       }
     } on SocketException catch (e) {
-        debugPrint('Network error occurred:');
-        debugPrint('- Exception type: ${e.runtimeType}');
-        debugPrint('- Message: ${e.message}');
-        
-        if (e.osError != null) {
-          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
-          debugPrint('  - OS message: ${e.osError!.message}');
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
-          // Retry with IP if DNS fails (errno = 7) and not already retrying
-          if (e.osError!.errorCode == 7 && useDNS) {
-            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-            await getServerMetrics(useDNS: false); // Recursive retry
-            return;
-          }
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
+          await getServerMetrics(useDNS: false); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
+          return;
         }
-
-        _handleSocketException(e);
+      }
+      _handleSocketException(e);
     } catch (e) {
       debugPrint('Error getting server metrics: $e');
     } finally {

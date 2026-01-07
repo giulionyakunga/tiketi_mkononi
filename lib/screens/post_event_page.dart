@@ -55,6 +55,7 @@ class _PostEventPageState extends State<PostEventPage> {
   final GlobalKey _imagePickerKey = GlobalKey();
   final _nameController = TextEditingController();
   final _venueController = TextEditingController();
+  final _locationLinkController = TextEditingController();
   final _descriptionController = TextEditingController();
   TextEditingController _rowsController = TextEditingController();
   TextEditingController _seatsController = TextEditingController();
@@ -444,6 +445,7 @@ Future<void> _pickImage() async {
       'date': _isDailyEvent ? '' : _selectedDate?.toIso8601String(),
       'time': '${_selectedTime!.hour}:${_selectedTime!.minute}',
       'venue': _venueController.text.trim(),
+      'location_link': _locationLinkController.text.trim(),
       'rows': (_selectedCategory == "Theater") ?    int.tryParse(_rowsController.text.trim()) ?? 0 : 0,
       'seats': (_selectedCategory == "Theater") ? int.tryParse(_seatsController.text.trim()) ?? 0 : 0,
       'description': _descriptionController.text.trim(),
@@ -603,6 +605,7 @@ Future<void> _pickImage() async {
   void dispose() {
     _nameController.dispose();
     _venueController.dispose();
+    _locationLinkController.dispose();
     _descriptionController.dispose();
     _rowsController.dispose();
     _seatsController.dispose();
@@ -1243,7 +1246,7 @@ Future<void> _pickImage() async {
                         controller: fieldController,
                         focusNode: fieldFocusNode,
                         maxLength: 100,
-                        decoration: (_selectedCategory == "Theater") ? _buildInputDecoration('Theater', prefixIcon: Icons.location_on) : _buildInputDecoration('Location/Venue', prefixIcon: Icons.location_on),
+                        decoration: (_selectedCategory == "Theater") ? _buildInputDecoration('Theater', prefixIcon: Icons.location_city) : _buildInputDecoration('Location/Venue', prefixIcon: Icons.location_city),
                         style: const TextStyle(fontSize: 16),
                         validator: (value) {
                           if (value == null || value.isEmpty) return (_selectedCategory == "Theater") ? 'Please enter theater name' : 'Please enter location/venue name';
@@ -1277,6 +1280,18 @@ Future<void> _pickImage() async {
                           ),
                         ),
                       );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _locationLinkController,
+                    maxLength: 150,
+                    decoration: _buildInputDecoration('Location Link', prefixIcon: Icons.location_on),
+                    style: const TextStyle(fontSize: 16),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) return 'Please enter location link';
+                      if (value.length > 100) return 'Location link must be 150 characters or less';
+                      return null;
                     },
                   ),
                   const SizedBox(height: 16),

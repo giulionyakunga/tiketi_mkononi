@@ -87,7 +87,7 @@ class _ConfirmAttendancePageState extends State<ConfirmAttendancePage> {
   Future<void> getTicketsCount({bool useDNS = true}) async {
 
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/event_tickets_count/${widget.event.id}') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}api/event_tickets_count/${widget.event.id}'); // Use IP
+    : Uri.parse('${backend_url_with_fallback_ip}event_tickets_count/${widget.event.id}'); // Use IP
 
     try {
       final response = await http.get(uri);
@@ -103,7 +103,7 @@ class _ConfirmAttendancePageState extends State<ConfirmAttendancePage> {
         }
         
       }
-    }on SocketException catch (e) {
+    } on SocketException catch (e) {
       debugPrint('Network error occurred:');
       debugPrint('- Exception type: ${e.runtimeType}');
       debugPrint('- Message: ${e.message}');
@@ -111,23 +111,48 @@ class _ConfirmAttendancePageState extends State<ConfirmAttendancePage> {
       if (e.osError != null) {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
-          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
           await getTicketsCount(useDNS: false); // Recursive retry
-          return;
         }
       }
+
+      _handleSocketException(e);
+
     } catch (e) {
       debugPrint('Error fetching check tickets scan status: $e');
+    }
+  }
+
+    void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _handleSocketException(SocketException e) {
+    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 101 || e.osError?.errorCode == 111) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Connection Error'),
+          content: const Text('Could not connect to the server. Please check your internet connection.'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      );
+    } else {
+      _showSnackBar('Connection Error: ${e.message}');
     }
   }
 
   Future<void> confirmAttendance({bool useDNS = true}) async {
 
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/confirm_attendance/${widget.event.id}/${widget.ticketCode}') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}api/confirm_attendance/${widget.event.id}/${widget.ticketCode}'); // Use IP
+    : Uri.parse('${backend_url_with_fallback_ip}confirm_attendance/${widget.event.id}/${widget.ticketCode}'); // Use IP
 
     try {
       final response = await http.get(uri);
@@ -161,29 +186,20 @@ class _ConfirmAttendancePageState extends State<ConfirmAttendancePage> {
       if (e.osError != null) {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
-          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
           await confirmAttendance(useDNS: false); // Recursive retry
-          return;
         }
       }
+
+      _handleSocketException(e);
     } catch (e) {
       debugPrint('Error fetching check tickets scan status: $e');
     }
-  }
-
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
-    );
   }
 
   void _handleHTTPRedirect() {
@@ -212,7 +228,7 @@ class _ConfirmAttendancePageState extends State<ConfirmAttendancePage> {
 
     try {
       final Uri uri = useDNS ? Uri.parse('${backend_url}api/get_event/${widget.event.id}/0') // Original URL 
-      : Uri.parse('${backend_url_with_fallback_ip}api/get_event/${widget.event.id}/0'); // Use IP
+      : Uri.parse('${backend_url_with_fallback_ip}get_event/${widget.event.id}/0'); // Use IP
         
       final response = await http.get(uri);
 
@@ -228,22 +244,26 @@ class _ConfirmAttendancePageState extends State<ConfirmAttendancePage> {
         debugPrint('Failed to load event');
       }
     }on SocketException catch (e) {
-        debugPrint('Network error occurred:');
-        debugPrint('- Exception type: ${e.runtimeType}');
-        debugPrint('- Message: ${e.message}');
-        
-        if (e.osError != null) {
-          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
-          debugPrint('  - OS message: ${e.osError!.message}');
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
-          // Retry with IP if DNS fails (errno = 7) and not already retrying
-          if (e.osError!.errorCode == 7 && useDNS) {
-            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-            fetchEvent(useDNS: false); // Recursive retry
-            return;
-          }
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
+          fetchEvent(useDNS: false); // Recursive retry
         }
-      } catch (e) {
+      }
+
+      _handleSocketException(e);
+
+    } catch (e) {
       debugPrint('Silent update error: $e');
     }
   }

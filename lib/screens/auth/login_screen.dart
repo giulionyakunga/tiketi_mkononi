@@ -74,7 +74,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         setState(() => _isLoading = true);
 
         final Uri uri = useDNS ? Uri.parse('${backend_url}api/login') // Original URL 
-        : Uri.parse('${backend_url_with_fallback_ip}api/login'); // Use IP
+        : Uri.parse('${backend_url_with_fallback_ip}login'); // Use IP
         
         final response = await http.post(
           uri,
@@ -136,18 +136,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         if (e.osError != null) {
           debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
           debugPrint('  - OS message: ${e.osError!.message}');
+          debugPrint('  - errorCode: ${e.osError!.errorCode}');
+          debugPrint('  - useDNS: ${useDNS}');
 
           // Retry with IP if DNS fails (errno = 7) and not already retrying
-          if (e.osError!.errorCode == 7 && useDNS) {
+          if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+            debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
+            await _handleLogin(useDNS: false); // Recursive retry
+
             final prefs = await SharedPreferences.getInstance();
             await prefs.setBool('use_dns', false);
-
-            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-            await _handleLogin(useDNS: false); // Recursive retry
             return;
           }
         }
-
         _handleSocketException(e);
       } catch (e) {
         debugPrint('An error occurred: $e');
@@ -216,7 +217,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _handleGoogleSignIn2(String? token, String email, String? name,  {bool useDNS = true}) async {
     try {
       final Uri uri = useDNS ? Uri.parse('${backend_url}api/google_login') // Original URL
-      : Uri.parse('${backend_url_with_fallback_ip}api/google_login'); // Use IP
+      : Uri.parse('${backend_url_with_fallback_ip}google_login'); // Use IP
 
       final response = await http.post(
         uri,
@@ -275,15 +276,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (e.osError != null) {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
-          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
           await _handleGoogleSignIn2(token, email, name, useDNS: false); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
           return;
         }
       }
-
       _handleSocketException(e);
     } catch (e) {
       debugPrint('Google sign in failed: $e');
@@ -322,7 +327,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
 
       final Uri uri = useDNS ? Uri.parse('${backend_url}api/apple_login') // Original URL
-      : Uri.parse('${backend_url_with_fallback_ip}api/apple_login'); // Use IP
+      : Uri.parse('${backend_url_with_fallback_ip}apple_login'); // Use IP
 
       final response = await http.post(
         uri,
@@ -381,11 +386,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (e.osError != null) {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
-          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
           await _handleAppleSignIn2(token, email, name, useDNS: false); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
           return;
         }
       }
@@ -423,89 +433,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (mounted) setState(() => _isLoading = false);
     }
   }
-
-
-  // void _handleAppleSignIn({bool useDNS = true}) async {
-  //   if (_isLoading) return;  // Early return if already loading
-    
-  //   try {
-  //     setState(() => _isLoading = true);
-      
-  //     final credential = await SignInWithApple.getAppleIDCredential(
-  //       scopes: [
-  //         AppleIDAuthorizationScopes.email,
-  //         AppleIDAuthorizationScopes.fullName,
-  //       ],
-  //     );
-
-  //     // Send to your backend
-  //     final Uri uri = useDNS ? Uri.parse('${backend_url}api/apple_login') // Original URL
-  //     : Uri.parse('${backend_url_with_fallback_ip}api/apple_login'); // Use IP 
-
-  //     final response = await http.post(
-  //       uri,
-  //       headers: {'Content-Type': 'application/json'},
-  //       body: jsonEncode({
-  //         'token': credential.identityToken,
-  //         'email': credential.email,
-  //         'name': '${credential.givenName} ${credential.familyName}',
-  //       }),
-  //     );
-
-  //     if (response.statusCode == 200) {
-  //       // final profile = UserProfile(
-  //       //   id: jsonDecode(response.body)['id'] ?? 0,
-  //       //   firstName: credential.givenName ?? '',
-  //       //   lastName: credential.familyName ?? '',
-  //       //   email: credential.email ?? '',
-  //       //   token: jsonDecode(response.body)['token'],
-  //       //   // Other fields as needed
-  //       // );
-
-  //       if(useDNS){
-  //         final prefs = await SharedPreferences.getInstance();
-  //         await prefs.setBool('use_dns', true);
-  //       } else {
-  //         final prefs = await SharedPreferences.getInstance();
-  //         await prefs.setBool('use_dns', false);
-  //       }
-        
-  //       // await _storageService.saveUserProfile(profile);
-  //       if (mounted) context.go('/home');
-  //     } else if (response.statusCode == 302) {
-  //       _handleHTTPRedirect();
-  //     } else {
-  //       _showSnackBar('Request failed: ${response.statusCode}');
-  //     }
-  //   } on SocketException catch (e) {
-  //       debugPrint('Network error occurred:');
-  //       debugPrint('- Exception type: ${e.runtimeType}');
-  //       debugPrint('- Message: ${e.message}');
-        
-  //       if (e.osError != null) {
-  //         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
-  //         debugPrint('  - OS message: ${e.osError!.message}');
-
-  //         // Retry with IP if DNS fails (errno = 7) and not already retrying
-  //         if (e.osError!.errorCode == 7 && useDNS) {
-  //           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-  //           await _handleAppleSignIn(useDNS: false); // Recursive retry
-  //           return;
-  //         }
-  //       }
-
-  //       _handleSocketException(e);
-  //   } catch (e) {
-  //     print('Apple sign in failed: $e');
-  //     if (mounted) {
-  //       ScaffoldMessenger.of(context).showSnackBar(
-  //         SnackBar(content: Text('Apple sign in failed: $e')),
-  //       );
-  //     }
-  //   } finally {
-  //     if (mounted) setState(() => _isLoading = false);
-  //   }
-  // }
 
   Widget _buildSocialButton({
     required String imagePath,

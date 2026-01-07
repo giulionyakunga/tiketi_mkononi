@@ -89,7 +89,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> with WidgetsBinding
   Future<void> getTicketsCount({bool useDNS = true}) async {
 
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/event_tickets_count/${widget.event.id}') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}api/event_tickets_count/${widget.event.id}'); // Use IP
+    : Uri.parse('${backend_url_with_fallback_ip}event_tickets_count/${widget.event.id}'); // Use IP
 
     try {
       final response = await http.get(uri);
@@ -105,7 +105,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> with WidgetsBinding
         }
         
       }
-    }on SocketException catch (e) {
+    } on SocketException catch (e) {
       debugPrint('Network error occurred:');
       debugPrint('- Exception type: ${e.runtimeType}');
       debugPrint('- Message: ${e.message}');
@@ -113,11 +113,16 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> with WidgetsBinding
       if (e.osError != null) {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
-          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
           await getTicketsCount(useDNS: false); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
           return;
         }
       }
@@ -129,7 +134,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> with WidgetsBinding
   Future<void> getTicketsCountByDate({bool useDNS = true}) async {
 
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/event_tickets_count_by_date/${widget.event.id}/${DateFormat('d-M-yyyy').format(_selectedDate2)}') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}api/event_tickets_count_by_date/${widget.event.id}/${DateFormat('d-M-yyyy').format(_selectedDate2)}'); // Use IP
+    : Uri.parse('${backend_url_with_fallback_ip}event_tickets_count_by_date/${widget.event.id}/${DateFormat('d-M-yyyy').format(_selectedDate2)}'); // Use IP
 
     try {
       final response = await http.get(uri);
@@ -145,7 +150,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> with WidgetsBinding
         }
         
       }
-    }on SocketException catch (e) {
+    } on SocketException catch (e) {
       debugPrint('Network error occurred:');
       debugPrint('- Exception type: ${e.runtimeType}');
       debugPrint('- Message: ${e.message}');
@@ -153,11 +158,16 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> with WidgetsBinding
       if (e.osError != null) {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
-          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
           await getTicketsCountByDate(useDNS: false); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
           return;
         }
       }
@@ -247,7 +257,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> with WidgetsBinding
         setState(() => _isLoading = true);
 
         final Uri uri = useDNS ? Uri.parse('${backend_url}api/checkout') // Original URL 
-        : Uri.parse('${backend_url_with_fallback_ip}api/checkout'); // Use IP
+        : Uri.parse('${backend_url_with_fallback_ip}checkout'); // Use IP
 
         final response = await http.post(
           uri,
@@ -307,16 +317,19 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> with WidgetsBinding
         if (e.osError != null) {
           debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
           debugPrint('  - OS message: ${e.osError!.message}');
+          debugPrint('  - errorCode: ${e.osError!.errorCode}');
+          debugPrint('  - useDNS: ${useDNS}');
 
           // Retry with IP if DNS fails (errno = 7) and not already retrying
-          if (e.osError!.errorCode == 7 && useDNS) {
-            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+            debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
             await _handlePaying(useDNS: false); // Recursive retry
+
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('use_dns', false);
             return;
           }
         }
-
-        _handleSocketException(e);
       } catch (e) {
         _showSnackBar('An error occurred: $e');
       } finally {
@@ -331,7 +344,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> with WidgetsBinding
           setState(() => _isLoading = true);
 
           final Uri uri = useDNS ? Uri.parse('${backend_url}api/confirm') // Original URL 
-          : Uri.parse('${backend_url_with_fallback_ip}api/confirm'); // Use IP
+          : Uri.parse('${backend_url_with_fallback_ip}confirm'); // Use IP
         
           final response = await http.post(
             uri,
@@ -366,16 +379,19 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> with WidgetsBinding
           if (e.osError != null) {
             debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
             debugPrint('  - OS message: ${e.osError!.message}');
+            debugPrint('  - errorCode: ${e.osError!.errorCode}');
+            debugPrint('  - useDNS: ${useDNS}');
 
             // Retry with IP if DNS fails (errno = 7) and not already retrying
-            if (e.osError!.errorCode == 7 && useDNS) {
-              debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+            if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+              debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
               await _handleSelling(useDNS: false); // Recursive retry
+
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('use_dns', false);
               return;
             }
           }
-
-          _handleSocketException(e);
         } catch (e) {
           _showSnackBar('An error occurred: $e');
         } finally {
@@ -423,7 +439,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> with WidgetsBinding
     if (!_isAppActive) return;
 
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/tickets/$userId') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}api/tickets/$userId'); // Use IP
+    : Uri.parse('${backend_url_with_fallback_ip}tickets/$userId'); // Use IP
 
     try {
       final response = await http.get(uri);
@@ -442,11 +458,16 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> with WidgetsBinding
       if (e.osError != null) {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
-          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
           await fetchTickets(useDNS: false); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
           return;
         }
       }
@@ -557,14 +578,16 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> with WidgetsBinding
         title: const Text('Checkout'),
         backgroundColor: const Color.fromARGB(255, 240, 244, 247),
         actions: [
-          if(_payed)
+          if(_payed || (widget.event.tickets.length > 1))
           ElevatedButton.icon(
             icon: Icon(
               Icons.logout,
             ),
-            label: Text('Tickets($quantity)', style: TextStyle(
-              fontSize: 14,
-            )
+            label: Text(
+              'Tickets(${quantity + widget.event.tickets.length})',
+              style: TextStyle(
+                fontSize: 14,
+              )
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,
