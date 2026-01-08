@@ -116,8 +116,10 @@ class _ConfirmAttendancePageState extends State<ConfirmAttendancePage> {
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-          debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
           await getTicketsCount(useDNS: false); // Recursive retry
+
+          return;
         }
       }
 
@@ -191,8 +193,10 @@ class _ConfirmAttendancePageState extends State<ConfirmAttendancePage> {
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-          debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
           await confirmAttendance(useDNS: false); // Recursive retry
+
+          return;
         }
       }
 
@@ -256,8 +260,10 @@ class _ConfirmAttendancePageState extends State<ConfirmAttendancePage> {
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-          debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
           fetchEvent(useDNS: false); // Recursive retry
+
+          return;
         }
       }
 

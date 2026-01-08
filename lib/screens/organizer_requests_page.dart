@@ -67,7 +67,7 @@ class _OrganizerRequestsPageState extends State<OrganizerRequestsPage> {
       setState(() => _isLoading = true);
 
       final Uri uri = useDNS ? Uri.parse('${backend_url}api/update_organizer_request') // Original URL 
-      : Uri.parse('${backend_url_with_fallback_ip}api/update_organizer_request'); // Use IP
+      : Uri.parse('${backend_url_with_fallback_ip}update_organizer_request'); // Use IP
       
       final response = await http.post(
         uri,
@@ -98,9 +98,11 @@ class _OrganizerRequestsPageState extends State<OrganizerRequestsPage> {
       if (e.osError != null) {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
           await _updateRequestStatus(userId, requestId, status, useDNS: false); // Recursive retry
 
@@ -168,7 +170,7 @@ class _OrganizerRequestsPageState extends State<OrganizerRequestsPage> {
   Future<void> fetchOrganizerRequests({bool useDNS = true}) async {
 
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/get_organizer_requests') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}api/get_organizer_requests'); // Use IP
+    : Uri.parse('${backend_url_with_fallback_ip}get_organizer_requests'); // Use IP
 
     try {
       final response = await http.get(uri);
@@ -193,11 +195,14 @@ class _OrganizerRequestsPageState extends State<OrganizerRequestsPage> {
       if (e.osError != null) {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
           await fetchOrganizerRequests(useDNS: false); // Recursive retry
+
           return;
         }
       }
@@ -316,7 +321,7 @@ class _OrganizerRequestsPageState extends State<OrganizerRequestsPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Organizer Requests'),
-        backgroundColor: Colors.deepPurple,
+        backgroundColor: Colors.white,
         foregroundColor: Colors.white,
         actions: [
           IconButton(

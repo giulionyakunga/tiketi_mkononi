@@ -107,7 +107,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
     try {
       final Uri uri = useDNS ? Uri.parse('${backend_url}api/get_notification_preferences/${widget.userId}') // Original URL 
-      : Uri.parse('${backend_url_with_fallback_ip}api/get_notification_preferences/${widget.userId}'); // Use IP
+      : Uri.parse('${backend_url_with_fallback_ip}get_notification_preferences/${widget.userId}'); // Use IP
 
       final response = await http.get(uri);
     
@@ -130,11 +130,16 @@ class _NotificationsPageState extends State<NotificationsPage> {
       if (e.osError != null) {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
           await getNotificationPreferences(useDNS: false); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
           return;
         }
       }
@@ -168,7 +173,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
         setState(() => _isLoading = true);
 
         final Uri uri = useDNS ? Uri.parse('${backend_url}api/save_notification_preferences/${widget.userId}') // Original URL 
-        : Uri.parse('${backend_url_with_fallback_ip}api/save_notification_preferences/${widget.userId}'); // Use IP
+        : Uri.parse('${backend_url_with_fallback_ip}save_notification_preferences/${widget.userId}'); // Use IP
         
         final response = await http.post(
           uri,
@@ -191,15 +196,20 @@ class _NotificationsPageState extends State<NotificationsPage> {
         debugPrint('Network error occurred:');
         debugPrint('- Exception type: ${e.runtimeType}');
         debugPrint('- Message: ${e.message}');
-
+        
         if (e.osError != null) {
           debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
           debugPrint('  - OS message: ${e.osError!.message}');
+          debugPrint('  - errorCode: ${e.osError!.errorCode}');
+          debugPrint('  - useDNS: ${useDNS}');
 
           // Retry with IP if DNS fails (errno = 7) and not already retrying
-          if (e.osError!.errorCode == 7 && useDNS) {
+          if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
             debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
             await _submitForm(useDNS: false); // Recursive retry
+
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('use_dns', false);
             return;
           }
         }

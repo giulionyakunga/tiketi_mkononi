@@ -122,10 +122,9 @@ class _PostEventPageState extends State<PostEventPage> {
     }
   }
 
-    
   Future<void> getUserRole({bool useDNS = true}) async {
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/get_user_role/$userId') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}api/get_user_role/$useDNS'); // Use IP
+    : Uri.parse('${backend_url_with_fallback_ip}get_user_role/$useDNS'); // Use IP
         
     try {
       final response = await http.get(uri);
@@ -148,22 +147,26 @@ class _PostEventPageState extends State<PostEventPage> {
         }        
       }
     } on SocketException catch (e) {
-        debugPrint('Network error occurred:');
-        debugPrint('- Exception type: ${e.runtimeType}');
-        debugPrint('- Message: ${e.message}');
-        
-        if (e.osError != null) {
-          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
-          debugPrint('  - OS message: ${e.osError!.message}');
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
-          // Retry with IP if DNS fails (errno = 7) and not already retrying
-          if (e.osError!.errorCode == 7 && useDNS) {
-            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-            await getUserRole(useDNS: false); // Recursive retry
-            return;
-          }
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await getUserRole(useDNS: false); // Recursive retry
+
+          return;
         }
+      }
 
+      _handleSocketException(e);
     } catch (e) {
       debugPrint('Error getting server metrics: $e');
     } finally {
@@ -467,7 +470,7 @@ Future<void> _pickImage() async {
       setState(() => _isLoading = true);
 
       final Uri uri = useDNS ? Uri.parse('${backend_url}api/post_event') // Original URL 
-      : Uri.parse('${backend_url_with_fallback_ip}api/post_event'); // Use IP
+      : Uri.parse('${backend_url_with_fallback_ip}post_event'); // Use IP
 
       final response = await http.post(
         uri,
@@ -493,24 +496,27 @@ Future<void> _pickImage() async {
         }
       }
     } on SocketException catch (e) {
-        debugPrint('Network error occurred:');
-        debugPrint('- Exception type: ${e.runtimeType}');
-        debugPrint('- Message: ${e.message}');
-        
-        if (e.osError != null) {
-          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
-          debugPrint('  - OS message: ${e.osError!.message}');
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
-          // Retry with IP if DNS fails (errno = 7) and not already retrying
-          if (e.osError!.errorCode == 7 && useDNS) {
-            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-            await _submitEvent(useDNS: false); // Recursive retry
-            return;
-          }
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await _submitEvent(useDNS: false); // Recursive retry
+
+          return;
         }
+      }
 
-        _handleSocketException(e);
-      } catch (e) {
+      _handleSocketException(e);
+    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
       );
@@ -565,7 +571,7 @@ Future<void> _pickImage() async {
   Future<void> getVenues({bool useDNS = true}) async {
     try {
       final Uri uri = useDNS ? Uri.parse('${backend_url}api/venues/$userId') // Original URL 
-      : Uri.parse('${backend_url_with_fallback_ip}api/venues/$userId'); // Use IP
+      : Uri.parse('${backend_url_with_fallback_ip}venues/$userId'); // Use IP
 
       final response = await http.get(uri);
     
@@ -588,14 +594,19 @@ Future<void> _pickImage() async {
       if (e.osError != null) {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
           await getVenues(useDNS: false); // Recursive retry
+
           return;
         }
       }
+
+      _handleSocketException(e);
     } catch (e) {
       debugPrint('Error getting notification preferences: $e');
     }

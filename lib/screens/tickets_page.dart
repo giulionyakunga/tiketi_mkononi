@@ -91,7 +91,7 @@ class _TicketsPageState extends State<TicketsPage> with WidgetsBindingObserver {
     });
 
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/tickets/$userId') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}api/tickets/$userId'); // Use IP
+    : Uri.parse('${backend_url_with_fallback_ip}tickets/$userId'); // Use IP
 
     try {
       final response = await http.get(uri);
@@ -125,14 +125,20 @@ class _TicketsPageState extends State<TicketsPage> with WidgetsBindingObserver {
       if (e.osError != null) {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
-          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}... tickets');
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
           await fetchTickets(useDNS: false); // Recursive retry
+
           return;
         }
       }
+
+      _handleSocketException(e);
+
       if(_isReloading){
         _handleSocketException(e);
         setState(() {

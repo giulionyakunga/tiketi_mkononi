@@ -131,7 +131,7 @@ class _EditEventPageState extends State<EditEventPage> {
   Future<void> getVenues({bool useDNS = true}) async {
     try {
       final Uri uri = useDNS ? Uri.parse('${backend_url}api/venues/${widget.userId}') // Original URL 
-      : Uri.parse('${backend_url_with_fallback_ip}api/venues/${widget.userId}'); // Use IP
+      : Uri.parse('${backend_url_with_fallback_ip}venues/${widget.userId}'); // Use IP
 
       final response = await http.get(uri);
     
@@ -160,14 +160,19 @@ class _EditEventPageState extends State<EditEventPage> {
       if (e.osError != null) {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
           await getVenues(useDNS: false); // Recursive retry
+
           return;
         }
       }
+
+      _handleSocketException(e);
     } catch (e) {
       debugPrint('Error getting notification preferences: $e');
     }
@@ -211,7 +216,7 @@ class _EditEventPageState extends State<EditEventPage> {
   Future<void> getTicketsCountByDate({bool useDNS = true}) async {
 
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/event_tickets_count_by_date/${widget.event.id}/${DateFormat('d-M-yyyy').format(_selectedDate2)}') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}api/event_tickets_count_by_date/${widget.event.id}/${DateFormat('d-M-yyyy').format(_selectedDate2)}'); // Use IP
+    : Uri.parse('${backend_url_with_fallback_ip}event_tickets_count_by_date/${widget.event.id}/${DateFormat('d-M-yyyy').format(_selectedDate2)}'); // Use IP
 
     try {
       final response = await http.get(uri);
@@ -227,7 +232,7 @@ class _EditEventPageState extends State<EditEventPage> {
         }
         
       }
-    }on SocketException catch (e) {
+    } on SocketException catch (e) {
       debugPrint('Network error occurred:');
       debugPrint('- Exception type: ${e.runtimeType}');
       debugPrint('- Message: ${e.message}');
@@ -235,14 +240,19 @@ class _EditEventPageState extends State<EditEventPage> {
       if (e.osError != null) {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
           await getTicketsCountByDate(useDNS: false); // Recursive retry
+
           return;
         }
       }
+
+      _handleSocketException(e);
     } catch (e) {
       debugPrint('Error fetching check tickets scan status: $e');
     }
@@ -684,7 +694,7 @@ class _EditEventPageState extends State<EditEventPage> {
       });
 
       final Uri uri = useDNS ? Uri.parse('${backend_url}api/update_event') // Original URL 
-      : Uri.parse('${backend_url_with_fallback_ip}api/update_event'); // Use IP
+      : Uri.parse('${backend_url_with_fallback_ip}update_event'); // Use IP
         
 
       final response = await http.post(
@@ -718,11 +728,14 @@ class _EditEventPageState extends State<EditEventPage> {
       if (e.osError != null) {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
           await _submitEvent(useDNS: false); // Recursive retry
+
           return;
         }
       }
@@ -741,7 +754,7 @@ class _EditEventPageState extends State<EditEventPage> {
 
   Future<void> removeEvent({bool useDNS = true}) async {
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/remove_event/${widget.event.id}/${widget.userId}') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}api/remove_event/${widget.event.id}/${widget.userId}'); // Use IP
+    : Uri.parse('${backend_url_with_fallback_ip}remove_event/${widget.event.id}/${widget.userId}'); // Use IP
 
     try {
       final response = await http.get(uri);
@@ -767,11 +780,14 @@ class _EditEventPageState extends State<EditEventPage> {
       if (e.osError != null) {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
           await removeEvent(useDNS: false); // Recursive retry
+
           return;
         }
       }
@@ -787,7 +803,7 @@ class _EditEventPageState extends State<EditEventPage> {
 
   Future<void> closeEventBooking({bool useDNS = true}) async {
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/close_event_booking/${widget.event.id}/${widget.userId}') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}api/close_event_booking/${widget.event.id}/${widget.userId}'); // Use IP
+    : Uri.parse('${backend_url_with_fallback_ip}close_event_booking/${widget.event.id}/${widget.userId}'); // Use IP
 
     try {
       final response = await http.get(uri);
@@ -813,11 +829,14 @@ class _EditEventPageState extends State<EditEventPage> {
       if (e.osError != null) {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
           await closeEventBooking(useDNS: false); // Recursive retry
+
           return;
         }
       }
@@ -833,7 +852,7 @@ class _EditEventPageState extends State<EditEventPage> {
 
   Future<void> openEventBooking({bool useDNS = true}) async {
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/open_event_booking/${widget.event.id}/${widget.userId}') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}api/open_event_booking/${widget.event.id}/${widget.userId}'); // Use IP
+    : Uri.parse('${backend_url_with_fallback_ip}open_event_booking/${widget.event.id}/${widget.userId}'); // Use IP
 
     try {
       final response = await http.get(uri);
@@ -859,11 +878,14 @@ class _EditEventPageState extends State<EditEventPage> {
       if (e.osError != null) {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
           await openEventBooking(useDNS: false); // Recursive retry
+
           return;
         }
       }

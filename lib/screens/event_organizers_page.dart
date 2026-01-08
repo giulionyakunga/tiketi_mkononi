@@ -70,7 +70,7 @@ class _EventOrganizersPageState extends State<EventOrganizersPage> {
       setState(() => _isLoading = true);
 
       final Uri uri = useDNS ? Uri.parse('${backend_url}api/revoke_organizer_status') // Original URL 
-      : Uri.parse('${backend_url_with_fallback_ip}api/revoke_organizer_status'); // Use IP
+      : Uri.parse('${backend_url_with_fallback_ip}revoke_organizer_status'); // Use IP
       
       final response = await http.post(
         uri,
@@ -93,27 +93,29 @@ class _EventOrganizersPageState extends State<EventOrganizersPage> {
         _showSnackBar('Request failed: ${response.statusCode}');
       }
     } on SocketException catch (e) {
-        debugPrint('Network error occurred:');
-        debugPrint('- Exception type: ${e.runtimeType}');
-        debugPrint('- Message: ${e.message}');
-        
-        if (e.osError != null) {
-          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
-          debugPrint('  - OS message: ${e.osError!.message}');
-          debugPrint('  - errorCode: ${e.osError!.errorCode}');
-          debugPrint('  - useDNS: ${useDNS}');
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
-          // Retry with IP if DNS fails (errno = 7) and not already retrying
-          if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-            debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
-            await revokeOrganizerStatus(userId, useDNS: false); // Recursive retry
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await revokeOrganizerStatus(userId, useDNS: false); // Recursive retry
 
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setBool('use_dns', false);
-            return;
-          }
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
+          return;
         }
-      } catch (e) {
+      }
+
+      _handleSocketException(e);
+    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('An error occurred: $e')),
       );
@@ -167,7 +169,7 @@ class _EventOrganizersPageState extends State<EventOrganizersPage> {
    // Fetch organizers from backend
   Future<void> fetchOrganizers({bool useDNS = true}) async {
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/get_organizers_only_by_admin/${widget.userId}')
-    : Uri.parse('${backend_url_with_fallback_ip}api/get_organizers_only_by_admin/${widget.userId}');
+    : Uri.parse('${backend_url_with_fallback_ip}get_organizers_only_by_admin/${widget.userId}');
 
     try {
       final response = await http.get(uri);
@@ -192,11 +194,16 @@ class _EventOrganizersPageState extends State<EventOrganizersPage> {
       if (e.osError != null) {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
           await fetchOrganizers(useDNS: false); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
           return;
         }
       }

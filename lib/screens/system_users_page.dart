@@ -95,7 +95,7 @@ class _SystemUsersPageState extends State<SystemUsersPage> {
   Future<void> fetchUsers({bool useDNS = true}) async {
 
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/get_users_only_by_admin/${widget.userId}')
-    : Uri.parse('${backend_url_with_fallback_ip}api/get_users_only_by_admin/${widget.userId}');
+    : Uri.parse('${backend_url_with_fallback_ip}get_users_only_by_admin/${widget.userId}');
 
     try {
       final response = await http.get(uri);
@@ -120,11 +120,14 @@ class _SystemUsersPageState extends State<SystemUsersPage> {
       if (e.osError != null) {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
           await fetchUsers(useDNS: false); // Recursive retry
+
           return;
         }
       }

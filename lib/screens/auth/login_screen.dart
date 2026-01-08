@@ -141,7 +141,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
           // Retry with IP if DNS fails (errno = 7) and not already retrying
           if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-            debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
+            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
             await _handleLogin(useDNS: false); // Recursive retry
 
             final prefs = await SharedPreferences.getInstance();
@@ -281,7 +281,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-          debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
           await _handleGoogleSignIn2(token, email, name, useDNS: false); // Recursive retry
 
           final prefs = await SharedPreferences.getInstance();
@@ -391,7 +391,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-          debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
           await _handleAppleSignIn2(token, email, name, useDNS: false); // Recursive retry
 
           final prefs = await SharedPreferences.getInstance();

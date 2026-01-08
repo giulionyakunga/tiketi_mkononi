@@ -212,7 +212,7 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> with TickerProvid
       setState(() => _isLoading = true);
 
       final Uri uri = useDNS ? Uri.parse('${backend_url}api/generate_cards') // Original URL 
-      : Uri.parse('${backend_url_with_fallback_ip}api/generate_cards'); // Use IP
+      : Uri.parse('${backend_url_with_fallback_ip}generate_cards'); // Use IP
 
       final response = await http.post(
         uri,
@@ -264,11 +264,16 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> with TickerProvid
       if (e.osError != null) {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
           await _generateTickets(useDNS: false); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
           return;
         }
       }
@@ -324,7 +329,7 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> with TickerProvid
       });
 
       final Uri uri = useDNS ? Uri.parse('${backend_url}api/add_ticket') // Original URL 
-      : Uri.parse('${backend_url_with_fallback_ip}api/add_ticket'); // Use IP
+      : Uri.parse('${backend_url_with_fallback_ip}add_ticket'); // Use IP
 
       final response = await http.post(
         uri,
@@ -355,11 +360,16 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> with TickerProvid
       if (e.osError != null) {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
           await _addTicket(useDNS: false); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
           return;
         }
       }
@@ -1007,6 +1017,8 @@ Widget _buildFeatureChip(IconData icon, String label) {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Generate Cards'),
+          centerTitle: false,
+          titleSpacing: 0,
           backgroundColor: const Color.fromARGB(255, 240, 244, 247),
           actions: [
             IconButton(
@@ -1023,22 +1035,10 @@ Widget _buildFeatureChip(IconData icon, String label) {
                 );
               },
             ),
-            ElevatedButton.icon(
+            IconButton(
               icon: Icon(
-                Icons.logout,
-              ),
-              label: Text('Tickets(${widget.event.soldTickets})', style: TextStyle(
-                fontSize: 14,
-              )
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.orange[800],
-                padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 5),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                elevation: 2,
+                Icons.receipt,
+                color: Colors.orange[800],
               ),
               onPressed: () {
                 Navigator.pushReplacement(

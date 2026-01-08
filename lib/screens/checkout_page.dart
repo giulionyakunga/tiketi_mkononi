@@ -118,7 +118,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> with WidgetsBinding
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-          debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
           await getTicketsCount(useDNS: false); // Recursive retry
 
           final prefs = await SharedPreferences.getInstance();
@@ -163,7 +163,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> with WidgetsBinding
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-          debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
           await getTicketsCountByDate(useDNS: false); // Recursive retry
 
           final prefs = await SharedPreferences.getInstance();
@@ -322,7 +322,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> with WidgetsBinding
 
           // Retry with IP if DNS fails (errno = 7) and not already retrying
           if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-            debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
+            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
             await _handlePaying(useDNS: false); // Recursive retry
 
             final prefs = await SharedPreferences.getInstance();
@@ -384,7 +384,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> with WidgetsBinding
 
             // Retry with IP if DNS fails (errno = 7) and not already retrying
             if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-              debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
+              debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
               await _handleSelling(useDNS: false); // Recursive retry
 
               final prefs = await SharedPreferences.getInstance();
@@ -463,7 +463,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> with WidgetsBinding
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-          debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
           await fetchTickets(useDNS: false); // Recursive retry
 
           final prefs = await SharedPreferences.getInstance();
@@ -1486,6 +1486,54 @@ class WebSocketService {
         cancelOnError: true,
       );
 
+    }  on WebSocketChannelException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+
+      final inner = e.inner;
+
+      if (inner is SocketException) {
+        final osError = inner.osError;
+
+        if (osError != null) {
+          debugPrint('  - Error number (errno): ${osError.errorCode}');
+          debugPrint('  - OS message: ${osError.message}');
+          debugPrint('  - errorCode: ${osError.errorCode}');
+          debugPrint('  - useDNS: $useDNS');
+
+          // DNS failure (Windows: 11001, Linux/macOS: 7)
+          if ((osError.errorCode == 11001 || osError.errorCode == 7) && useDNS) {
+            debugPrint('DNS failed! Retrying with IP: $backend_url_with_fallback_ip...');
+            await connect(userId, eventId, useDNS: false); // Recursive retry
+
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('use_dns', false);
+            return;
+          }
+        }
+      }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await connect( userId, eventId, useDNS: false); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
+          return;
+        }
+      }
     } catch (e) {
       _timeoutTimer?.cancel();
       _isConnecting = false;

@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:http/http.dart' as http;
 import 'package:audioplayers/audioplayers.dart';
+import 'package:tiketi_mkononi/services/SimpleCodec.dart';
 
 class QRScannerPage extends StatefulWidget {
   final int userId;
@@ -46,7 +47,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
   Future<void> checkTicketsScanStatus({bool useDNS = true}) async {
 
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/check_tickets_scan_status/${widget.eventId}') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}api/check_tickets_scan_status/${widget.eventId}'); // Use IP
+    : Uri.parse('${backend_url_with_fallback_ip}check_tickets_scan_status/${widget.eventId}'); // Use IP
 
     try {
       final response = await http.get(uri);
@@ -73,7 +74,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-          debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
           await checkTicketsScanStatus(useDNS: false); // Recursive retry
 
           final prefs = await SharedPreferences.getInstance();
@@ -180,8 +181,9 @@ class _QRScannerPageState extends State<QRScannerPage> {
         }
 
         String eventId = _eventIdController.text;
-        int event_id = jsonDecode(barcode.rawValue!)['event_id'];
-        String event_date = jsonDecode(barcode.rawValue!)['date'];
+
+        int event_id = jsonDecode(SimpleCodec.decode(barcode.rawValue!))['eid'];
+        String event_date = jsonDecode(SimpleCodec.decode(barcode.rawValue!))['dt'];
         
         if (int.tryParse(eventId) != event_id) {
           _showCustomDialog(context, "Invalid Ticket!");
@@ -189,20 +191,22 @@ class _QRScannerPageState extends State<QRScannerPage> {
         }
 
         if(!isSameDay(event_date)) {
-          String event_time = jsonDecode(barcode.rawValue!)['time'];
           String message = "Wrong Day Ticket!";
-          _showCustomDialog(context, message, ticketDate: '${formatDateTime(event_date)} - $event_time');
+          _showCustomDialog(context, message, ticketDate: '${formatDateTime(event_date)}');
           return;
         }
 
-        String url =  useDNS ? '${backend_url}api/check_ticket/${widget.userId}' : '${backend_url_with_fallback_ip}api/check_ticket/${widget.userId}';
+        String url =  useDNS ? '${backend_url}api/check_ticket/${widget.userId}' 
+        : '${backend_url_with_fallback_ip}check_ticket/${widget.userId}';
         url += '?event_id=${_eventIdController.text}';
 
         final response = await http.post(
           Uri.parse(url),
           headers: {'Content-Type': 'application/json'},
-          body: barcode.rawValue,
+          body: SimpleCodec.decode(barcode.rawValue!),
         );
+
+        debugPrint(' rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr response.body : ${response.body}');
 
         if (response.statusCode == 200) {
           final responseData = jsonDecode(response.body);
@@ -263,7 +267,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
 
           // Retry with IP if DNS fails (errno = 7) and not already retrying
           if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-            debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
+            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
             await _onDetect(capture, useDNS: false); // Recursive retry
 
             final prefs = await SharedPreferences.getInstance();
@@ -318,8 +322,8 @@ class _QRScannerPageState extends State<QRScannerPage> {
         }
 
         String eventId = _eventIdController.text;
-        int event_id = jsonDecode(barcode.rawValue!)['event_id'];
-        String event_date = jsonDecode(barcode.rawValue!)['date'];
+        int event_id = jsonDecode(SimpleCodec.decode(barcode.rawValue!))['eid'];
+        String event_date = jsonDecode(SimpleCodec.decode(barcode.rawValue!))['dt'];
         
         if (int.tryParse(eventId) != event_id) {
           _showCustomDialog(context, "Invalid Ticket!");
@@ -327,20 +331,23 @@ class _QRScannerPageState extends State<QRScannerPage> {
         }
 
         if(!isSameDay(event_date)) {
-          String event_time = jsonDecode(barcode.rawValue!)['time'];
+
           String message = "Wrong Day Ticket!";
-          _showCustomDialog(context, message, ticketDate: '${formatDateTime(event_date)} - $event_time');
+          _showCustomDialog(context, message, ticketDate: '${formatDateTime(event_date)}');
           return;
         }
 
-        String url =  useDNS ? '${backend_url}api/mark_as_left/${widget.userId}' : '${backend_url_with_fallback_ip}api/mark_as_left/${widget.userId}';
+        String url =  useDNS ? '${backend_url}api/mark_as_left/${widget.userId}' 
+        : '${backend_url_with_fallback_ip}mark_as_left/${widget.userId}';
         url += '?event_id=${_eventIdController.text}';
 
         final response = await http.post(
           Uri.parse(url),
           headers: {'Content-Type': 'application/json'},
-          body: barcode.rawValue,
+          body: SimpleCodec.decode(barcode.rawValue!),
         );
+
+        debugPrint(' rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr response.body : ${response.body}');
 
         if (response.statusCode == 200) {
           final responseData = jsonDecode(response.body);
@@ -389,7 +396,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
 
           // Retry with IP if DNS fails (errno = 7) and not already retrying
           if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-            debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
+            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
             await _onDetect2(capture, useDNS: false); // Recursive retry
 
             final prefs = await SharedPreferences.getInstance();
@@ -443,7 +450,8 @@ class _QRScannerPageState extends State<QRScannerPage> {
           'ticket_code': _ticketCodeController.text.trim(),
         };
 
-        String url =  useDNS ? '${backend_url}api/check_ticket_by_code' : '${backend_url_with_fallback_ip}api/check_ticket_by_code';
+        String url =  useDNS ? '${backend_url}api/check_ticket_by_code' 
+        : '${backend_url_with_fallback_ip}check_ticket_by_code';
         url += '?event_id=${_eventIdController.text}';
 
         final response = await http.post(
@@ -511,7 +519,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
 
           // Retry with IP if DNS fails (errno = 7) and not already retrying
           if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-            debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
+            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
             await _checkTicketsByCode(useDNS: false); // Recursive retry
 
             final prefs = await SharedPreferences.getInstance();
@@ -561,7 +569,8 @@ class _QRScannerPageState extends State<QRScannerPage> {
           'ticket_code': _ticketCodeController.text.trim(),
         };
 
-        String url =  useDNS ? '${backend_url}api/mark_as_left_by_code' : '${backend_url_with_fallback_ip}api/check_ticket_by_code';
+        String url =  useDNS ? '${backend_url}api/mark_as_left_by_code' 
+        : '${backend_url_with_fallback_ip}check_ticket_by_code';
         url += '?event_id=${_eventIdController.text}';
 
         final response = await http.post(
@@ -617,8 +626,8 @@ class _QRScannerPageState extends State<QRScannerPage> {
 
           // Retry with IP if DNS fails (errno = 7) and not already retrying
           if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-            debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
-            await _checkTicketsByCode(useDNS: false); // Recursive retry
+            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+            await _markAsLeftByCode(useDNS: false); // Recursive retry
 
             final prefs = await SharedPreferences.getInstance();
             await prefs.setBool('use_dns', false);

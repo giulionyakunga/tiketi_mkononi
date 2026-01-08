@@ -36,10 +36,14 @@ class _SetScannerPageState extends State<SetScannerPage> {
     super.dispose();
   }
 
-  Future<void> getEventScanner() async {
+  Future<void> getEventScanner({bool useDNS = true}) async {
     try {
+
+      final Uri uri = useDNS ?   Uri.parse('${backend_url}api/event_scanner/${widget.eventId}') 
+      : Uri.parse('${backend_url_with_fallback_ip}event_scanner/${widget.eventId}'); // Use IP
+
       final response = await http.get(
-        Uri.parse('${backend_url}api/event_scanner/${widget.eventId}'),
+        uri,
         headers: {'Content-Type': 'application/json'},
       );
 
@@ -56,6 +60,27 @@ class _SetScannerPageState extends State<SetScannerPage> {
           _userData = null;
         });
       }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await getEventScanner(useDNS: false); // Recursive retry
+
+          return;
+        }
+      }
+
+      _handleSocketException(e);
     } catch (e) {
       setState(() {
         _errorMessage = 'Error connecting to server';
@@ -68,7 +93,7 @@ class _SetScannerPageState extends State<SetScannerPage> {
     }
   }
 
-  Future<void> _searchUser() async {
+  Future<void> _searchUser({bool useDNS = true}) async {
     final email = _emailController.text.trim();
     if (email.isEmpty) {
       setState(() {
@@ -84,9 +109,12 @@ class _SetScannerPageState extends State<SetScannerPage> {
       _searchPerformed = true;
     });
 
+    final Uri uri = useDNS ?   Uri.parse('${backend_url}api/user_with_scanner_status_by_email/$email/${widget.eventId}') 
+    : Uri.parse('${backend_url_with_fallback_ip}user_with_scanner_status_by_email/$email/${widget.eventId}'); // Use IP
+
     try {
       final response = await http.get(
-        Uri.parse('${backend_url}api/user_with_scanner_status_by_email/$email/${widget.eventId}'),
+        uri,
         headers: {'Content-Type': 'application/json'},
       );
 
@@ -102,6 +130,27 @@ class _SetScannerPageState extends State<SetScannerPage> {
           _userData = null;
         });
       }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await _searchUser(useDNS: false); // Recursive retry
+
+          return;
+        }
+      }
+
+      _handleSocketException(e);
     } catch (e) {
       setState(() {
         _errorMessage = 'Error connecting to server';
@@ -132,7 +181,7 @@ class _SetScannerPageState extends State<SetScannerPage> {
     });
 
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/set_event_scanner/${widget.eventId}/${widget.userId}') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}api/set_event_scanner/${widget.eventId}/${widget.userId}'); // Use IP
+    : Uri.parse('${backend_url_with_fallback_ip}set_event_scanner/${widget.eventId}/${widget.userId}'); // Use IP
 
     try {
       final response = await http.post(
@@ -174,24 +223,27 @@ class _SetScannerPageState extends State<SetScannerPage> {
         throw Exception('Failed to update scanner status');
       }
     } on SocketException catch (e) {
-        debugPrint('Network error occurred:');
-        debugPrint('- Exception type: ${e.runtimeType}');
-        debugPrint('- Message: ${e.message}');
-        
-        if (e.osError != null) {
-          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
-          debugPrint('  - OS message: ${e.osError!.message}');
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
-          // Retry with IP if DNS fails (errno = 7) and not already retrying
-          if (e.osError!.errorCode == 7 && useDNS) {
-            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-            await _toggleScannerStatus(value, useDNS: false); // Recursive retry
-            return;
-          }
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await _toggleScannerStatus(value, useDNS: false); // Recursive retry
+
+          return;
         }
+      }
 
-        _handleSocketException(e);
-      } catch (e) {
+      _handleSocketException(e);
+    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to update scanner status'),

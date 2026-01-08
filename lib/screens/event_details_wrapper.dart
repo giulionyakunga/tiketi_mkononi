@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
@@ -27,16 +28,39 @@ class _EventDetailsWrapperState extends State<EventDetailsWrapper> {
     fetchEvent();
   }
 
-  Future<void> fetchEvent() async {
-    final url = Uri.parse('${backend_url}/api/get_event/${widget.eventId}/1');
-    final response = await http.get(url);
-    if (response.statusCode == 200) {
-      setState(() {
-        event = Event.fromJson(json.decode(response.body));
-        isLoading = false;
-      });
-    } else {
-      setState(() => isLoading = false);
+  Future<void> fetchEvent({bool useDNS = true}) async {
+    try {
+      final url = Uri.parse('${backend_url}/api/get_event/${widget.eventId}/1');
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        setState(() {
+          event = Event.fromJson(json.decode(response.body));
+          isLoading = false;
+        });
+      } else {
+        setState(() => isLoading = false);
+      }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await fetchEvent(useDNS: false); // Recursive retry
+
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching events: $e');
     }
   }
 

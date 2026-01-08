@@ -179,6 +179,54 @@ class WebSocketService {
         cancelOnError: true,
       );
 
+    } on WebSocketChannelException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+
+      final inner = e.inner;
+
+      if (inner is SocketException) {
+        final osError = inner.osError;
+
+        if (osError != null) {
+          debugPrint('  - Error number (errno): ${osError.errorCode}');
+          debugPrint('  - OS message: ${osError.message}');
+          debugPrint('  - errorCode: ${osError.errorCode}');
+          debugPrint('  - useDNS: $useDNS');
+
+          // DNS failure (Windows: 11001, Linux/macOS: 7)
+          if ((osError.errorCode == 11001 || osError.errorCode == 7) && useDNS) {
+            debugPrint('DNS failed! Retrying with IP: $backend_url_with_fallback_ip...');
+            await connect(ticketId, scanStatus, useDNS: false); // Recursive retry
+
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('use_dns', false);
+            return;
+          }
+        }
+      }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await connect(ticketId, scanStatus, useDNS: false); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
+          return;
+        }
+      }
     } catch (e) {
       _timeoutTimer?.cancel();
       _isConnecting = false;
@@ -448,16 +496,11 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
   }
 
   Future<void> _updateTicketSmsSentStatus(int ticketId, int eventId, {bool useDNS = true}) async {
-    debugPrint(" ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss");
-    debugPrint(" ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss");
-    debugPrint(" ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss");
-
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/update_ticket_sms_sent_status/$eventId/$ticketId')
-    : Uri.parse('${backend_url_with_fallback_ip}api/update_ticket_confirm_status/$eventId/$ticketId');
+    : Uri.parse('${backend_url_with_fallback_ip}update_ticket_confirm_status/$eventId/$ticketId');
 
     try {
-      final response = await http.get(uri);
-      debugPrint(" rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr response.body : ${response.body}");
+      await http.get(uri);
     } on SocketException catch (e) {
       debugPrint('Network error occurred:');
       debugPrint('- Exception type: ${e.runtimeType}');
@@ -471,7 +514,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-          debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
           await _updateTicketSmsSentStatus(ticketId, eventId, useDNS: false); // Recursive retry
 
           final prefs = await SharedPreferences.getInstance();
@@ -485,17 +528,11 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
   }
 
   Future<void> _updateTicketWhatsappSentStatus(int ticketId, int eventId, {bool useDNS = true}) async {
-    
-    debugPrint(" wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww");
-    debugPrint(" wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww");
-    debugPrint(" wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww");
-
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/update_ticket_whatsapp_sent_status/$eventId/$ticketId')
-    : Uri.parse('${backend_url_with_fallback_ip}api/update_ticket_whatsapp_sent_status/$eventId/$ticketId');
+    : Uri.parse('${backend_url_with_fallback_ip}update_ticket_whatsapp_sent_status/$eventId/$ticketId');
 
     try {
-      final response = await http.get(uri);
-      debugPrint(" rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrwwwwwwwwwwwwww response.body : ${response.body}");
+      await http.get(uri);
     } on SocketException catch (e) {
       debugPrint('Network error occurred:');
       debugPrint('- Exception type: ${e.runtimeType}');
@@ -509,7 +546,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-          debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
           await _updateTicketSmsSentStatus(ticketId, eventId, useDNS: false); // Recursive retry
 
           final prefs = await SharedPreferences.getInstance();
@@ -538,8 +575,13 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
         cardFilePath = path;
         _isCardGenerated = true;
       });
+    } on PathNotFoundException catch (e) {
+      debugPrint(' >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Cache cleanup skipped (file already missing)');
+      debugPrint('Path: ${e.path}');
+      debugPrint('OS error: ${e.osError}');
     } catch (e) {
-      // debugPrint('Error sharing image: $e');
+      debugPrint(' >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> 11 cardFilePath : $cardFilePath');
+      debugPrint(' >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> 11 Error sharing image: $e');
 
       if (!mounted) return;
 
@@ -1649,7 +1691,7 @@ class ImageQrService {
     required Event event,
     required  OverlayConfig config,
   }) async {
-    String imageSource = '${backend_url}api/image/${event.cardUrl}';
+    String imageName = event.cardUrl;
     String qrData = SimpleCodec.encode(jsonEncode({
       "tid": ticket.id,
       "eid": ticket.eventId,
@@ -1660,7 +1702,7 @@ class ImageQrService {
       // Load base image
       debugPrint('Loading image');
 
-      final image = await ImageLoader.loadImage(imageSource);
+      final image = await ImageLoader.loadImage(imageName);
       if (image == null) {
         throw Exception('Failed to load image');
       }
@@ -1821,8 +1863,11 @@ class ImageQrService {
 }
 
 class ImageLoader {
-  static Future<img.Image?> loadImage(String source) async {
+  static Future<img.Image?> loadImage(String imageName, {bool useDNS = true}) async { 
     try {
+      String source = useDNS ? '${backend_url}api/image/${imageName}' 
+      : '${backend_url_with_fallback_ip}image/${imageName}';
+
       print('🔍 Attempting to load image from: $source');
       
       // Check if source is a local file path
@@ -1851,6 +1896,23 @@ class ImageLoader {
       
       // Try as network URL
       return await _loadNetworkImage(source);
+    } on SocketException catch (e) {
+      debugPrint('  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> 22 Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP at loadImage: ${backend_url_with_fallback_ip}...');
+          await loadImage(imageName, useDNS: false); // Recursive retry
+        } 
+      }
     } catch (e) {
       print('❌ Error loading image: $e');
       return null;
@@ -1909,7 +1971,7 @@ class ImageLoader {
     }
   }
 
-  static Future<img.Image?> _loadNetworkImage(String url) async {
+  static Future<img.Image?> _loadNetworkImage(String url, {bool useDNS = true}) async {
     try {
       print('🌐 Checking cache for URL: $url');
       
@@ -1961,7 +2023,10 @@ class ImageLoader {
         print('❌ HTTP Error ${response.statusCode}');
         throw Exception('Failed to load image: HTTP ${response.statusCode}');
       }
-    } catch (e) {
+    } on SocketException catch (e) {
+      rethrow;
+    } 
+    catch (e) {
       print('❌ Error loading network image: $e');
       
       // Try to load from cache even if it might be expired
@@ -2006,15 +2071,5 @@ class ImageLoader {
     
     print('❌ Failed to load image from: $source');
     throw Exception('Failed to load image from: $source');
-  }
-
-  static Future<void> preloadImage(String source) async {
-    try {
-      print('🔍 Preloading image: $source');
-      await loadImage(source);
-      print('✅ Image preloaded successfully');
-    } catch (e) {
-      print('❌ Image preload failed: $e');
-    }
   }
 }

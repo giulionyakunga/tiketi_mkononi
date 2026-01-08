@@ -168,7 +168,7 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
 
           // Retry with IP if DNS fails (errno = 7) and not already retrying
           if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-            debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
+            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
             await _handleAddApplicationInformation(useDNS: false); // Recursive retry
 
             final prefs = await SharedPreferences.getInstance();
@@ -369,7 +369,7 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-          debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
           await checkForUpdates(useDNS: false); // Recursive retry
 
           final prefs = await SharedPreferences.getInstance();
@@ -450,7 +450,7 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-          debugPrint('DNS failed! Retrying with IP here: ${backend_url_with_fallback_ip}...');
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
           await getServerMetrics(useDNS: false); // Recursive retry
 
           final prefs = await SharedPreferences.getInstance();

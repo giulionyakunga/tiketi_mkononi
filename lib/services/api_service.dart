@@ -13,7 +13,7 @@ class ApiService {
 
       // If all validations pass, proceed with registration
       final Uri uri = useDNS ? Uri.parse('${backend_url}api/update_user') // Original URL 
-      : Uri.parse('${backend_url_with_fallback_ip}api/update_user'); // Use IP
+      : Uri.parse('${backend_url_with_fallback_ip}update_user'); // Use IP
         
       final response = await http.post(
         uri,
@@ -29,7 +29,7 @@ class ApiService {
         // throw Exception('Failed to update profile');
         return 'Failed to update profile';
       }
-    } on SocketException catch (e) {
+    } on SocketException catch (e) {    
       debugPrint('Network error occurred:');
       debugPrint('- Exception type: ${e.runtimeType}');
       debugPrint('- Message: ${e.message}');
@@ -38,9 +38,11 @@ class ApiService {
       if (e.osError != null) {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
           response = await updateUserProfile(profile, password, imagePath, useDNS: false); // Recursive retry
         }
@@ -56,7 +58,7 @@ class ApiService {
 
       // If all validations pass, proceed with registration
       final Uri uri = useDNS ? Uri.parse('${backend_url}api/delete_user/$user_id') // Original URL 
-      : Uri.parse('${backend_url_with_fallback_ip}api/delete_user/$user_id'); // Use IP
+      : Uri.parse('${backend_url_with_fallback_ip}delete_user/$user_id'); // Use IP
       
       final response = await http.post(
         uri,
@@ -81,9 +83,11 @@ class ApiService {
       if (e.osError != null) {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
           response = await deleteUserProfile(user_id, useDNS: false); // Recursive retry
         }
@@ -99,7 +103,7 @@ class ApiService {
 
       // If all validations pass, proceed with registration
       final Uri uri = useDNS ? Uri.parse('${backend_url}api/send_message') // Original URL 
-      : Uri.parse('${backend_url_with_fallback_ip}api/send_message'); // Use IP
+      : Uri.parse('${backend_url_with_fallback_ip}send_message'); // Use IP
         
       final response = await http.post(
         uri,
@@ -124,9 +128,11 @@ class ApiService {
       if (e.osError != null) {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if (e.osError!.errorCode == 7 && useDNS) {
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
           response = await  sendMessage(user_id, name, phoneNumber, email, message, useDNS: false); // Recursive retry
         }

@@ -66,7 +66,7 @@ class _PurchasePistoryPageState extends State<PurchasePistoryPage> {
       if (widget.userId == 0) return; // Don't fetch if we don't have a user ID yet
 
       final Uri uri = useDNS ? Uri.parse('${backend_url}api/purchased_events/${widget.userId}?page=$pageKey&limit=$_pageSize') // Original URL 
-      : Uri.parse('${backend_url_with_fallback_ip}api/purchased_events/${widget.userId}?page=$pageKey&limit=$_pageSize'); // Use IP
+      : Uri.parse('${backend_url_with_fallback_ip}purchased_events/${widget.userId}?page=$pageKey&limit=$_pageSize'); // Use IP
 
       final response = await http.get(uri);
 
@@ -97,24 +97,27 @@ class _PurchasePistoryPageState extends State<PurchasePistoryPage> {
         _pagingController.error = 'Failed to load history';
       }
     } on SocketException catch (e) {
-        debugPrint('Network error occurred:');
-        debugPrint('- Exception type: ${e.runtimeType}');
-        debugPrint('- Message: ${e.message}');
-        
-        if (e.osError != null) {
-          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
-          debugPrint('  - OS message: ${e.osError!.message}');
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
 
-          // Retry with IP if DNS fails (errno = 7) and not already retrying
-          if (e.osError!.errorCode == 7 && useDNS) {
-            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-            await _fetchPage(pageKey, useDNS: false); // Recursive retry
-            return;
-          }
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await _fetchPage(pageKey, useDNS: false); // Recursive retry
+
+          return;
         }
+      }
 
-        _handleSocketException(e);
-      } catch (error) {
+      _handleSocketException(e);
+    } catch (error) {
       _pagingController.error = error;
     }
   }
