@@ -86,7 +86,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         );
 
         if (response.statusCode == 200) {
-          if (response.body == "Login failed, Plz check your credentials!") {
+          if (response.body == "Login failed, Please check your credentials!") {
             _showSnackBar(response.body);
           } else {
             final responseData = jsonDecode(response.body);
@@ -232,7 +232,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       );
 
       if (response.statusCode == 200) {
-        if (response.body == "Login failed, Plz check your credentials!") {
+        if (response.body == "Login failed, Please check your credentials!") {
           _showSnackBar(response.body);
         } else {
           final responseData = jsonDecode(response.body);
@@ -295,7 +295,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _handleSocketException(e);
     } catch (e) {
       debugPrint('Google sign in failed: $e');
-      if (mounted) _showSnackBar('Google sign in failed, Plz try another way');
+      if (mounted) _showSnackBar('Google sign in failed, Please try another way');
     }
   }
 
@@ -314,7 +314,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     } catch (e) {
       debugPrint('Google sign in failed: $e');
-      if (mounted) _showSnackBar('Google sign in failed, Plz try another way');
+      if (mounted) _showSnackBar('Google sign in failed, Please try another way');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -343,7 +343,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       );
 
       if (response.statusCode == 200) {
-        if (response.body == "Login failed, Plz check your credentials!") {
+        if (response.body == "Login failed, Please check your credentials!") {
           _showSnackBar(response.body);
         } else {
           final responseData = jsonDecode(response.body);
@@ -407,7 +407,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _handleSocketException(e);
     } catch (e) {
       debugPrint('Apple sign in failed: $e');
-      if (mounted) _showSnackBar('Apple sign in failed, Plz try another way');
+      if (mounted) _showSnackBar('Apple sign in failed, Please try another way');
     }
   }
 
@@ -432,7 +432,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     } catch (e) {
       debugPrint('Apple sign in failed: $e');
-      if (mounted) _showSnackBar('Apple sign in failed, Plz try another way');
+      if (mounted) _showSnackBar('Apple sign in failed, Please try another way');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -784,18 +784,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         top: 24.0, // Adjust as needed
         right: 16.0, // Adjust as needed
         child: ElevatedButton.icon(
-          icon: const Icon(Icons.explore),
+          icon: const Icon(
+            Icons.explore,
+            size: 16,
+          ),
           label: Text(
             'Explore Events',
             style: TextStyle(
-              fontSize: isLargeScreen ? 16 : 14,
+              fontSize: isLargeScreen ? 16 : 12,
               color: Colors.orange[800],
             ),
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.orange[100],
             foregroundColor: Colors.orange[800],
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+            padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 5),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),

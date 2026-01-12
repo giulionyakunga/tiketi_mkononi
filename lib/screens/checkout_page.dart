@@ -582,17 +582,18 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> with WidgetsBinding
           ElevatedButton.icon(
             icon: Icon(
               Icons.logout,
+              size: 16,
             ),
             label: Text(
               'Tickets(${quantity + widget.event.tickets.length})',
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 12,
               )
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,
               foregroundColor: Colors.orange[800],
-              padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 5),
+              padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 3),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -980,17 +981,18 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> with WidgetsBinding
         ElevatedButton.icon(
           icon: Icon(
             Icons.logout,
+            size: 16,
           ),
           label: Text(
             quantity > 1 ? 'View Tickets($quantity)' : 'View Ticket($quantity)',
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 12,
             )
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.white,
             foregroundColor: Colors.orange[800],
-            padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 5),
+            padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 3),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
             ),
@@ -1153,7 +1155,29 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> with WidgetsBinding
                     ),
                   ),
                   TextSpan(
-                    text: '$ticketTypeName (x$quantity)',
+                    text: '$ticketTypeName',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ]
+              )
+            ),
+            const SizedBox(height: 12),
+            RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'Number of Tickets: ',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: Colors.grey
+                    ),
+                  ),
+                  TextSpan(
+                    text: '$quantity',
                     style: const TextStyle(
                       fontSize: 18,
                       color: Colors.black,
@@ -1198,6 +1222,50 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> with WidgetsBinding
                   ),
                   TextSpan(
                     text: '${widget.event.time}',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ]
+              )
+            ),
+            const SizedBox(height: 12),
+            RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'Payment Method: ',
+                    style: const TextStyle(
+                      fontSize: 18, 
+                      color: Colors.grey
+                    ),
+                  ),
+                  TextSpan(
+                    text: '$selectedPaymentMethod',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ]
+              )
+            ),
+            const SizedBox(height: 12),
+            RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'Phone Number: ',
+                    style: const TextStyle(
+                      fontSize: 18, 
+                      color: Colors.grey
+                    ),
+                  ),
+                  TextSpan(
+                    text: '${_phoneNumberController.text}',
                     style: const TextStyle(
                       fontSize: 18,
                       color: Colors.black,
