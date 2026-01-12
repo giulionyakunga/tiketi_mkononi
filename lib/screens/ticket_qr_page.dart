@@ -654,6 +654,9 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
     try {
       final response = await http.get(uri);
       debugPrint(' rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr ${response.body}');
+      setState(() {
+        isWhatsappSent = true;
+      });
     } on SocketException catch (e) {
       debugPrint('Network error occurred:');
       debugPrint('- Exception type: ${e.runtimeType}');
@@ -1669,7 +1672,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
                                       const SizedBox(height: 8),
                                       ElevatedButton.icon(
                                         onPressed: (_isCardGenerated && !_isLoading && !isWhatsappSent) ? _sendCard : null,
-                                        icon: const Icon(Icons.share),
+                                        icon: const Icon(Icons.send),
                                         label: const Text("Send Card"),
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: Colors.green,
@@ -1786,7 +1789,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
                                 const SizedBox(height: 8),
                                 ElevatedButton.icon(
                                   onPressed: (_isCardGenerated && !_isLoading && !isWhatsappSent) ? _sendCard : null,
-                                  icon: const Icon(Icons.share),
+                                  icon: const Icon(Icons.send),
                                   label: const Text("Send Card"),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.green,
