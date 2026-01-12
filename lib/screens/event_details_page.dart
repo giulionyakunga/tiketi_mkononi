@@ -973,14 +973,14 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                     ),
                                     child: (event.tickets.length > 1) ?
                                     Text(
-                                      "View Tickets",
+                                      (widget.event.category.toUpperCase() == "WEDDING") ? "View Cards" : "View Tickets",
                                       style: TextStyle(
                                         fontSize: 11, 
                                         color: Colors.green
                                       ),
                                     ) : 
                                     Text(
-                                      "View Ticket",
+                                       (widget.event.category.toUpperCase() == "WEDDING") ? "View Card" : "View Ticket",
                                       style: TextStyle(
                                         fontSize: 11, 
                                         color: Colors.green
@@ -1397,7 +1397,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
                             onPressed: () {
-                              (kIsWeb) ? 
+                              (kIsWeb) ?
                               _handleQRCodeScannerUnavailablility(event)
                               :
                               Navigator.push(

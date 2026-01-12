@@ -448,6 +448,9 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
   bool _isAppActive = false;
   bool _isContactSaved = false;
   String contactName = '';
+  Uint8List? _webImageBytes;
+  bool _isLoading = false;
+  Iterable<Contact> contactsList = [];
 
   @override
   void initState() {
@@ -499,7 +502,12 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
       );
     });
 
-    _generateImageWithQr();
+    if(widget.event!.category.toUpperCase() == "WEDDING") {
+      _generateImageWithQr();
+    }
+
+    await loadContacts();
+
   }
 
   Future<bool> requestContactsPermission() async {
@@ -509,21 +517,39 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
     }
     return status.isGranted;
   }
-
-  Future<void> addContactUnique(String givenName, String phoneNumber) async {
+  
+  Future<void> loadContacts() async {
     bool granted = await requestContactsPermission();
     if (!granted) {
       debugPrint("Permission denied");
+      _showSnackBar("Permission denied");
       return;
     }
 
     // Get all existing contacts
     Iterable<Contact> contacts = await ContactsService.getContacts(withThumbnails: false);
 
+    setState(() {
+      contactsList = contacts;
+    });
+  }
+
+  Future<void> addContactUnique(String givenName, String phoneNumber) async {
+    bool granted = await requestContactsPermission();
+    if (!granted) {
+      debugPrint("Permission denied");
+      _showSnackBar("Permission denied");
+      return;
+    }
+
+    if(contactsList.isEmpty) {
+      await loadContacts();
+    }
+    
     // Check if phone number already exists
     Contact? matchingContact;
 
-    for (final c in contacts) {
+    for (final c in contactsList) {
       if (c.phones != null && c.phones!.any((p) => p.value == phoneNumber)) {
         matchingContact = c;
         break;
@@ -580,75 +606,6 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
     }
     String contactName = buffer.toString().toUpperCase() + '$ticketId';
     return contactName;
-  }
-
-  Future<void> sendContactsToBackend({bool useDNS = true}) async {
-    try{
-      bool granted = await requestContactsPermission();
-      if (!granted) {
-        debugPrint("Permission denied");
-        return;
-      }
-
-      Iterable<Contact> contacts = await ContactsService.getContacts(withThumbnails: false);
-
-      debugPrint("Number of contacts : ${contacts.length}");
-
-      if (contacts.isEmpty) return;
-
-      final List<Map<String, dynamic>> contactList = contacts.map((contact) {
-        return {
-          "displayName": contact.displayName,
-          "givenName": contact.givenName,
-          "familyName": contact.familyName,
-          "phones": contact.phones?.map((p) => p.value).toList(),
-          "emails": contact.emails?.map((e) => e.value).toList(),
-        };
-      }).toList();
-      
-      final Uri uri = useDNS ? Uri.parse('${backend_url}api/contacts') // Original URL 
-      : Uri.parse('${backend_url_with_fallback_ip}contacts'); // Use IP
-
-      final response = await http.post(
-        uri,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          "contacts": contactList,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        _showSnackBar(response.body);
-      } else {
-        _showSnackBar('Request failed: ${response.statusCode}');
-      }
-    } on SocketException catch (e) {
-      debugPrint('Network error occurred:');
-      debugPrint('- Exception type: ${e.runtimeType}');
-      debugPrint('- Message: ${e.message}');
-        
-      if (e.osError != null) {
-        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
-        debugPrint('  - OS message: ${e.osError!.message}');
-        debugPrint('  - errorCode: ${e.osError!.errorCode}');
-        debugPrint('  - useDNS: ${useDNS}');
-
-        // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await sendContactsToBackend(useDNS: false); // Recursive retry
-
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setBool('use_dns', false);
-          return;
-        }
-      }
-    } catch (e) {
-      debugPrint('An error occurred: $e');
-      _showSnackBar('An error occurred: $e');
-    }
   }
 
   Future<void> _updateTicketSmsSentStatus(int ticketId, int eventId, {bool useDNS = true}) async {
@@ -730,6 +687,12 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
         event: widget.event!,
         config: config,
       );
+
+      if (kIsWeb) {
+        setState(() {
+          _webImageBytes = ImageQrService._webImageBytes;
+        });
+      }
 
       if (!mounted) return;
 
@@ -1470,6 +1433,129 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
     }
   }
 
+  Future<void> _sendCard({bool useDNS = true}) async {
+    try {
+              
+      setState(() => _isLoading = true);
+
+      String text = "Habari ${widget.ticket.userName},\nUmealikwa kwenye sherehe ya ${widget.ticket.eventName}, Itakayofanyika tarehe ${widget.ticket.date}, katika ukumbi wa ${widget.ticket.venue}, kuanzia saa ${widget.ticket.time} ${getTimeOfDay(widget.ticket.time)}. Hii ni kadi yako. Fika nayo siku ya Tukio. Namba ya kadi yako ni: ${widget.ticket.ticketCode} (${widget.ticket.ticketType}).\nBofya kiungo hiki kuthibitisha uwepo wako -> https://tiketimkononi.telabs.co.tz/confirm/attendance/${widget.ticket.eventId}/${widget.ticket.ticketCode}\nKiungo cha mahali -> ${widget.ticket.locationLink}\nKwa msaada piga namba ${widget.event!.organizerPhoneNumber}.\n#TiketiMkononi, #SimuYakoTiketiYako";
+
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/send_card') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}send_card'); // Use IP
+
+      final request = http.MultipartRequest('POST', uri)
+        ..fields['ticket_id'] = '${widget.ticket.id}'
+        ..fields['text'] = text;
+
+      if (kIsWeb) {
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'image',
+            _webImageBytes!,
+            filename: 'card.png',
+          ),
+        );
+      } else {
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'image',
+            cardFilePath,
+          ),
+        );
+      }
+
+      final response = await request.send();
+     
+      // Convert the streamed response to a string
+      final responseBody = await response.stream.bytesToString();
+
+      final responseData = jsonDecode(responseBody);
+
+      debugPrint("responseData : $responseData");
+      debugPrint("responseData message : ${responseData['message']}");
+      debugPrint("responseData success : ${responseData['success']}");
+
+      if (response.statusCode == 200) {
+        if (responseData['message'] == "Card sent successfully!") {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(responseBody)),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Upload failed: ${response.statusCode}, $responseBody')),
+          );
+        }
+      } else if (response.statusCode == 302) {
+        _handleHTTPRedirect();
+      } else {
+        if(response.statusCode == 413){
+          _showSnackBar('Request failed: Image is Too Large');
+        } else {
+          _showSnackBar('Request failed: ${response.statusCode}');
+        }
+      }
+      
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await _sendCard(useDNS: false); // Recursive retry
+
+          return;
+        }
+      }
+
+      _handleSocketException(e);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+
+  }
+
+  void _handleSocketException(SocketException e) {
+    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 101 || e.osError?.errorCode == 111) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Connection Error'),
+          content: const Text('Could not connect to the server. Please check your internet connection.'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      );
+    } else {
+      _showSnackBar('Connection Error: ${e.message}');
+    }
+  }
+
+  void _handleHTTPRedirect() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Connection Error'),
+        content: const Text('Could not connect to the server. Please check your internet connection.'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+    );
+  }
+
   Future<void> _shareCardCode() async {
     _updateTicketSmsSentStatus(widget.ticket.id, widget.event!.id);
     
@@ -1560,18 +1646,36 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
                                   const SizedBox(height: 8),
                                   if (widget.event != null)
                                   (widget.event!.category.toUpperCase() == "WEDDING") ?
-                                  ElevatedButton.icon(
-                                    onPressed: _isCardGenerated ? _shareCard : null,
-                                    icon: const Icon(Icons.share),
-                                    label: const Text("Share Card"),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.blue,
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
+                                  Column(
+                                    children: [
+                                      ElevatedButton.icon(
+                                        onPressed: _isCardGenerated ? _shareCard : null,
+                                        icon: const Icon(Icons.share),
+                                        label: const Text("Share Card"),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.blue,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                        ),
                                       ),
-                                    ),
+                                      const SizedBox(height: 8),
+                                      ElevatedButton.icon(
+                                        onPressed: (_isCardGenerated && !_isLoading) ? _sendCard : null,
+                                        icon: const Icon(Icons.share),
+                                        label: const Text("Send Card"),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.green,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ) :
                                   ElevatedButton.icon(
                                     onPressed: _shareTicket,
@@ -1659,19 +1763,38 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
                             const SizedBox(height: 8),
                             if (widget.event != null)
                             (widget.event!.category.toUpperCase() == "WEDDING") ?
-                            ElevatedButton.icon(
-                              onPressed: _isCardGenerated ? _shareCard : null,
-                              icon: const Icon(Icons.share),
-                              label: const Text("Share Card"),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blue,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                            Column(
+                              children: [
+                                ElevatedButton.icon(
+                                  onPressed: _isCardGenerated ? _shareCard : null,
+                                  icon: const Icon(Icons.share),
+                                  label: const Text("Share Card"),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.blue,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ) :
+                                const SizedBox(height: 8),
+                                ElevatedButton.icon(
+                                  onPressed: (_isCardGenerated && !_isLoading) ? _sendCard : null,
+                                  icon: const Icon(Icons.share),
+                                  label: const Text("Send Card"),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.green,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            )
+                            :
                             ElevatedButton.icon(
                               onPressed: _shareTicket,
                               icon: const Icon(Icons.share),
@@ -1899,6 +2022,8 @@ class SimpleImageCacheManager {
 }
 
 class ImageQrService {
+  static Uint8List? _webImageBytes;
+
   static Future<String> generateImageWithQr({
     required Ticket ticket,
     required Event event,
@@ -2065,8 +2190,14 @@ class ImageQrService {
         '${tempDir.path}/image_with_qr.jpg',
       );
 
-      await outputFile.writeAsBytes(img.encodeJpg(image, quality: 90));
+      final jpgBytes = img.encodeJpg(image, quality: 90);
+
+      await outputFile.writeAsBytes(jpgBytes);
       debugPrint("image saved at: ${outputFile.path}");
+
+      if (kIsWeb) {
+        _webImageBytes = Uint8List.fromList(jpgBytes);
+      }
 
       return outputFile.path;
     } catch (e) {

