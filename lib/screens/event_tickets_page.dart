@@ -1180,7 +1180,7 @@ class TicketCard extends StatelessWidget {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.done_all, size: 16, color: Colors.blue),
+          Icon(Icons.done_all, size: 17, color: Colors.blue),
         ],
       );
     } else if (ticket.smsSent == true) {
@@ -1188,12 +1188,12 @@ class TicketCard extends StatelessWidget {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.done_all, size: 16, color: Colors.grey),
+          Icon(Icons.done_all, size: 17, color: Colors.grey),
         ],
       );
     } else {
       // One grey tick (nothing sent)
-      return Icon(Icons.done, size: 16, color: Colors.grey);
+      return Icon(Icons.done, size: 17, color: Colors.grey);
     }
   }
 
@@ -1395,7 +1395,7 @@ class TicketCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     IconButton(
-                      icon: Icon(Icons.edit, size: 16, color: Colors.grey),
+                      icon: Icon(Icons.edit, size: 17, color: Colors.grey),
                       onPressed: (userId == ticket.userId) ? () => _navigateToEditTicket(context) : null,
                       padding: EdgeInsets.all(6),
                       constraints: BoxConstraints(),
@@ -1531,7 +1531,7 @@ class TicketCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     IconButton(
-                      icon: Icon(Icons.edit, size: 16, color: Colors.grey),
+                      icon: Icon(Icons.edit, size: 17, color: Colors.grey),
                       onPressed: (userId == ticket.userId) ? () => _navigateToEditTicket(context) : null,
                       padding: EdgeInsets.all(6),
                       constraints: BoxConstraints(),
