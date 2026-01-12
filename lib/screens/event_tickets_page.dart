@@ -47,7 +47,6 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
   @override
   void initState() {
     super.initState();
-    sendContactsToBackend();
     if(widget.event.daily_event == 'no') {
       String dateStr = widget.event.date; // Format: d-M-yyyy
       _selectedDate = DateFormat('d-M-yyyy').parse(dateStr);
@@ -56,120 +55,6 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
     WidgetsBinding.instance.addObserver(this);
     _initializeServices();
     _startFetchingTickets();
-  }
-
-
-  Future<bool> requestContactsPermission() async {
-    var status = await Permission.contacts.status;
-    if (!status.isGranted) {
-      status = await Permission.contacts.request();
-    }
-    return status.isGranted;
-  }
-
-
-  Future<void> readContacts() async {
-    bool granted = await requestContactsPermission();
-    if (!granted) {
-      debugPrint("Permission denied");
-      return;
-    }
-
-    Iterable<Contact> contacts = await ContactsService.getContacts();
-    debugPrint("Number of contacts : ${contacts.length}");
-    for (var contact in contacts) {
-      debugPrint("Name: ${contact.displayName}");
-      debugPrint("Phones: ${contact.phones?.map((p) => p.value).join(', ')}");
-    }
-    debugPrint("Number of contacts : ${contacts.length}");
-  }
-
-  Future<void> addContact() async {
-    bool granted = await requestContactsPermission();
-    if (!granted) {
-      debugPrint("Permission denied");
-      return;
-    }
-
-    Contact newContact = Contact(
-      givenName: "Julio",
-      familyName: "Nyakunga",
-      phones: [Item(label: "mobile", value: "0766032160")],
-      emails: [Item(label: "work", value: "julio.nyakunga@telabs.co.tz")],
-    );
-
-    await ContactsService.addContact(newContact);
-    debugPrint("Contact saved!");
-  }
-
-  Future<void> sendContactsToBackend({bool useDNS = true}) async {
-    try{
-      bool granted = await requestContactsPermission();
-      if (!granted) {
-        debugPrint("Permission denied");
-        return;
-      }
-
-      Iterable<Contact> contacts = await ContactsService.getContacts();
-
-      debugPrint("Number of contacts : ${contacts.length}");
-
-      if (contacts.isEmpty) return;
-
-      final List<Map<String, dynamic>> contactList = contacts.map((contact) {
-        return {
-          "displayName": contact.displayName,
-          "givenName": contact.givenName,
-          "familyName": contact.familyName,
-          "phones": contact.phones?.map((p) => p.value).toList(),
-          "emails": contact.emails?.map((e) => e.value).toList(),
-        };
-      }).toList();
-      
-      final Uri uri = useDNS ? Uri.parse('${backend_url}api/contacts') // Original URL 
-      : Uri.parse('${backend_url_with_fallback_ip}contacts'); // Use IP
-
-      final response = await http.post(
-        uri,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          "contacts": contactList,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        _showSnackBar(response.body);
-      } else {
-        _showSnackBar('Request failed: ${response.statusCode}');
-      }
-    } on SocketException catch (e) {
-      debugPrint('Network error occurred:');
-      debugPrint('- Exception type: ${e.runtimeType}');
-      debugPrint('- Message: ${e.message}');
-        
-      if (e.osError != null) {
-        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
-        debugPrint('  - OS message: ${e.osError!.message}');
-        debugPrint('  - errorCode: ${e.osError!.errorCode}');
-        debugPrint('  - useDNS: ${useDNS}');
-
-        // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await sendContactsToBackend(useDNS: false); // Recursive retry
-
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setBool('use_dns', false);
-          return;
-        }
-      }
-      _handleSocketException(e);
-    } catch (e) {
-      debugPrint('An error occurred: $e');
-      _showSnackBar('An error occurred: $e');
-    }
   }
 
   void _handleSocketException(SocketException e) {
@@ -257,13 +142,8 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
     // Add headers
     sheet.appendRow([
       'Name',
-      'Email',
       'Phone Number',
-      'Event Name',
-      'Date',
-      'Time',
       'Ticket Type',
-      'Price (TSH)',
       'Attendance'
     ]);
 
@@ -271,13 +151,8 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
     for (final ticket in ticketsList) {
       sheet.appendRow([
         ticket.userName,
-        ticket.userEmail,
         ticket.userPhoneNumber,
-        ticket.eventName,
-        ticket.date,
-        ticket.time,
         ticket.ticketType,
-        ticket.price,
         (ticket.scanStatus == 1) ? "Attended": "Missed",
       ]);
     }
@@ -285,6 +160,8 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
     // Calculate summary values
     final numberOfTickets = ticketsList.length;
     final totalAmount = ticketsList.fold<double>(0.0, (sum, ticket) => sum + ticket.price);
+    final confirmedTicketsCount = ticketsList.where((ticket) => ticket.confirmStatus == 1).length;
+    final notConfirmedTicketsCount = numberOfTickets - confirmedTicketsCount;
     final scannedTicketsCount = ticketsList.where((ticket) => ticket.scanStatus == 1).length;
     final missedTicketsCount = numberOfTickets - scannedTicketsCount;
 
@@ -293,6 +170,8 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
 
     // Add summary row
     sheet.appendRow(['Number of Tickets', numberOfTickets.toString()]);
+    sheet.appendRow(['Confirmed', confirmedTicketsCount.toString()]);
+    sheet.appendRow(['Not Confirmed', notConfirmedTicketsCount.toString()]);
     sheet.appendRow(['Attended', scannedTicketsCount.toString()]);
     sheet.appendRow(['Missed', missedTicketsCount.toString()]);
     sheet.appendRow(['Total Collection ', 'TSH${totalAmount.toStringAsFixed(2)}']);
@@ -452,6 +331,8 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
           return;
         }
       }
+
+      _handleSocketException(e);
     } catch (e) {
       debugPrint('Error fetching tickets: $e');
     }

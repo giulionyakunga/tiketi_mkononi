@@ -27,10 +27,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   String _searchQuery = '';
   List<Event> eventsList = [];
   late final StorageService _storageService;
-  Timer? _timer;
   bool _isAppActive = true;
   bool _isNewVerionAvailable = false;
   int userId = 0;
+  String role = '';
   final TextEditingController _searchController = TextEditingController();
   bool useDNS_2 = true;
 
@@ -40,7 +40,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _initializeServices();
     
-    _startFetchingEvents();
     if (!kIsWeb) checkForUpdates(context);
   }
 
@@ -59,6 +58,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (profile != null) {
       setState(() {
         userId = profile.id;
+        role = profile.role;
       });
       fetchEvents();
     }else {
@@ -66,18 +66,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  void _startFetchingEvents() {
-    _timer = Timer.periodic(const Duration(seconds: 10), (timer) {
-      if (_isAppActive) {
-        fetchEvents();
-      }
-    });
-  }
-
   @override
   void dispose() {
-    _timer?.cancel();
-    _timer = null;
     _searchController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -88,7 +78,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     setState(() {
       _isAppActive = state == AppLifecycleState.resumed;
     });
-    debugPrint(" AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA state : $state");
   }
 
   Future<void> _loadCachedEvents() async {
@@ -543,6 +532,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         FeaturedEvents(
           events: filteredEvents,
           userId: userId,
+          role: role,
           refreshMethod: refreshMethod,
           useDNS: useDNS_2,
         ),

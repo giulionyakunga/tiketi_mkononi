@@ -96,12 +96,27 @@ class ServerMetricsCard extends StatelessWidget {
                   'DNS',
                   serverMetrics.dnsResolution ? "OK" : "FAILED" ,
                   Icons.dns,
+                  isError: serverMetrics.dnsResolution ? false : true,
                 ),
                 _buildMetricItem(
                   context,
                   'Active Users',
                   '${serverMetrics.dailyActiveUsers}',
                   Icons.people,
+                ),
+                _buildMetricItem(
+                  context,
+                  'SMS Count',
+                  '${serverMetrics.smsBalance}',
+                  Icons.dns,
+                  isError: serverMetrics.dnsResolution ? false : true,
+                ),
+                _buildMetricItem(
+                  context,
+                  'SMS in TSH',
+                  '${serverMetrics.smsBalance2}',
+                  Icons.dns,
+                  isError: serverMetrics.dnsResolution ? false : true,
                 ),
               ],
             ),
@@ -179,7 +194,11 @@ class ServerMetricsCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
       ),
-      padding: const EdgeInsets.all(12),
+      padding:
+      const EdgeInsets.symmetric(
+        vertical: 12,
+        horizontal: 8,
+      ),
       child: Row(
         children: [
           Icon(
@@ -189,21 +208,21 @@ class ServerMetricsCard extends StatelessWidget {
               ? Colors.red 
               : Theme.of(context).colorScheme.primary,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 title,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Colors.grey.shade600,
                 ),
               ),
               Text(
                 value,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: isError 
+                  color: (isError || ((title == 'SMS Count') && (int.parse(value) < 200)))
                     ? Colors.red 
                     : Theme.of(context).colorScheme.onSurface,
                 ),
@@ -239,7 +258,7 @@ class ServerMetricsCard extends StatelessWidget {
                 value,
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
-                  fontSize: 12,
+                  fontSize: 11,
                 ),
               ),
             ],

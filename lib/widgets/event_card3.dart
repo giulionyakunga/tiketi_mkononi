@@ -15,10 +15,11 @@ import 'package:tiketi_mkononi/screens/theater_confirm_page.dart';
 class EventCard extends StatelessWidget {
   final Event event;
   final int userId;
+  final String role;
   final Function refreshMethod;
   final bool useDNS;
 
-  const EventCard({super.key, required this.event, required this.userId, required this.refreshMethod, required this.useDNS});
+  const EventCard({super.key, required this.event, required this.userId, required this.role, required this.refreshMethod, required this.useDNS});
 
   String _formatDate(String date) {
     final DateFormat inputFormat = DateFormat('dd-MM-yyyy');
@@ -59,7 +60,7 @@ class EventCard extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => EventDetailsPage(event: event, userId: userId, refreshMethod: refreshMethod, useDNS: useDNS,),
+              builder: (context) => EventDetailsPage(event: event, userId: userId, role: role, refreshMethod: refreshMethod, useDNS: useDNS),
             ),
           );
         },
@@ -69,8 +70,7 @@ class EventCard extends StatelessWidget {
             Hero(
               tag: 'event-image-${event.id}',
               child: CachedNetworkImage(
-                imageUrl: '${backend_url}api/image/${event.imageUrl}',
-                // imageUrl: useDNS ? '${backend_url}api/image/${event.imageUrl}' : '${backend_url_with_fallback_ip}api/image/${event.imageUrl}',
+                imageUrl: useDNS ? '${backend_url}api/image/${event.imageUrl}' : '${backend_url_with_fallback_ip}image/${event.imageUrl}',
                 width: double.infinity,
                 fit: BoxFit.cover,
                 placeholder: (context, url) => const Center(

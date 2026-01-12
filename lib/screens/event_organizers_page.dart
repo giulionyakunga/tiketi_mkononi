@@ -323,7 +323,10 @@ class _EventOrganizersPageState extends State<EventOrganizersPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Event Organizers'),
+        title: Text(
+          'Event Organizers (${organizers.length})',
+          style: TextStyle(fontSize: 18),
+        ),
         backgroundColor: const Color.fromARGB(255, 240, 244, 247),
         foregroundColor: Colors.black,
         actions: [

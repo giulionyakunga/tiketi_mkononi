@@ -330,6 +330,7 @@ class _SetScannerPageState extends State<SetScannerPage> {
             const SizedBox(height: 24),
             TextField(
               controller: _emailController,
+              autofillHints: [AutofillHints.email],
               decoration: InputDecoration(
                 labelText: 'User Email',
                 hintText: 'Enter user email address',

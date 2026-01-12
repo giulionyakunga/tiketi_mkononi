@@ -1,28 +1,24 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:http/http.dart' as http;
 import 'package:audioplayers/audioplayers.dart';
 import 'package:tiketi_mkononi/services/SimpleCodec.dart';
 
-class QRScannerPage extends StatefulWidget {
+class VerifyCodePage extends StatefulWidget {
   final int userId;
   final int eventId;
-  const QRScannerPage({super.key, required this.userId, required this.eventId});
+  const VerifyCodePage({super.key, required this.userId, required this.eventId});
 
   @override
-  State<QRScannerPage> createState() => _QRScannerPageState();
+  State<VerifyCodePage> createState() => _VerifyCodePageState();
 }
 
-class _QRScannerPageState extends State<QRScannerPage> {
-  MobileScannerController cameraController = MobileScannerController();
-  bool _isScanning = true;
-  bool _isCheckingTicketsByCode = false;
+class _VerifyCodePageState extends State<VerifyCodePage> {
   bool _isLoading = false;
-  bool _isScanningTickets = true;
+  bool _isVerifingTicketCodes = true;
   final TextEditingController _ticketCodeController = TextEditingController();
   String eventId = '';
   int scannnedToday = 0;
@@ -38,7 +34,6 @@ class _QRScannerPageState extends State<QRScannerPage> {
 
   @override
   void dispose() {
-    cameraController.dispose();
     _ticketCodeController.dispose();
     super.dispose();
   }
@@ -153,277 +148,6 @@ class _QRScannerPageState extends State<QRScannerPage> {
     } catch (e) {
       // Handle parsing errors (invalid date format)
       return false;
-    }
-  }
-
-  Future<void> _onDetect(BarcodeCapture capture, {bool useDNS = true, bool isRetry = false}) async {
-    if ((!_isScanning || _isLoading) && !isRetry) return;
-    
-    final List<Barcode> barcodes = capture.barcodes;
-    
-    for (final barcode in barcodes) {
-      if (barcode.rawValue == null) return;
-      
-      setState(() {
-        _isScanning = false;
-        _isLoading = true;
-      });
-      
-      try {
-
-        // Include event ID if provided
-        if (eventId.isEmpty) {
-          setState(() {
-            _isScanning = true;
-            _isLoading = false;
-          });
-
-          _showErrorSnackbar(context, 
-            'Please select event to scan'
-          );
-          return;
-        }
-
-        int event_id = jsonDecode(SimpleCodec.decode(barcode.rawValue!))['eid'];
-        String event_date = jsonDecode(SimpleCodec.decode(barcode.rawValue!))['dt'];
-        
-        if (int.tryParse(eventId) != event_id) {
-          _showCustomDialog(context, "Invalid Ticket!");
-          return;
-        }
-
-        if(!isSameDay(event_date)) {
-          String message = "Wrong Day Ticket!";
-          _showCustomDialog(context, message, ticketDate: '${formatDateTime(event_date)}');
-          return;
-        }
-
-        String url =  useDNS ? '${backend_url}api/check_ticket/${widget.userId}' 
-        : '${backend_url_with_fallback_ip}check_ticket/${widget.userId}';
-        url += '?event_id=$eventId';
-
-        final response = await http.post(
-          Uri.parse(url),
-          headers: {'Content-Type': 'application/json'},
-          body: SimpleCodec.decode(barcode.rawValue!),
-        );
-
-        debugPrint(' rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr response.body : ${response.body}');
-
-        if (response.statusCode == 200) {
-          final responseData = jsonDecode(response.body);
-          String message = responseData['message'];
-
-          if (message.trim() == "Valid Ticket!") {
-            String ticketType = responseData['ticket_type'];
-            int scanTimes = responseData['scan_times'];
-            int maxScanTimes = responseData['max_scan_times'];
-                                    
-            setState(() {
-              scannnedToday = responseData['scanned_today'];
-            });
-
-            _showCustomDialog(context, message, ticketType: ticketType, scanTimes: scanTimes, maxScanTimes: maxScanTimes); 
-          } else if (message.trim() == "Used Ticket!") {
-            String scannedAt = "N/A";
-            if((responseData['scanned_at']) != null){
-              debugPrint('Formatted Date (debug): $scannedAt'); // For Flutter debug output
-              scannedAt = responseData['scanned_at'];
-            }
-
-            _showCustomDialog(context, message, scannedAt:scannedAt);
-          } else if (message.trim() == "Ticket Already Used!") {
-            String scannedAt = "N/A";
-            if((responseData['scanned_at']) != null){
-              debugPrint('Formatted Date (debug): $scannedAt'); // For Flutter debug output
-              scannedAt = responseData['scanned_at'];
-            }
-
-            _showCustomDialog(context, message, scannedAt:scannedAt);
-          } else {
-            _showCustomDialog(context, message);
-          }
-
-        } else if (response.statusCode == 302) {
-          _handleHTTPRedirect();
-        } else {
-          if((response.body.contains("Unexpected token")) || (response.body.contains("Unexpected character"))) {
-            _showCustomDialog(context, "Invalid Ticket!");
-          } else {
-            _showErrorSnackbar(context, 'Request failed with status: ${response.statusCode}');
-          }
-        }
-      } on SocketException catch (e) {
-        debugPrint('Network error occurred:');
-        debugPrint('- Exception type: ${e.runtimeType}');
-        debugPrint('- Message: ${e.message}');
-        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
-
-        bool showSocketException = true;
-        
-        if (e.osError != null) {
-          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
-          debugPrint('  - OS message: ${e.osError!.message}');
-          debugPrint('  - errorCode: ${e.osError!.errorCode}');
-          debugPrint('  - useDNS: ${useDNS}');
-
-          // Retry with IP if DNS fails (errno = 7) and not already retrying
-          if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-            await _onDetect(capture, useDNS: false, isRetry: true); // Recursive retry
-
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setBool('use_dns', false);
-            return;
-          }
-        }
-
-        Future.delayed(const Duration(seconds: 10), () {
-          if (mounted) setState(() => _isScanning = true);
-        });
-        if(showSocketException) _handleSocketException(e);
-      } catch (e) {
-        debugPrint('An error occurred: ${e.toString()}');
-
-        if((e.toString().contains("Unexpected token")) || (e.toString().contains("Unexpected character"))) {
-          _showCustomDialog(context, "Invalid Ticket!");
-        } else {
-          _showErrorSnackbar(context, 'An error occurred: ${e.toString()}');
-        }
-
-      } finally {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  Future<void> _onDetect2(BarcodeCapture capture, {bool useDNS = true, bool isRetry = false}) async {
-    if ((!_isScanning || _isLoading) && !isRetry) return;
-    
-    final List<Barcode> barcodes = capture.barcodes;
-    
-    for (final barcode in barcodes) {
-      if (barcode.rawValue == null) return;
-      
-      setState(() {
-        _isScanning = false;
-        _isLoading = true;
-      });
-      
-      try {
-
-        // Include event ID if provided
-        if (eventId.isEmpty) {
-          setState(() {
-            _isScanning = true;
-            _isLoading = false;
-          });
-
-          _showErrorSnackbar(context, 
-            'Please select event to scan'
-          );
-          return;
-        }
-
-        int event_id = jsonDecode(SimpleCodec.decode(barcode.rawValue!))['eid'];
-        String event_date = jsonDecode(SimpleCodec.decode(barcode.rawValue!))['dt'];
-        
-        if (int.tryParse(eventId) != event_id) {
-          _showCustomDialog(context, "Invalid Ticket!");
-          return;
-        }
-
-        if(!isSameDay(event_date)) {
-
-          String message = "Wrong Day Ticket!";
-          _showCustomDialog(context, message, ticketDate: '${formatDateTime(event_date)}');
-          return;
-        }
-
-        String url =  useDNS ? '${backend_url}api/mark_as_left/${widget.userId}' 
-        : '${backend_url_with_fallback_ip}mark_as_left/${widget.userId}';
-        url += '?event_id=$eventId';
-
-        final response = await http.post(
-          Uri.parse(url),
-          headers: {'Content-Type': 'application/json'},
-          body: SimpleCodec.decode(barcode.rawValue!),
-        );
-
-        debugPrint(' rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr response.body : ${response.body}');
-
-        if (response.statusCode == 200) {
-          final responseData = jsonDecode(response.body);
-          String message = responseData['message'];
-
-          if (message.trim() == "Marked As Left!") {
-            String ticketType = responseData['ticket_type'];
-            int scanTimes = responseData['scan_times'];
-            int maxScanTimes = responseData['max_scan_times'];
-
-            _showCustomDialog2(context, message, ticketType: ticketType, scanTimes: scanTimes, maxScanTimes: maxScanTimes); 
-          } else if (message.trim() == "Ticket Not Scanned!") {
-            String scannedAt = "N/A";
-            if((responseData['scanned_at']) != null){
-              debugPrint('Formatted Date (debug): $scannedAt'); // For Flutter debug output
-              scannedAt = responseData['scanned_at'];
-            }
-
-            _showCustomDialog2(context, message, scannedAt:scannedAt);
-          } else {
-            _showCustomDialog(context, message);
-          }
-
-        } else if (response.statusCode == 302) {
-          _handleHTTPRedirect();
-        } else {
-          if((response.body.contains("Unexpected token")) || (response.body.contains("Unexpected character"))) {
-            _showCustomDialog(context, "Invalid Ticket!");
-          } else {
-            _showErrorSnackbar(context, 'Request failed with status: ${response.statusCode}');
-          }
-        }
-      } on SocketException catch (e) {
-        debugPrint('Network error occurred:');
-        debugPrint('- Exception type: ${e.runtimeType}');
-        debugPrint('- Message: ${e.message}');
-        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
-
-        bool showSocketException = true;
-        
-        if (e.osError != null) {
-          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
-          debugPrint('  - OS message: ${e.osError!.message}');
-          debugPrint('  - errorCode: ${e.osError!.errorCode}');
-          debugPrint('  - useDNS: ${useDNS}');
-
-          // Retry with IP if DNS fails (errno = 7) and not already retrying
-          if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-            await _onDetect2(capture, useDNS: false, isRetry: true); // Recursive retry
-
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setBool('use_dns', false);
-            return;
-          }
-        }
-
-        Future.delayed(const Duration(seconds: 10), () {
-          if (mounted) setState(() => _isScanning = true);
-        });
-        if(showSocketException) _handleSocketException(e);
-      } catch (e) {
-        debugPrint('An error occurred: ${e.toString()}');
-
-        if((e.toString().contains("Unexpected token")) || (e.toString().contains("Unexpected character"))) {
-          _showCustomDialog(context, "Invalid Ticket!");
-        } else {
-          _showErrorSnackbar(context, 'An error occurred: ${e.toString()}');
-        }
-
-      } finally {
-        setState(() => _isLoading = false);
-      }
     }
   }
 
@@ -543,10 +267,6 @@ class _QRScannerPageState extends State<QRScannerPage> {
             return;
           }
         }
-
-        Future.delayed(const Duration(seconds: 10), () {
-          if (mounted) setState(() => _isScanning = true);
-        });
         if(showSocketException) _handleSocketException(e);
       } catch (e) {
         debugPrint('An error occurred: ${e.toString()}');
@@ -666,9 +386,6 @@ class _QRScannerPageState extends State<QRScannerPage> {
           }
         }
 
-        Future.delayed(const Duration(seconds: 10), () {
-          if (mounted) setState(() => _isScanning = true);
-        });
         if(showSocketException) _handleSocketException(e);
       } catch (e) {
         debugPrint('An error occurred: ${e.toString()}');
@@ -820,7 +537,6 @@ class _QRScannerPageState extends State<QRScannerPage> {
               ),
               onPressed: () {
                 Navigator.pop(context);
-                setState(() => _isScanning = true);
               },
               child: const Text(
                 'OK',
@@ -901,7 +617,6 @@ class _QRScannerPageState extends State<QRScannerPage> {
               ),
               onPressed: () {
                 Navigator.pop(context);
-                setState(() => _isScanning = true);
               },
               child: const Text(
                 'OK',
@@ -1019,7 +734,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          _isScanningTickets ? 'Scan Tickets' : 'Mark As Left',
+          _isVerifingTicketCodes ? 'Verify Ticket Codes' : 'Mark As Left',
           style: TextStyle(
             fontWeight: FontWeight.bold, 
             fontSize: 18
@@ -1040,33 +755,6 @@ class _QRScannerPageState extends State<QRScannerPage> {
           ),
         ), 
         actions: [
-          IconButton(
-            icon: ValueListenableBuilder(
-              valueListenable: cameraController.torchState,
-              builder: (context, state, child) {
-                return Icon(
-                  state == TorchState.off ? Icons.flash_off : Icons.flash_on,
-                  color: Colors.white,
-                );
-              },
-            ),
-            onPressed: () => cameraController.toggleTorch(),
-          ),
-          IconButton(
-            icon: ValueListenableBuilder(
-              valueListenable: cameraController.cameraFacingState,
-              builder: (context, state, child) {
-                return Icon(
-                  state == CameraFacing.front
-                      ? Icons.camera_front
-                      : Icons.camera_rear,
-                  color: Colors.white,
-                );
-              },
-            ),
-            onPressed: () => cameraController.switchCamera(),
-          ),
-
           PopupMenuButton<String>(
             padding: EdgeInsets.zero,
             tooltip: 'More Options',
@@ -1080,22 +768,22 @@ class _QRScannerPageState extends State<QRScannerPage> {
               size: 22,
             ),
             onSelected: (value) {
-              if ((value == 'mark_as_left') || (value == 'scan_tickets')) {
+              if ((value == 'mark_as_left') || (value == 'verify_tickets_code')) {
                 setState(() {
-                  _isScanningTickets = !_isScanningTickets;
+                  _isVerifingTicketCodes = !_isVerifingTicketCodes;
                 });
               } else if (value == 'exit') {
                 Navigator.pop(context);
               }
             },
             itemBuilder: (context) => [
-              if(!_isScanningTickets)
+              if(!_isVerifingTicketCodes)
               _buildMenuItem(
                 icon: Icons.qr_code_scanner,
-                text: 'Scan tickets',
-                value: 'scan_tickets',
+                text: 'Verify Tickets Code',
+                value: 'verify_tickets_code',
               ),
-              if(_isScanningTickets)
+              if(_isVerifingTicketCodes)
               _buildMenuItem(
                 icon: Icons.person_off,
                 text: 'Mark as left',
@@ -1113,34 +801,10 @@ class _QRScannerPageState extends State<QRScannerPage> {
       ),
       body: Stack(
         children: [
-          MobileScanner(
-            controller: cameraController,
-            // onDetect: _onDetect,
-
-            onDetect: (BarcodeCapture barcode) {
-              if (_isScanningTickets) {
-                _onDetect(barcode);
-              } else {
-                _onDetect2(barcode);
-              }
-            },
-
-          ),
-
+          // 🔹 Transparent black background
           Positioned.fill(
             child: Container(
-              decoration: ShapeDecoration(
-                shape: QrScannerOverlayShape(
-                  borderColor: Colors.orange[800]!,
-                  borderRadius: 15,
-                  borderLength: 40,
-                  borderWidth: 8,
-                  cutOutSize: 280,
-                  overlayColor: isDarkMode 
-                    ? Colors.black.withOpacity(0.5) 
-                    : Colors.black.withOpacity(0.4),
-                ),
-              ),
+              color: Colors.black.withValues(alpha: 0.6),
             ),
           ),
 
@@ -1151,31 +815,14 @@ class _QRScannerPageState extends State<QRScannerPage> {
             ),
           ),
 
+
+          // Ticket Code
           Positioned(
-            bottom: 50,
-            left: 0,
-            right: 0,
+            top: 175,
+            left: 20,
+            right: 20,
             child: Column(
               children: [
-                if(!_isCheckingTicketsByCode)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.55),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Text(
-                    'Align QR code within the frame',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                if(_isCheckingTicketsByCode)
                 Center(
                   child: Container(
                     width: MediaQuery.of(context).size.width * 0.6,
@@ -1218,13 +865,10 @@ class _QRScannerPageState extends State<QRScannerPage> {
                         child: const Icon(Icons.close, color: Colors.white),
                       ),
                       FloatingActionButton(
-                        onPressed: _isCheckingTicketsByCode ? _isScanningTickets ? () => _checkTicketsByCode() : () => _markAsLeftByCode() : 
-                        () => setState(() {
-                          _isCheckingTicketsByCode = !_isCheckingTicketsByCode;
-                        }), 
+                        onPressed: _isVerifingTicketCodes ? () => _checkTicketsByCode() : () => _markAsLeftByCode(), 
                         backgroundColor: Colors.green.shade400,
                         child: Icon(
-                          _isCheckingTicketsByCode ? Icons.check : Icons.edit,
+                          Icons.check,
                           color: Colors.white
                         ),
                       ),
@@ -1294,7 +938,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
                       ), // Same prefix icon
                       const SizedBox(width: 10), // Default icon spacing
                       Text(
-                        'Scanned: $scannnedToday',
+                        'Verified: $scannnedToday',
                         style: TextStyle(
                           color: Colors.white.withOpacity(0.7), // Match hint style
                         ),
@@ -1312,23 +956,6 @@ class _QRScannerPageState extends State<QRScannerPage> {
             right: 20,
             child: Center(
               child: _buildDatePicker(),
-              // Container(
-              //   width: MediaQuery.of(context).size.width * 0.6,
-              //   padding: const EdgeInsets.symmetric(horizontal: 16),
-              //   decoration: BoxDecoration(
-              //     color: Colors.black.withOpacity(0.4),
-              //     borderRadius: BorderRadius.circular(30),
-              //   ),
-              //   child: 
-              //   Container(
-              //     padding: const EdgeInsets.symmetric(vertical: 14), // Match TextField's vertical padding
-              //     child: Row(
-              //       children: [
-              //         _buildDatePicker(),
-              //       ],
-              //     ),
-              //   )
-              // ),
             ),
           ),
 

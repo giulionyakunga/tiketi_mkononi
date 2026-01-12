@@ -348,6 +348,7 @@ class _ConfirmAttendancePageState extends State<ConfirmAttendancePage> {
       'BARS & GRILLS': Colors.pink,
       'TRAINING': Colors.green,
       'THEATER': Colors.black,
+      'WEDDING': Colors.red,
     };
 
     return Chip(

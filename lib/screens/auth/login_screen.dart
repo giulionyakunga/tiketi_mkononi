@@ -103,6 +103,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     builder: (context) => EventDetailsPage(
                       event: event,
                       userId: responseData['id'],
+                      role: responseData['role'],
                       refreshMethod: () {},
                       useDNS: true,
                     ),
@@ -168,6 +169,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         lastName: responseData['last_name'],
         email: responseData['email'],
         phoneNumber: responseData['phone_number'],
+        password: '',
         role: responseData['role'],
         region: responseData['region'],
         district: responseData['district'],
@@ -246,6 +248,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 builder: (context) => EventDetailsPage(
                   event: event,
                   userId: responseData['id'],
+                  role: responseData['role'],
                   refreshMethod: () {},
                   useDNS: true,
                 ),
@@ -356,6 +359,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 builder: (context) => EventDetailsPage(
                   event: event,
                   userId: responseData['id'],
+                  role: responseData['role'],
                   refreshMethod: () {},
                   useDNS: true,
                 ),

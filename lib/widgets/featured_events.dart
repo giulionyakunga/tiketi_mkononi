@@ -8,10 +8,11 @@ import 'package:tiketi_mkononi/screens/event_details_page.dart';
 class FeaturedEvents extends StatelessWidget {
   final List<Event> events;
   final int userId;
+  final String role;
   final Function refreshMethod;
   final bool useDNS;
 
-  const FeaturedEvents({super.key, required this.events, required this.userId, required this.refreshMethod, required this.useDNS});
+  const FeaturedEvents({super.key, required this.events, required this.userId, required this.role, required this.refreshMethod, required this.useDNS});
 
   double _getLowestPrice(Event event) {
     return event.ticketTypes.isNotEmpty 
@@ -64,7 +65,7 @@ class FeaturedEvents extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => EventDetailsPage(event: event, userId: userId, refreshMethod: refreshMethod, useDNS: useDNS,),
+                            builder: (context) => EventDetailsPage(event: event, userId: userId, role: role, refreshMethod: refreshMethod, useDNS: useDNS),
                           ),
                         );
                       },
@@ -78,8 +79,7 @@ class FeaturedEvents extends StatelessWidget {
                               decoration: BoxDecoration(
                                 image: DecorationImage(
                                   image: CachedNetworkImageProvider(
-                                    '${backend_url}api/image/${event.imageUrl}',
-                                    // useDNS ? '${backend_url}api/image/${event.imageUrl}' : '${backend_url_with_fallback_ip}api/image/${event.imageUrl}',
+                                    useDNS ? '${backend_url}api/image/${event.imageUrl}' : '${backend_url_with_fallback_ip}image/${event.imageUrl}',
                                   ),
                                   fit: BoxFit.contain,
                                 ),

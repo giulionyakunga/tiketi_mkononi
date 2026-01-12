@@ -74,7 +74,11 @@ class Event {
   final List<TicketType> ticketTypes;
   final List<dynamic> tickets;
   final bool hasTicket;
-
+  final String familyName;
+  final String networkNameAccountNumber1;
+  final String networkNameAccountNumber2;
+  final String accountName;
+  
   Event({
     required this.id,
     required this.userId,
@@ -105,6 +109,10 @@ class Event {
     required this.ticketTypes,
     required this.tickets,
     required this.hasTicket,
+    required this.familyName,
+    required this.networkNameAccountNumber1,
+    required this.networkNameAccountNumber2,
+    required this.accountName,
   });
 
   // Factory method to create an Event from JSON
@@ -141,7 +149,11 @@ class Event {
               .toList() ??
           [], // Handle case when ticket_types is null
       tickets: (json['tickets'] as List<dynamic>?) ?? [], 
-      hasTicket: json['has_ticket'] ?? '',
+      hasTicket: json['has_ticket'] ?? false,
+      familyName: json['family_name'] ?? '',
+      networkNameAccountNumber1: json['network_name_account_number_1'] ?? '',
+      networkNameAccountNumber2: json['network_name_account_number_2'] ?? '',
+      accountName: json['account_name'] ?? '',
     );
   }
 }

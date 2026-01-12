@@ -2,14 +2,12 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:http/http.dart' as http;
 import 'package:mime/mime.dart';
-import 'package:path/path.dart' as path;
 import 'package:tiketi_mkononi/models/event.dart';
 import 'package:tiketi_mkononi/screens/card_view_page.dart';
 import 'package:tiketi_mkononi/screens/event_tickets_page.dart';
@@ -17,31 +15,36 @@ import 'package:tiketi_mkononi/services/storage_service.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:open_filex/open_filex.dart';
 
-class GenerateCardsPage extends StatefulWidget {
+class SendReminderMessagesPage extends StatefulWidget {
   final Event event;
 
-  const GenerateCardsPage({super.key, required this.event});
+  const SendReminderMessagesPage({super.key, required this.event});
 
   @override
-  State<GenerateCardsPage> createState() => _GenerateCardsPageState();
+  State<SendReminderMessagesPage> createState() => _SendReminderMessagesPageState();
 }
 
-class _GenerateCardsPageState extends State<GenerateCardsPage> with TickerProviderStateMixin {
+class _SendReminderMessagesPageState extends State<SendReminderMessagesPage> with TickerProviderStateMixin {
   int userId = 0;
   String role = "";
   final _formKey = GlobalKey<FormState>();
-  final GlobalKey _imagePickerKey = GlobalKey();
   final _nameController = TextEditingController();
-  XFile? _eventImage;
-  Uint8List? _webImageBytes;
+  final _familyNameController = TextEditingController();
+  final _networkNameAccountNumber1Controller = TextEditingController();
+  final _networkNameAccountNumber2Controller = TextEditingController();
+  final _accountNameController = TextEditingController();
   String? fileType;
   bool _isLoading = false;
+
+
   final _fullNameController = TextEditingController();
   final _phoneNumberController = TextEditingController();
-  final _maxScanTimesController = TextEditingController();
   String _ticketType = '';
   double _ticketPrice = 0.0;
   final Map<String, double> ticketTypePriceMap = {};
+
+      // const { user_id, event_id, family_name, account_name_account_number_1, account_name_account_number_2, account_name, document_type, document_name, document_file } = req.body;
+
 
   
   bool useDNS = true;
@@ -57,20 +60,13 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> with TickerProvid
   void initState() {
     super.initState();
     _nameController.text = widget.event.name;
+    _familyNameController.text = widget.event.familyName;
+    _networkNameAccountNumber1Controller.text = widget.event.networkNameAccountNumber1;
+    _networkNameAccountNumber2Controller.text = widget.event.networkNameAccountNumber2;
+    _accountNameController.text = widget.event.accountName;
+
     _initializeServices();
-    _getTicketTypes(widget.event.ticketTypes);
     _tabController = TabController(length: 2, vsync: this);
-  }
-
-  void _getTicketTypes(List<TicketType> ticketTypes) {
-    ticketTypes.forEach((ticketType) {
-      setState(() {
-        ticketTypePriceMap[ticketType.name] = ticketType.price;
-      });
-      _ticketType = ticketTypePriceMap.keys.first;
-
-      _maxScanTimesController.text = ticketTypePriceMap.keys.first.trim().toUpperCase() == 'DOUBLE' ? '2' : '1';
-    });
   }
 
   @override
@@ -78,8 +74,10 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> with TickerProvid
     _tabController.dispose();
     _nameController.dispose();
     _fullNameController.dispose();
-    _phoneNumberController.dispose();
-    _maxScanTimesController.dispose();
+    _familyNameController.dispose();
+    _networkNameAccountNumber1Controller.dispose();
+    _networkNameAccountNumber2Controller.dispose();
+    _accountNameController.dispose();
     super.dispose();
   }
 
@@ -110,56 +108,6 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> with TickerProvid
     }
   }
 
-  Future<void> _pickImage() async {
-    final ImagePicker picker = ImagePicker();
-    try {
-      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-
-      if (image != null) {
-        String? mimeType;
-        String fileExtension;
-
-        if (kIsWeb) {
-          // On web, use `image.name` instead of `image.path`
-          fileExtension = path.extension(image.name).toLowerCase();
-          mimeType = lookupMimeType(image.name);
-
-          // Read image as bytes for web
-          final bytes = await image.readAsBytes();
-          _webImageBytes = bytes;
-        } else {
-          fileExtension = path.extension(image.path).toLowerCase();
-          mimeType = lookupMimeType(image.path);
-        }
-
-        if (mimeType == null || !mimeType.startsWith('image/')) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Invalid file type. Please select a valid image.')),
-          );
-          return;
-        }
-
-        if (fileExtension != '.png' && fileExtension != '.jpg' && fileExtension != '.jpeg') {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Unsupported image format. Only PNG and JPEG are allowed.')),
-          );
-          return;
-        }
-
-        setState(() {
-          _eventImage = image;
-          fileType = fileExtension;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to pick image')),
-        );
-      }
-    }
-  }
-
   void _scrollToFirstError() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Scrollable.ensureVisible(
@@ -170,36 +118,34 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> with TickerProvid
     });
   }
   
-  Future<void> _generateTickets({bool useDNS = true}) async {
+  Future<void> _sendReminserMessages({bool useDNS = true}) async {
     if (!_formKey.currentState!.validate()) {
       _scrollToFirstError();
       return;
     }
 
-    if (widget.event.cardUrl.isEmpty && _eventImage == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select event card')),
-      );
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Scrollable.ensureVisible(
-          _imagePickerKey.currentContext!,
-          duration: const Duration(milliseconds: 500),
-          curve: Curves.easeInOut,
-        );
-      });
-      return;
-    }
-
-    debugPrint('widget.event.cardUrl : ${widget.event.cardUrl}');
     debugPrint('document_type : ${fileType2}');
     debugPrint('document_name : ${fileName}');
+
+    String familyName = _familyNameController.text.trim();
+    if (familyName.isNotEmpty) {
+      final lower = familyName.toLowerCase();
+
+      if (!lower.startsWith('family') && !lower.startsWith('familia')) {
+        familyName = 'Familia ya $familyName';
+      }
+    }
+    String networkNameAccountNumber1 = _networkNameAccountNumber1Controller.text.trim(); 
+    String networkNameAccountNumber2 = _networkNameAccountNumber2Controller.text.trim();
+    String accountName = _accountNameController.text.trim(); 
 
     final Map<String, dynamic> requestBody = {
       'user_id': userId,
       'event_id': widget.event.id,
-      'name': widget.event.name,      
-      'image_type': (_eventImage != null) ? fileType : null,
-      'image_file': (_eventImage != null) ? kIsWeb ? _webImageBytes : base64Encode(await File(_eventImage!.path).readAsBytes()) : null,
+      'family_name': familyName,
+      'network_name_account_number_1': networkNameAccountNumber1,
+      'network_name_account_number_2': networkNameAccountNumber2,
+      'account_name': accountName,
       'document_type': fileType2,
       'document_name': fileName,
       'document_file': base64File,
@@ -208,8 +154,8 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> with TickerProvid
     try {
       setState(() => _isLoading = true);
 
-      final Uri uri = useDNS ? Uri.parse('${backend_url}api/generate_cards') // Original URL 
-      : Uri.parse('${backend_url_with_fallback_ip}generate_cards'); // Use IP
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/send_reminder_messages') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}send_reminder_messages'); // Use IP
 
       final response = await http.post(
         uri,
@@ -218,7 +164,7 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> with TickerProvid
       );
 
       if (response.statusCode == 200) {
-        if (response.body == "Event cards were generated successfully!") {
+        if (response.body == "Reminder messages were sent successfully!") {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(response.body)),
           );
@@ -267,7 +213,7 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> with TickerProvid
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await _generateTickets(useDNS: false); // Recursive retry
+          await _sendReminserMessages(useDNS: false); // Recursive retry
 
           final prefs = await SharedPreferences.getInstance();
           await prefs.setBool('use_dns', false);
@@ -285,48 +231,76 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> with TickerProvid
     }
   }
 
-  Future<void> _addTicket({bool useDNS = true}) async {
+  Future<void> _sendIndividualReminserMessage({bool useDNS = true}) async {
 
     if (_fullNameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Holder\'s names can\'t be empty')),
+        const SnackBar(content: Text('Recipient name can\'t be empty')),
       );
       return;
     }
 
     if (_phoneNumberController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Holder\'s phone number can\'t be empty')),
+        const SnackBar(content: Text('Recipient phone number can\'t be empty')),
       );
       return;
     }
 
+    if (_familyNameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Family name can\'t be empty')),
+      );
+      return;
+    }
+
+    if (_networkNameAccountNumber1Controller.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('NetworkName:AccountNumber can\'t be empty')),
+      );
+      return;
+    }
+
+    if (_accountNameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Account name can\'t be empty')),
+      );
+      return;
+    }
+
+    String familyName = _familyNameController.text.trim();
+    if (familyName.isNotEmpty) {
+      final lower = familyName.toLowerCase();
+
+      if (!lower.startsWith('family') && !lower.startsWith('familia')) {
+        familyName = 'Familia ya $familyName';
+      }
+    }
     String fullName = _fullNameController.text.trim();
     String phoneNumber = _phoneNumberController.text.trim();
-    String maxScanTimes = _maxScanTimesController.text.trim();
-    if(_ticketType.trim().toUpperCase() == 'DOUBLE') {
-       maxScanTimes = '2';
-    } else if(_ticketType.trim().toUpperCase() == 'SINGLE') {
-       maxScanTimes = '1';
-    } 
+    String networkNameAccountNumber1 = _networkNameAccountNumber1Controller.text.trim(); 
+    String networkNameAccountNumber2 = _networkNameAccountNumber2Controller.text.trim();
+    String accountName = _accountNameController.text.trim(); 
 
     final Map<String, dynamic> requestBody = {
       'user_id': userId,
       'event_id': widget.event.id,
-      'user_name': fullName,
-      'user_phone_number': phoneNumber,
-      'ticket_type': _ticketType,
-      'ticket_price': _ticketPrice,
-      'max_scan_times': maxScanTimes,
+      'full_name': fullName,
+      'phone_number': phoneNumber,
+      'family_name': familyName,
+      'network_name_account_number_1': networkNameAccountNumber1,
+      'network_name_account_number_2': networkNameAccountNumber2,
+      'account_name': accountName,
+      'document_type': fileType2,
+      'document_name': fileName,
+      'document_file': base64File,
     };
 
     try {
-      setState(() {
-        _isLoading = true;
-      });
+      setState(() => _isLoading = true);
 
-      final Uri uri = useDNS ? Uri.parse('${backend_url}api/add_ticket') // Original URL 
-      : Uri.parse('${backend_url_with_fallback_ip}add_ticket'); // Use IP
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/send_individual_reminder_message') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}send_individual_reminder_message'); // Use IP
 
       final response = await http.post(
         uri,
@@ -335,19 +309,40 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> with TickerProvid
       );
 
       if (response.statusCode == 200) {
-        if (response.body == "Ticket added successfully!") {
+        if (response.body == "Reminder message was sent successfully!") {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${response.body}')),
+            SnackBar(content: Text(response.body)),
           );
+          Navigator.pop(context);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Response: ${response.body}')),
-          );
+          try {
+            final Uint8List bytes = response.bodyBytes;
+
+            // Get temp directory
+            final directory = await getTemporaryDirectory();
+
+            final filePath = '${directory.path}/updated_file_${DateTime.now().millisecondsSinceEpoch}.xlsx';
+
+            final file = File(filePath);
+
+            await file.writeAsBytes(bytes, flush: true);
+
+            // Open the Excel file
+            final result = await OpenFilex.open(filePath);
+
+            debugPrint('Open result: ${result.message}');
+          } catch (e) {
+            debugPrint('Failed to open Excel file: $e');
+          }
         }
       } else if (response.statusCode == 302) {
         _handleHTTPRedirect();
       } else {
-        _showSnackBar('Request failed: ${response.statusCode}');
+        if (response.statusCode == 413) {
+          _showSnackBar('Request failed: Image is Too Large');
+        } else {
+          _showSnackBar('Request failed: ${response.statusCode}');
+        }
       }
     } on SocketException catch (e) {
       debugPrint('Network error occurred:');
@@ -363,7 +358,7 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> with TickerProvid
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await _addTicket(useDNS: false); // Recursive retry
+          await _sendIndividualReminserMessage(useDNS: false); // Recursive retry
 
           final prefs = await SharedPreferences.getInstance();
           await prefs.setBool('use_dns', false);
@@ -374,12 +369,10 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> with TickerProvid
       _handleSocketException(e);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('An error occurred: $e')),
+        SnackBar(content: Text('Error: $e')),
       );
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
     }
   }
 
@@ -451,68 +444,32 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> with TickerProvid
     );
   }
 
-  Widget _buildImagePicker(bool isLargeScreen) {
-    return GestureDetector(
-      key: _imagePickerKey,
-      onTap: _pickImage,
-      child: Container(
-        height: isLargeScreen ? 300 : 200,
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: Colors.grey[200],
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: _eventImage != null
-            ? ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: kIsWeb ? 
-                Image.memory(
-                  _webImageBytes!,
-                  fit: BoxFit.cover,
-                ) :
-                Image.file(
-                  File(_eventImage!.path),
-                  fit: BoxFit.cover,
-                ),
-              )
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.add_photo_alternate, size: isLargeScreen ? 64 : 48),
-                  const SizedBox(height: 8),
-                  const Text('Add Event Card'),
-                ],
-              ),
+  // Helper method for feature chips
+  Widget _buildFeatureChip(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.blue[50],
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.blue[100]!, width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: Colors.blue[700]),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              color: Colors.blue[700],
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }
-
-  // Helper method for feature chips
-Widget _buildFeatureChip(IconData icon, String label) {
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-    decoration: BoxDecoration(
-      color: Colors.blue[50],
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: Colors.blue[100]!, width: 1),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 12, color: Colors.blue[700]),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            color: Colors.blue[700],
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
-    ),
-  );
-}
 
   Widget _buildExcelTabContent(bool isLargeScreen) {
     return SingleChildScrollView(
@@ -550,16 +507,16 @@ Widget _buildFeatureChip(IconData icon, String label) {
                     ],
                   ),
                   child: const Icon(
-                    Icons.insert_drive_file_rounded,
+                    Icons.notifications_active,
                     size: 40,
                     color: Colors.white,
                   ),
                 ),
                 const SizedBox(height: 24),
                 Text(
-                  'Excel File Processing',
+                  'Send Contribution Reminders',
                   style: TextStyle(
-                    fontSize: isLargeScreen ? 28 : 22,
+                    fontSize: isLargeScreen ? 28 : 20,
                     fontWeight: FontWeight.w800,
                     color: Colors.grey[900],
                     letterSpacing: -0.5,
@@ -569,7 +526,7 @@ Widget _buildFeatureChip(IconData icon, String label) {
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: isLargeScreen ? 80 : 20),
                   child: Text(
-                    'Efficiently create multiple cards by uploading an Excel File. Ensure your file follows the required format for best results.',
+                    'Remind your invited guests to contribute to your wedding collection (mchango) by sending polite and timely reminder messages.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: isLargeScreen ? 16 : 14,
@@ -582,19 +539,15 @@ Widget _buildFeatureChip(IconData icon, String label) {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _buildFeatureChip(Icons.format_list_bulleted, 'Bulk Import'),
-                    const SizedBox(width: 4),
-                    _buildFeatureChip(Icons.speed_rounded, 'Fast Processing'),
-                    const SizedBox(width: 4),
-                    _buildFeatureChip(Icons.cloud_upload_rounded, 'Easy Upload'),
+                    _buildFeatureChip(Icons.group_rounded, 'Group Reminders'),
+                    const SizedBox(width: 2),
+                    _buildFeatureChip(Icons.notifications_active_rounded, 'Timely Alerts'),
+                    const SizedBox(width: 2),
+                    _buildFeatureChip(Icons.send_rounded, 'Easy Sending'),
                   ],
                 ),
               ],
             ),
-
-
-            const SizedBox(height: 16),
-            _buildImagePicker(isLargeScreen),
             const SizedBox(height: 16),
             TextFormField(
               controller: _nameController,
@@ -604,7 +557,55 @@ Widget _buildFeatureChip(IconData icon, String label) {
               style: const TextStyle(fontSize: 16),
               validator: (value) {
                 if (value == null || value.isEmpty) return 'Please enter event name';
-                if (value.length > 100) return 'Name must be 100 characters or less';
+                if (value.length > 100) return 'Event name must be 100 characters or less';
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _familyNameController,
+              maxLength: 50,
+              decoration: _buildInputDecoration('Family Name', prefixIcon: Icons.emoji_events),
+              style: const TextStyle(fontSize: 16),
+              validator: (value) {
+                if (value == null || value.isEmpty) return 'Please enter family name';
+                if (value.length > 50) return 'Family must be 50 characters or less';
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _networkNameAccountNumber1Controller,
+              maxLength: 50,
+              decoration: _buildInputDecoration('AccountName:AccountNumber', prefixIcon: Icons.emoji_events),
+              style: const TextStyle(fontSize: 16),
+              validator: (value) {
+                if (value == null || value.isEmpty) return 'Please enter account name and number';
+                if (value.length > 50) return 'Account name and number must be 50 characters or less';
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _networkNameAccountNumber2Controller,
+              maxLength: 50,
+              decoration: _buildInputDecoration('AccountName:AccountNumber2', prefixIcon: Icons.emoji_events),
+              style: const TextStyle(fontSize: 16),
+              validator: (value) {
+                if (value == null || value.isEmpty) return 'Please enter account name and number';
+                if (value.length > 50) return 'Account name and number must be 50 characters or less';
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+             TextFormField(
+              controller: _accountNameController,
+              maxLength: 50,
+              decoration: _buildInputDecoration('Account Name', prefixIcon: Icons.emoji_events),
+              style: const TextStyle(fontSize: 16),
+              validator: (value) {
+                if (value == null || value.isEmpty) return 'Please enter account name';
+                if (value.length > 50) return 'Account name must be 50 characters or less';
                 return null;
               },
             ),
@@ -681,22 +682,21 @@ Widget _buildFeatureChip(IconData icon, String label) {
                 ),
               ),
             ),
-            
             const SizedBox(height: 24),
             SizedBox(
               width: isLargeScreen ? 400 : double.infinity,
               child: ElevatedButton(
-                onPressed: _isLoading ? null : _generateTickets,
+                onPressed: _isLoading ? null : _sendReminserMessages,
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.all(8),
                   backgroundColor: Colors.orange[800],
                 ),
                 child: _isLoading 
                     ? const CircularProgressIndicator()
                     : const Text(
-                        'Generate Cards',
+                        'Send Reminder Messages',
                         style: TextStyle(
-                          fontSize: 18,
+                          fontSize: 14,
                           color: Colors.white,
                         ),
                       ),
@@ -716,21 +716,21 @@ Widget _buildFeatureChip(IconData icon, String label) {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.person_add,
+              Icons.notifications_active, 
               size: 64,
               color: Colors.orange[800],
             ),
             const SizedBox(height: 16),
             Text(
-              'Add One Card Manually',
+              'Send Individual Reminder',
               style: TextStyle(
-                fontSize: isLargeScreen ? 24 : 20,
+                fontSize: isLargeScreen ? 24 : 18,
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'This feature allows you to add individual cards one at a time.',
+              'Send a polite reminder message to a single guest about the wedding contribution (mchango).',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: isLargeScreen ? 16 : 14,
@@ -738,6 +738,7 @@ Widget _buildFeatureChip(IconData icon, String label) {
               ),
             ),
             const SizedBox(height: 16),
+
             TextFormField(
               controller: _nameController,
               enabled: false,
@@ -746,16 +747,16 @@ Widget _buildFeatureChip(IconData icon, String label) {
               style: const TextStyle(fontSize: 16),
               validator: (value) {
                 if (value == null || value.isEmpty) return 'Please enter event name';
-                if (value.length > 100) return 'Name must be 100 characters or less';
+                if (value.length > 100) return 'Event name must be 100 characters or less';
                 return null;
               },
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _fullNameController,
-              maxLength: 100,
+              maxLength: 50,
               decoration: InputDecoration(
-                labelText: 'Ticket Holder\'s Name',
+                labelText: 'Recipient Name',
                 labelStyle: TextStyle(
                   color: Colors.grey[600],
                   fontSize: 16,
@@ -794,10 +795,10 @@ Widget _buildFeatureChip(IconData icon, String label) {
               ),
               validator: (value) {
                 if (value == null || value.isEmpty) {
-                  return 'Please enter ticket holder\'s name';
+                  return 'Please enter recipient name';
                 }
-                if (value.length > 100) {
-                  return 'Holder\'s name must be 100 characters or less';
+                if (value.length > 50) {
+                  return 'Recipient name must be 50 characters or less';
                 }
                 return null;
               },
@@ -807,7 +808,7 @@ Widget _buildFeatureChip(IconData icon, String label) {
               controller: _phoneNumberController,
               maxLength: 50,
               decoration: InputDecoration(
-                labelText: 'Ticket Holder\'s Phone Number',
+                labelText: 'Recipient Phone Number',
                 labelStyle: TextStyle(
                   color: Colors.grey[600],
                   fontSize: 16,
@@ -846,13 +847,13 @@ Widget _buildFeatureChip(IconData icon, String label) {
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Please enter holder\'s phone number';
+                  return 'Please enter recipient phone number';
                 }
 
                 final phone = value.trim();
 
                 if (phone.length > 15) {
-                  return 'Phone number can\'t exceed 15 characters';
+                  return 'Recipient phone number can\'t exceed 15 characters';
                 }
 
                 final regex = RegExp(r'^(0\d{9}|255\d{9})$');
@@ -864,94 +865,18 @@ Widget _buildFeatureChip(IconData icon, String label) {
                 return null;
               },
             ),
-            const SizedBox(height: 16),
-            const Text(
-              'Ticket Type',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              initialValue: _ticketType,
-              decoration: InputDecoration(
-                labelText: 'Ticket Type',
-                labelStyle: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 16,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(
-                    color: Colors.grey[400]!,
-                  ),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(
-                    color: Colors.grey[400]!,
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(
-                    color: Colors.orange[800]!,
-                    width: 2.0,
-                  ),
-                ),
-                filled: true,
-                fillColor: Colors.grey[200], // Light background color
-                contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-              ),
-              style: const TextStyle(
-                color: Colors.black87,
-                fontSize: 16,
-              ),
-              icon: Icon(
-                Icons.arrow_drop_down,
-                color: Colors.grey[600],
-              ),
-              iconSize: 24,
-
-              items: ticketTypePriceMap.keys.map((String ticketType) {
-                return DropdownMenuItem<String>(
-                  value: ticketType,
-                  child: Text(
-                    ticketType,
-                    style: const TextStyle(fontSize: 16),
-                  ),
-                );
-              }).toList(),
-              onChanged: (String? value) {
-                if (value == null) return;
-
-                setState(() {
-                  _ticketType = value;
-
-                  // Get corresponding price
-                  _ticketPrice = ticketTypePriceMap[value]!;
-
-                  // Your existing logic
-                  _maxScanTimesController.text = value.trim().toUpperCase() == 'DOUBLE' ? '2' : '1';
-                });
-              },
-              validator: (value) =>
-                  value == null ? 'Please select a ticket type' : null,
-            ),
-
-            const SizedBox(height: 16),
+            const SizedBox(height: 16),              
             TextFormField(
-              controller: _maxScanTimesController,
-              maxLength: 100,
+              controller: _familyNameController,
+              maxLength: 50,
               decoration: InputDecoration(
-                labelText: 'Maximum Scan Times',
+                labelText: 'Family Name',
                 labelStyle: TextStyle(
                   color: Colors.grey[600],
                   fontSize: 16,
                 ),
                 prefixIcon: Icon(
-                  Icons.numbers,
+                  Icons.phone,
                   color: Colors.grey[600],
                 ),
                 border: OutlineInputBorder(
@@ -982,38 +907,211 @@ Widget _buildFeatureChip(IconData icon, String label) {
                 color: Colors.black87,
                 fontSize: 16,
               ),
-              keyboardType: TextInputType.number,
               validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter maximum scan times';
+                if (value == null || value.trim().isEmpty) {
+                  return 'Please enter family name';
                 }
-                if (value.length > 2) {
-                  return 'Maximum scan times must be 2 characters or less';
+
+                final familyName = value.trim();
+
+                if (familyName.length > 50) {
+                  return 'Family name can\'t exceed 50 characters';
                 }
+
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _networkNameAccountNumber1Controller,
+              maxLength: 50,
+              decoration: InputDecoration(
+                labelText: 'Network name:account number',
+                labelStyle: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 16,
+                ),
+                prefixIcon: Icon(
+                  Icons.phone,
+                  color: Colors.grey[600],
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                  borderSide: BorderSide(
+                    color: Colors.grey[400]!,
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                  borderSide: BorderSide(
+                    color: Colors.grey[400]!,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                  borderSide: BorderSide(
+                    color: Colors.orange[800]!,
+                    width: 2.0,
+                  ),
+                ),
+                filled: true,
+                fillColor: Colors.grey[200],
+                contentPadding: const EdgeInsets.symmetric(
+                    vertical: 16.0, horizontal: 16.0),
+              ),
+              style: const TextStyle(
+                color: Colors.black87,
+                fontSize: 16,
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Please enter network name:account number';
+                }
+
+                final networkNameAccountNumber = value.trim();
+
+                if (networkNameAccountNumber.length > 50) {
+                  return 'Network name:account number exceed 50 characters';
+                }
+
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _networkNameAccountNumber2Controller,
+              maxLength: 50,
+              decoration: InputDecoration(
+                labelText: 'Network name:account number',
+                labelStyle: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 16,
+                ),
+                prefixIcon: Icon(
+                  Icons.phone,
+                  color: Colors.grey[600],
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                  borderSide: BorderSide(
+                    color: Colors.grey[400]!,
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                  borderSide: BorderSide(
+                    color: Colors.grey[400]!,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                  borderSide: BorderSide(
+                    color: Colors.orange[800]!,
+                    width: 2.0,
+                  ),
+                ),
+                filled: true,
+                fillColor: Colors.grey[200],
+                contentPadding: const EdgeInsets.symmetric(
+                    vertical: 16.0, horizontal: 16.0),
+              ),
+              style: const TextStyle(
+                color: Colors.black87,
+                fontSize: 16,
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return null;
+                }
+
+                final networkNameAccountNumber = value.trim();
+
+                if (networkNameAccountNumber.length > 50) {
+                  return 'Network name:account number exceed 50 characters';
+                }
+
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _accountNameController,
+              maxLength: 50,
+              decoration: InputDecoration(
+                labelText: 'Account name',
+                labelStyle: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 16,
+                ),
+                prefixIcon: Icon(
+                  Icons.phone,
+                  color: Colors.grey[600],
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                  borderSide: BorderSide(
+                    color: Colors.grey[400]!,
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                  borderSide: BorderSide(
+                    color: Colors.grey[400]!,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                  borderSide: BorderSide(
+                    color: Colors.orange[800]!,
+                    width: 2.0,
+                  ),
+                ),
+                filled: true,
+                fillColor: Colors.grey[200],
+                contentPadding: const EdgeInsets.symmetric(
+                    vertical: 16.0, horizontal: 16.0),
+              ),
+              style: const TextStyle(
+                color: Colors.black87,
+                fontSize: 16,
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Please enter account name';
+                }
+
+                final accountName = value.trim();
+
+                if (accountName.length > 50) {
+                  return 'Account name can\'t exceed 50 characters';
+                }
+
                 return null;
               },
             ),
             const SizedBox(height: 16),
             SizedBox(
-              width: double.infinity,
+              width: isLargeScreen ? 400 : double.infinity,
               child: ElevatedButton(
-                onPressed: _addTicket,
+                onPressed: _isLoading ? null : _sendIndividualReminserMessage,
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.all(8),
+                  backgroundColor: Colors.orange[800],
                 ),
-                child: _isLoading ? const CircularProgressIndicator() :
-                Text(
-                  'Add Card',
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: Colors.orange[800]!,
-                  ),
-                ),
+                child: _isLoading 
+                    ? const CircularProgressIndicator()
+                    : const Text(
+                        'Send Reminder Message',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.white,
+                        ),
+                      ),
               ),
             ),
           ],
         ),
-      ),
+      )
     );
   }
 
@@ -1022,12 +1120,20 @@ Widget _buildFeatureChip(IconData icon, String label) {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Generate Cards'),
+          title: const Text(
+            'Send Reminder Messages',
+            style: TextStyle(
+              fontSize: 18,
+            )
+          ),
           centerTitle: false,
           titleSpacing: 0,
           backgroundColor: const Color.fromARGB(255, 240, 244, 247),
           actions: [
             IconButton(
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              visualDensity: VisualDensity.compact,
               icon: Icon(
                 Icons.remove_red_eye,
                 color: Colors.orange[800],
@@ -1042,6 +1148,9 @@ Widget _buildFeatureChip(IconData icon, String label) {
               },
             ),
             IconButton(
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              visualDensity: VisualDensity.compact,
               icon: Icon(
                 Icons.receipt,
                 color: Colors.orange[800],
@@ -1059,7 +1168,7 @@ Widget _buildFeatureChip(IconData icon, String label) {
           bottom: TabBar(
             tabs: [
               Tab(text: 'Use Excel'),
-              Tab(text: 'Add One'),
+              Tab(text: 'Send One'),
             ],
           ),
         ),
@@ -1100,9 +1209,11 @@ Widget _buildFeatureChip(IconData icon, String label) {
             icon: Icon(
               Icons.logout,
             ),
-            label: Text('Tickets(${widget.event.soldTickets})', style: TextStyle(
-              fontSize: 14,
-            )
+            label: Text(
+              'Tickets(${widget.event.soldTickets})', 
+              style: TextStyle(
+                fontSize: 14,
+              )
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,
@@ -1149,7 +1260,7 @@ Widget _buildFeatureChip(IconData icon, String label) {
                     ),
                     const SizedBox(height: 16),
                   ],
-                  _buildImagePicker(isLargeScreen),
+
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _nameController,
@@ -1159,7 +1270,7 @@ Widget _buildFeatureChip(IconData icon, String label) {
                     style: const TextStyle(fontSize: 16),
                     validator: (value) {
                       if (value == null || value.isEmpty) return 'Please enter event name';
-                      if (value.length > 100) return 'Name must be 100 characters or less';
+                      if (value.length > 100) return 'Event name must be 100 characters or less';
                       return null;
                     },
                   ),
@@ -1241,7 +1352,7 @@ Widget _buildFeatureChip(IconData icon, String label) {
                   SizedBox(
                     width: isLargeScreen ? 400 : double.infinity,
                     child: ElevatedButton(
-                      onPressed: _isLoading ? null : _generateTickets,
+                      onPressed: _isLoading ? null : _sendReminserMessages,
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         backgroundColor: Colors.orange[800],
@@ -1249,7 +1360,7 @@ Widget _buildFeatureChip(IconData icon, String label) {
                       child: _isLoading 
                           ? const CircularProgressIndicator()
                           : const Text(
-                              'Generate Cards',
+                              'Send Reminder Messages',
                               style: TextStyle(
                                 fontSize: 18,
                                 color: Colors.white,

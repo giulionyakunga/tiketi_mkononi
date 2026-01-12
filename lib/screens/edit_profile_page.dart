@@ -134,6 +134,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         lastName: _lastNameController.text.trim(),
         email: _emailController.text.trim(),
         phoneNumber: _phoneNumberController.text.trim(),
+        password: '',
         role: role,
         region: _regionController.text.trim(),
         district: _districtController.text.trim(),
@@ -239,7 +240,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Edit Profile'),
-        backgroundColor: colorScheme.primaryContainer,
+        backgroundColor: const Color.fromARGB(255, 240, 244, 247),
         actions: [
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
@@ -440,16 +441,22 @@ class _EditProfilePageState extends State<EditProfilePage> {
           icon: Icons.phone,
           colorScheme: colorScheme,
           validator: (value) {
-            if (value == null || value.isEmpty) {
+            if (value == null || value.trim().isEmpty) {
               return 'Please enter your phone number';
             }
-            if (value.length > 15) {
+
+            final phone = value.trim();
+
+            if (phone.length > 15) {
               return 'Phone number cannot exceed 15 characters';
             }
-            final regex = RegExp(r'^\d{1,3}\d{9}$');
-            if (!regex.hasMatch(value)) {
-              return 'Invalid number, Number format: 255xxxxxxxxxx';
+
+            final regex = RegExp(r'^(0\d{9}|255\d{9})$');
+
+            if (!regex.hasMatch(phone)) {
+              return 'Invalid number format. Use 0XXXXXXXXX or 255XXXXXXXXX';
             }
+
             return null;
           },
         ),
@@ -654,16 +661,22 @@ class _EditProfilePageState extends State<EditProfilePage> {
           icon: Icons.phone,
           colorScheme: colorScheme,
           validator: (value) {
-            if (value == null || value.isEmpty) {
+            if (value == null || value.trim().isEmpty) {
               return 'Please enter your phone number';
             }
-            if (value.length > 15) {
+
+            final phone = value.trim();
+
+            if (phone.length > 15) {
               return 'Phone number cannot exceed 15 characters';
             }
-            final regex = RegExp(r'^\d{1,3}\d{9}$');
-            if (!regex.hasMatch(value)) {
-              return 'Invalid number, Number format: 255xxxxxxxxxx';
+
+            final regex = RegExp(r'^(0\d{9}|255\d{9})$');
+
+            if (!regex.hasMatch(phone)) {
+              return 'Invalid number format. Use 0XXXXXXXXX or 255XXXXXXXXX';
             }
+
             return null;
           },
         ),
@@ -838,23 +851,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
           size: 20,
         ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10.0),
-          borderSide: BorderSide(
-            color: colorScheme.outline.withOpacity(0.5),
-          ),
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey[400]!),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10.0),
-          borderSide: BorderSide(
-            color: colorScheme.outline.withOpacity(0.5),
-          ),
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey[400]!),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10.0),
-          borderSide: BorderSide(
-            color: colorScheme.primary,
-            width: 2.0,
-          ),
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.orange[800]!, width: 2),
         ),
         filled: true,
         fillColor: colorScheme.surface,

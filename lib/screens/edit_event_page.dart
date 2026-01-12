@@ -90,7 +90,7 @@ class _EditEventPageState extends State<EditEventPage> {
 
   // Ticket type controllers
   final List<TicketType2> _ticketTypes = [];
-  final List<String> _predefinedTicketTypes = ['Regular', 'VIP', 'VVIP'];
+  final List<String> _predefinedTicketTypes = ['Regular', 'VIP', 'VVIP', 'Single', 'Double'];
 
   final List<String> _categories = [
     'Music',
@@ -123,7 +123,7 @@ class _EditEventPageState extends State<EditEventPage> {
     _isPaidEvent = widget.event.type == 'paid';
     if(widget.event.daily_event == 'no') _selectedDate = format.parse(widget.event.date);
     if(widget.event.daily_event == 'yes') _isDailyEvent = true;
-    _isPublicEvent = widget.event.type == 'public';
+    _isPublicEvent = widget.event.visibility == 'public';
     if((widget.event.time.contains(":"))) _selectedTime = parseTime(widget.event.time);
     _selectedCategory = widget.event.category;
   }

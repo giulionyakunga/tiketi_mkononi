@@ -1,7 +1,17 @@
 
 
+flutter build web
+
+scp -r .\build\web ubuntu@telabs.co.tz:~/
+
+ssh ubuntu@telabs.co.tz
+
+cd /var/www/tiketi_mkononi/
 
 sudo rm -r web/
+
 sudo mv ~/web/ ./
-sudo chown -R www-data:www-data /var/www/web
-sudo chmod -R 755 /var/www/web
+
+sudo chown -R www-data:www-data /var/www/tiketi_mkononi/web
+
+sudo chmod -R 755 /var/www/tiketi_mkononi/web

@@ -112,6 +112,7 @@ class _EventDetailsWrapperState extends State<EventDetailsWrapper> {
     return EventDetailsPage(
       event: event!,
       userId: 0,
+      role: '',
       refreshMethod: () {},
       useDNS: true,
     );

@@ -22,7 +22,7 @@ class _EventsPageState extends State<EventsPage> {
   String? _selectedCategory;
   int userId = 0;
   int numberOfActiveEvents = 0;
-  String userRole = "";
+  String role = "";
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
   List<Event> fetchedEvents = [];
@@ -131,7 +131,7 @@ class _EventsPageState extends State<EventsPage> {
     if (profile != null) {
       setState(() {
         userId = profile.id;
-        userRole = profile.role;
+        role = profile.role;
       });
       _pagingController.refresh();
     }
@@ -616,6 +616,7 @@ class _EventsPageState extends State<EventsPage> {
                       child: EventCard(
                         event: event,
                         userId: userId,
+                        role: role,
                         refreshMethod: _handleEventsUpdate,
                         useDNS: useDNS_2,
                       ),
@@ -743,6 +744,7 @@ class _EventsPageState extends State<EventsPage> {
                         return EventCard2(
                           event: event,
                           userId: userId,
+                          role: role,
                           refreshMethod: _handleEventsUpdate,
                           useDNS: useDNS_2,
                         );
@@ -845,7 +847,7 @@ class _EventsPageState extends State<EventsPage> {
           
         ],
       ),
-      floatingActionButton: ((userRole == "admin") || (userRole == "organizer"))
+      floatingActionButton: ((role == "admin") || (role == "organizer"))
           ? FloatingActionButton(
               onPressed: () {
                 Navigator.push(

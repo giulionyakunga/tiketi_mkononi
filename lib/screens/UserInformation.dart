@@ -1,20 +1,64 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/models/user_profile.dart';
+import 'package:tiketi_mkononi/services/storage_service.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/services.dart';
 
-class UserInformationPage extends StatelessWidget {
-  final UserProfile user;
+class UserInformationPage extends StatefulWidget {
+   final UserProfile user;
 
   const UserInformationPage({super.key, required this.user});
 
   @override
+  State<UserInformationPage> createState() => _UserInformationPageState();
+}
+
+class _UserInformationPageState extends State<UserInformationPage> with WidgetsBindingObserver {
+  int userId = 0;
+  String role = "";
+  late final StorageService _storageService;
+
+    @override
+  void initState() {
+    super.initState();
+    _initializeServices();
+  }
+
+  Future<void> _initializeServices() async {
+    final prefs = await SharedPreferences.getInstance();
+    _storageService = StorageService(prefs);
+    _loadUserProfile();
+  }
+
+  void _loadUserProfile() {
+    final profile = _storageService.getUserProfile();
+    if (profile != null) {
+      setState(() {
+        userId = profile.id;
+        role = profile.role;
+      });
+    }
+  }
+
+
+  bool _isLargeScreen(BuildContext context) {
+    return MediaQuery.of(context).size.width > 768;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final isLargeScreen = _isLargeScreen(context);
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: const Text(
           'User Information',
           style: TextStyle(
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.bold,
             color: Colors.black,
           ),
         ),
@@ -22,127 +66,165 @@ class UserInformationPage extends StatelessWidget {
         backgroundColor: const Color.fromARGB(255, 240, 244, 247),
         foregroundColor: Colors.black,
         elevation: 4,
-        iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: SafeArea(
-        bottom: false,
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              _buildProfileHeader(),
-              _buildUserInfoCard(),
-              _buildContactCard(),
-              _buildAddressCard(),
-              const SizedBox(height: 24),
-            ],
+      body: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: isLargeScreen ? 1000 : double.infinity,
           ),
-        ),
+          child: SingleChildScrollView(
+            padding: EdgeInsets.symmetric(
+              horizontal: isLargeScreen ? 32 : 16,
+              vertical: 16,
+            ),
+            child: Column(
+              children: [
+                _buildProfileHeader(context, isDarkMode, isLargeScreen),
+                _buildUserInfoCard(context),
+                _buildContactCard(context),
+                _buildAddressCard(context),
+                _buildAccountMetadataCard(context),
+              ],
+            ),
+          ),
+        )
       ),
     );
   }
 
-  Widget _buildProfileHeader() {
+    Widget _buildProfileHeader(BuildContext context, bool isDarkMode, bool isLargeScreen) { 
     return Container(
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+      padding: EdgeInsets.all(isLargeScreen ? 32 : 20),
       decoration: BoxDecoration(
-        color: Colors.orange[800],
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(24),
-          bottomRight: Radius.circular(24),
+        gradient: LinearGradient(
+          colors: isDarkMode 
+            ? [Colors.orange[200]!, Colors.orange[800]!]
+            : [Colors.orange[200]!, Colors.orange[800]!],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
+        borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-            color: Colors.orange[900]!.withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          )
         ],
       ),
-      child: Column(
-        children: [
-          // Profile Image
-          Container(
-            width: 120,
-            height: 120,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 3),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
+      child: isLargeScreen
+          ? Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _buildProfileAvatar(),
+                const SizedBox(width: 24),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${widget.user.firstName} ${widget.user.lastName}',
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.user.email,
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.white.withOpacity(0.9),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Chip(
+                        label: Text(
+                          widget.user.role.toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
+                        ),
+                        backgroundColor: Colors.orange[900],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            )
+          : Column(
+              children: [
+                _buildProfileAvatar(),
+                const SizedBox(height: 6),
+                Text(
+                  '${widget.user.firstName} ${widget.user.lastName}',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  widget.user.email,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white.withOpacity(0.9),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 4),
+                Chip(
+                  label: Text(
+                    widget.user.role.toUpperCase(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                    ),
+                  ),
+                  backgroundColor: Colors.orange[900],
                 ),
               ],
             ),
-            child: user.imageUrl != null && user.imageUrl!.isNotEmpty
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(60),
-                    child: Image.network(
-                      user.imageUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return _buildDefaultAvatar();
-                      },
-                    ),
-                  )
-                : _buildDefaultAvatar(),
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // User Name
-          Text(
-            '${user.firstName} ${user.middleName.isNotEmpty ? '${user.middleName} ' : ''}${user.lastName}',
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          
-          const SizedBox(height: 8),
-          
-          // User Role Badge
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            decoration: BoxDecoration(
-              color: _getRoleColor(),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              user.role.toUpperCase(),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
-  Widget _buildDefaultAvatar() {
+
+
+
+
+
+  Widget _buildProfileAvatar() {
     return Container(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: Colors.blue[200],
+        border: Border.all(
+          color: Colors.white,
+          width: 3,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 8,
+            spreadRadius: 1,
+          )
+        ],
       ),
-      child: Icon(
-        Icons.person,
-        size: 60,
-        color: Colors.blue[800],
+      child: CircleAvatar(
+        radius: 50,
+        backgroundColor: Colors.white,
+        backgroundImage: NetworkImage(
+          'https://ui-avatars.com/api/?name=${widget.user.firstName}+${widget.user.lastName}&background=random',
+        ),
       ),
     );
   }
 
   Color _getRoleColor() {
-    switch (user.role.toLowerCase()) {
+    switch (widget.user.role.toLowerCase()) {
       case 'admin':
         return Colors.red[400]!;
       case 'manager':
@@ -154,24 +236,27 @@ class UserInformationPage extends StatelessWidget {
     }
   }
 
-  Widget _buildUserInfoCard() {
+  Widget _buildUserInfoCard(BuildContext context,) {
     return _buildCard(
       title: 'Personal Information',
       icon: Icons.person_outline,
       children: [
         _buildInfoRow(
+          context: context,
           label: 'User ID',
-          value: user.id.toString(),
+          value: widget.user.id.toString(),
           icon: Icons.badge_outlined,
         ),
         _buildInfoRow(
+          context: context,
           label: 'Full Name',
-          value: '${user.firstName} ${user.middleName} ${user.lastName}',
+          value: '${widget.user.firstName} ${widget.user.middleName} ${widget.user.lastName}',
           icon: Icons.person,
         ),
         _buildInfoRow(
+          context: context,
           label: 'Role',
-          value: user.role,
+          value: widget.user.role,
           icon: Icons.work_outline,
           valueColor: _getRoleColor(),
         ),
@@ -179,20 +264,22 @@ class UserInformationPage extends StatelessWidget {
     );
   }
 
-  Widget _buildContactCard() {
+  Widget _buildContactCard(BuildContext context,) {
     return _buildCard(
       title: 'Contact Information',
       icon: Icons.contact_mail_outlined,
       children: [
         _buildInfoRow(
+          context: context,
           label: 'Email',
-          value: user.email,
+          value: widget.user.email,
           icon: Icons.email_outlined,
           isEmail: true,
         ),
         _buildInfoRow(
+          context: context,
           label: 'Phone',
-          value: user.phoneNumber,
+          value: widget.user.phoneNumber,
           icon: Icons.phone_outlined,
           isPhone: true,
         ),
@@ -200,30 +287,56 @@ class UserInformationPage extends StatelessWidget {
     );
   }
 
-  Widget _buildAddressCard() {
+  Widget _buildAddressCard(BuildContext context,) {
     return _buildCard(
       title: 'Address Information',
       icon: Icons.location_on_outlined,
       children: [
         _buildInfoRow(
+          context: context,
           label: 'Region',
-          value: user.region,
+          value: widget.user.region,
           icon: Icons.location_city_outlined,
         ),
         _buildInfoRow(
+          context: context,
           label: 'District',
-          value: user.district,
+          value: widget.user.district,
           icon: Icons.location_city_outlined,
         ),
         _buildInfoRow(
+          context: context,
           label: 'Ward',
-          value: user.ward,
+          value: widget.user.ward,
           icon: Icons.account_balance_outlined,
         ),
         _buildInfoRow(
+          context: context,
           label: 'Street',
-          value: user.street,
+          value: widget.user.street,
           icon: Icons.home_outlined,
+        ),
+      ],
+    );
+  }
+
+    Widget _buildAccountMetadataCard(BuildContext context,) {
+    return _buildCard(
+      title: 'Account Metadata',
+      icon: Icons.location_on_outlined,
+      children: [
+        _buildInfoRow(
+          context: context,
+          label: 'Created',
+          value: widget.user.createdAt!.toIso8601String(),
+          icon: Icons.calendar_today_rounded,
+          copyable: (role == "admin") ? true : false,
+        ),
+        _buildInfoRow(
+          context: context,
+          label: 'Updated',
+          value: widget.user.updatedAt!.toIso8601String(),
+          icon: Icons.update,
         ),
       ],
     );
@@ -294,6 +407,7 @@ class UserInformationPage extends StatelessWidget {
   }
 
   Widget _buildInfoRow({
+    required BuildContext context,
     required String label,
     required String value,
     required IconData icon,
@@ -345,10 +459,7 @@ class UserInformationPage extends StatelessWidget {
                       child: GestureDetector(
                         onTap: copyable
                             ? () {
-                                // You can implement copy to clipboard here
-                                // ScaffoldMessenger.of(context).showSnackBar(
-                                //   SnackBar(content: Text('Copied to clipboard')),
-                                // );
+                                Clipboard.setData(ClipboardData(text: widget.user.password));
                               }
                             : null,
                         child: Text(
@@ -369,7 +480,7 @@ class UserInformationPage extends StatelessWidget {
                           color: Colors.blue[600],
                         ),
                         onPressed: () {
-                          // Implement email action
+                          _launchEmailApp(context: context, recipient: widget.user.phoneNumber);
                         },
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
@@ -382,7 +493,7 @@ class UserInformationPage extends StatelessWidget {
                           color: Colors.blue[600],
                         ),
                         onPressed: () {
-                          // Implement phone action
+                          _launchPhoneCall(context, widget.user.phoneNumber);
                         },
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
@@ -408,5 +519,42 @@ class UserInformationPage extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  
+  Future<void> _launchPhoneCall(BuildContext context, String phoneNumber) async {
+    final Uri launchUri = Uri(
+      scheme: 'tel',
+      path: phoneNumber,
+    );
+    if (await canLaunchUrl(launchUri)) {
+      await launchUrl(launchUri);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not launch phone app')),
+      );
+    }
+  }
+
+  Future<void> _launchEmailApp({ required BuildContext context, required String recipient, String? subject, String? body}) async {
+    final Uri launchUri = Uri(
+      scheme: 'mailto',
+      path: recipient,
+      queryParameters: {
+        if (subject != null) 'subject': subject,
+        if (body != null) 'body': body,
+      },
+    );
+
+    try {
+      await launchUrl(
+        launchUri,
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to launch email: $e')),
+      );
+    }
   }
 }

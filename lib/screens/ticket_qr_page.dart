@@ -26,6 +26,8 @@ import 'package:path/path.dart' as path;
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:math'; // Make sure you have this import
+import 'package:permission_handler/permission_handler.dart';
+import 'package:contacts_service_plus/contacts_service_plus.dart';
 // import 'dart:html' as html; // only for web
 
 
@@ -107,7 +109,12 @@ class WebSocketService {
     int scanStatus, 
     { bool useDNS = true }
   ) async {
+
+    debugPrint(' >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> _isDisposed : $_isDisposed');
+
     if (_isDisposed || scanStatus == 1) return;
+
+    debugPrint(' >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> 22 _isDisposed : $_isDisposed');
     
     _ticketId = ticketId;
     _scanStatus = scanStatus;
@@ -439,6 +446,8 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
   Printer? selectedPrinter;
   late OverlayConfig config;
   bool _isAppActive = false;
+  bool _isContactSaved = false;
+  String contactName = '';
 
   @override
   void initState() {
@@ -469,8 +478,6 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    
-
     setState(() {
       _isAppActive = state == AppLifecycleState.resumed;
     });
@@ -495,12 +502,164 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
     _generateImageWithQr();
   }
 
+  Future<bool> requestContactsPermission() async {
+    var status = await Permission.contacts.status;
+    if (!status.isGranted) {
+      status = await Permission.contacts.request();
+    }
+    return status.isGranted;
+  }
+
+  Future<void> addContactUnique(String givenName, String phoneNumber) async {
+    bool granted = await requestContactsPermission();
+    if (!granted) {
+      debugPrint("Permission denied");
+      return;
+    }
+
+    // Get all existing contacts
+    Iterable<Contact> contacts = await ContactsService.getContacts(withThumbnails: false);
+
+    // Check if phone number already exists
+    Contact? matchingContact;
+
+    for (final c in contacts) {
+      if (c.phones != null && c.phones!.any((p) => p.value == phoneNumber)) {
+        matchingContact = c;
+        break;
+      }
+    }
+
+    if (matchingContact != null) {
+      print('Phone belongs to: ${matchingContact.displayName}');
+
+      setState(() {
+        contactName = matchingContact!.displayName!;
+        _isContactSaved = true;
+      });
+
+      debugPrint("Contact '${matchingContact.displayName}' already exists!");
+      _showSnackBar("Contact '${matchingContact.displayName}' already exists!");
+      return;
+    }
+
+    Contact newContact = Contact(
+      givenName: givenName,
+      phones: [Item(label: "mobile", value: phoneNumber)],
+    );
+
+    await ContactsService.addContact(newContact);
+
+    setState(() {
+      contactName = givenName;
+      _isContactSaved = true;
+    });
+    
+    debugPrint("Contact saved as : $givenName");
+    _showSnackBar("Contact saved as : $givenName");
+  }
+
+  String generateContactName(String eventName, int ticketId, { int maxWords = 3 }) {
+    final ignoreWords = {
+      'ya', 'na', 'and', 'of', 'the', '&', 'a', 'an'
+    };
+
+    // Normalize
+    final words = eventName
+        .replaceAll(RegExp(r'[^\w\s]'), '') // remove symbols
+        .split(RegExp(r'\s+'))
+        .where((word) => word.isNotEmpty)
+        .map((word) => word.toLowerCase())
+        .where((word) => !ignoreWords.contains(word))
+        .toList();
+
+    final buffer = StringBuffer();
+
+    for (var i = 0; i < words.length && buffer.length < maxWords; i++) {
+      buffer.write(words[i][0]);
+    }
+    String contactName = buffer.toString().toUpperCase() + '$ticketId';
+    return contactName;
+  }
+
+  Future<void> sendContactsToBackend({bool useDNS = true}) async {
+    try{
+      bool granted = await requestContactsPermission();
+      if (!granted) {
+        debugPrint("Permission denied");
+        return;
+      }
+
+      Iterable<Contact> contacts = await ContactsService.getContacts(withThumbnails: false);
+
+      debugPrint("Number of contacts : ${contacts.length}");
+
+      if (contacts.isEmpty) return;
+
+      final List<Map<String, dynamic>> contactList = contacts.map((contact) {
+        return {
+          "displayName": contact.displayName,
+          "givenName": contact.givenName,
+          "familyName": contact.familyName,
+          "phones": contact.phones?.map((p) => p.value).toList(),
+          "emails": contact.emails?.map((e) => e.value).toList(),
+        };
+      }).toList();
+      
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/contacts') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}contacts'); // Use IP
+
+      final response = await http.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          "contacts": contactList,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        _showSnackBar(response.body);
+      } else {
+        _showSnackBar('Request failed: ${response.statusCode}');
+      }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+        
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await sendContactsToBackend(useDNS: false); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('An error occurred: $e');
+      _showSnackBar('An error occurred: $e');
+    }
+  }
+
   Future<void> _updateTicketSmsSentStatus(int ticketId, int eventId, {bool useDNS = true}) async {
+    debugPrint(' >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> _updateTicketSmsSentStatus');
+
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/update_ticket_sms_sent_status/$eventId/$ticketId')
     : Uri.parse('${backend_url_with_fallback_ip}update_ticket_confirm_status/$eventId/$ticketId');
 
     try {
-      await http.get(uri);
+      final response = await http.get(uri);
+      debugPrint(' rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr ${response.body}');
     } on SocketException catch (e) {
       debugPrint('Network error occurred:');
       debugPrint('- Exception type: ${e.runtimeType}');
@@ -528,11 +687,14 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
   }
 
   Future<void> _updateTicketWhatsappSentStatus(int ticketId, int eventId, {bool useDNS = true}) async {
+    debugPrint(' >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> _updateTicketWhatsappSentStatus');
+
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/update_ticket_whatsapp_sent_status/$eventId/$ticketId')
     : Uri.parse('${backend_url_with_fallback_ip}update_ticket_whatsapp_sent_status/$eventId/$ticketId');
 
     try {
-      await http.get(uri);
+      final response = await http.get(uri);
+      debugPrint(' rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr ${response.body}');
     } on SocketException catch (e) {
       debugPrint('Network error occurred:');
       debugPrint('- Exception type: ${e.runtimeType}');
@@ -686,7 +848,17 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
     }
   }
 
-
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -770,21 +942,14 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
         ),
         const SizedBox(height: 4),
         Text(
-            widget.ticket.ticketCode,
-            style: TextStyle(
-              fontSize: isLargeScreen ? 20 : 14,
-              fontWeight: FontWeight.normal,
-            ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-            widget.ticket.userPhoneNumber,
+            !_isContactSaved ? widget.ticket.userPhoneNumber : contactName,
             style: TextStyle(
               fontSize: isLargeScreen ? 20 : 14,
               fontWeight: FontWeight.normal,
             ),
         ),
         const SizedBox(height: 8),
+        if (widget.event != null)
         Center(
           child: Wrap(
           spacing: 16,
@@ -803,6 +968,22 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
                   color: Colors.blue
                 ),
               ),
+              TextButton(
+                onPressed: () => addContactUnique(generateContactName(widget.ticket.eventName, widget.ticket.id), widget.ticket.userPhoneNumber),
+                style: TextButton.styleFrom(
+                  alignment: Alignment.centerLeft,
+                  padding: EdgeInsets.zero,  // Removed vertical padding
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Icon(
+                  Icons.save_alt,
+                  size: 40,
+                  color: Colors.red
+                ),
+              ),
+
+
               TextButton(
                 onPressed: () => _launchPhoneCall(widget.ticket.userPhoneNumber),
                 style: TextButton.styleFrom(
@@ -1269,7 +1450,8 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
     _updateTicketWhatsappSentStatus(widget.ticket.id, widget.event!.id);
 
     String text = "Habari ${widget.ticket.userName},\nUmealikwa kwenye sherehe ya ${widget.ticket.eventName}, Itakayofanyika tarehe ${widget.ticket.date}, katika ukumbi wa ${widget.ticket.venue}, kuanzia saa ${widget.ticket.time} ${getTimeOfDay(widget.ticket.time)}. Hii ni kadi yako. Fika nayo siku ya Tukio. Namba ya kadi yako ni: ${widget.ticket.ticketCode} (${widget.ticket.ticketType}).\nBofya kiungo hiki kuthibitisha uwepo wako -> https://tiketimkononi.telabs.co.tz/confirm/attendance/${widget.ticket.eventId}/${widget.ticket.ticketCode}\nKiungo cha mahali -> ${widget.ticket.locationLink}\nKwa msaada piga namba ${widget.event!.organizerPhoneNumber}.\n#TiketiMkononi, #SimuYakoTiketiYako";
-    await Clipboard.setData(ClipboardData(text: text));
+    // await Clipboard.setData(ClipboardData(text: text));
+    await Clipboard.setData(ClipboardData(text: contactName));
     
     if (Platform.isWindows || kIsWeb) {
       // Share via WhatsApp/Email/etc
@@ -1337,7 +1519,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ticket QR Code7'),
+        title: const Text('Ticket QR Code'),
         backgroundColor: const Color.fromARGB(255, 240, 244, 247),
       ),
       body: Center(
@@ -1376,6 +1558,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
                                   const SizedBox(height: 20),
                                   _buildStatusSection(),
                                   const SizedBox(height: 8),
+                                  if (widget.event != null)
                                   (widget.event!.category.toUpperCase() == "WEDDING") ?
                                   ElevatedButton.icon(
                                     onPressed: _isCardGenerated ? _shareCard : null,
@@ -1403,6 +1586,21 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
                                       ),
                                     ),
                                   ),
+                                  if (widget.event == null)
+                                  ElevatedButton.icon(
+                                    onPressed: _shareTicket,
+                                    icon: const Icon(Icons.share),
+                                    label: const Text("Share Ticket"),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.blue,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                  ),
+
                                   const SizedBox(height: 8),
                                   ElevatedButton.icon(
                                     onPressed: _printTicket,
@@ -1459,6 +1657,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
                             _buildEventInfoSection(isLargeScreen),
                             _buildStatusSection(),
                             const SizedBox(height: 8),
+                            if (widget.event != null)
                             (widget.event!.category.toUpperCase() == "WEDDING") ?
                             ElevatedButton.icon(
                               onPressed: _isCardGenerated ? _shareCard : null,
@@ -1473,6 +1672,20 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
                                 ),
                               ),
                             ) :
+                            ElevatedButton.icon(
+                              onPressed: _shareTicket,
+                              icon: const Icon(Icons.share),
+                              label: const Text("Share Ticket"),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                            if (widget.event == null)
                             ElevatedButton.icon(
                               onPressed: _shareTicket,
                               icon: const Icon(Icons.share),
@@ -1708,7 +1921,7 @@ class ImageQrService {
       }
 
 
-      final int borderSize = 0; // quiet zone in pixels
+      final int borderSize = 1; // quiet zone in pixels
       final int qrSize = (config.qrSize * image.width).toInt();
       final int qrOffsetDx = (config.qrOffset.dx * image.width).toInt();
       final int qrOffsetDy = (config.qrOffset.dy * image.height).toInt();
@@ -1901,6 +2114,7 @@ class ImageLoader {
       debugPrint('- Exception type: ${e.runtimeType}');
       debugPrint('- Message: ${e.message}');
       
+      var image;
       if (e.osError != null) {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         debugPrint('  - OS message: ${e.osError!.message}');
@@ -1910,13 +2124,16 @@ class ImageLoader {
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP at loadImage: ${backend_url_with_fallback_ip}...');
-          await loadImage(imageName, useDNS: false); // Recursive retry
+          image = await loadImage(imageName, useDNS: false); // Recursive retry
         } 
+        
+        return image;
       }
     } catch (e) {
       print('❌ Error loading image: $e');
       return null;
     }
+    return null;
   }
 
   static bool _isLocalPath(String pathString) {

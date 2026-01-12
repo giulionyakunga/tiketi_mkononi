@@ -173,7 +173,7 @@ class _TicketsPageState extends State<TicketsPage> with WidgetsBindingObserver {
   }
 
   void _handleSocketException(SocketException e) {
-    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 101 || e.osError?.errorCode == 111) {
+    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 101 || e.osError?.errorCode == 111 || e.osError?.errorCode == 10057) {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
@@ -364,10 +364,9 @@ class _TicketsPageState extends State<TicketsPage> with WidgetsBindingObserver {
             unselectedLabelColor: Colors.grey,
           ),
         ),
-        body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+        body: ticketsList.isEmpty ? const Center(child: CircularProgressIndicator())
           : ticketsList.isEmpty
-            ? _buildEmptyState('No tickets found')
+            ? _buildEmptyState('No tick1ets found')
             : TabBarView(
                 children: [
                   // Upcoming Tickets

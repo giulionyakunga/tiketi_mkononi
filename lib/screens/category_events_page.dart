@@ -6,7 +6,6 @@ import 'package:tiketi_mkononi/models/event.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
 import 'package:tiketi_mkononi/widgets/event_card.dart';
 import 'package:tiketi_mkononi/widgets/event_card2.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
@@ -27,7 +26,7 @@ class CategoryEventsPage extends StatefulWidget {
 
 class _CategoryEventsPageState extends State<CategoryEventsPage> {
   int userId = 0;
-  String userRole = "";
+  String role = "";
   late final StorageService _storageService;
   static const _pageSize = 30;
   final PagingController<int, Event> _pagingController = PagingController(firstPageKey: 1);
@@ -77,7 +76,7 @@ class _CategoryEventsPageState extends State<CategoryEventsPage> {
     if (profile != null) {
       setState(() {
         userId = profile.id;
-        userRole = profile.role;
+        role = profile.role;
       });
       _pagingController.refresh();
     }
@@ -413,6 +412,7 @@ PreferredSizeWidget _buildAppBar(BuildContext context) {
                           child: EventCard(
                             event: event,
                             userId: userId,
+                            role: role,
                             refreshMethod: _fetchPage,
                             useDNS: useDNS_2,
                           ),
@@ -529,6 +529,7 @@ PreferredSizeWidget _buildAppBar(BuildContext context) {
                               return EventCard2(
                                 event: event,
                                 userId: userId,
+                                role: role,
                                 refreshMethod: _fetchPage,
                                 useDNS: useDNS_2,
                               );

@@ -1355,11 +1355,11 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> with WidgetsBinding
 
 
 
-final websocketServiceProvider = Provider<WebSocketService>((ref) {
+// final websocketServiceProvider = Provider<WebSocketService>((ref) {
+
+final websocketServiceProvider = Provider.autoDispose<WebSocketService>((ref) {
   return WebSocketService();
 });
-
-
 
 class WebSocketService {
   WebSocketChannel? _channel;
@@ -1414,7 +1414,11 @@ class WebSocketService {
     int eventId,
     { bool useDNS = true }
   ) async {
+    debugPrint(' >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> _isDisposed : $_isDisposed');
+
     if (_isDisposed) return;
+
+    debugPrint(' >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> 22 _isDisposed : $_isDisposed');
     
     _userId = userId;
     _eventId = eventId;
@@ -1707,7 +1711,7 @@ void _scheduleReconnection(
 
   /// 🧹 Final cleanup
   void dispose() {
-    debugPrint('🧹 Disposing WebSocketService');
+    debugPrint('🧹 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  Disposing WebSocketService');
     _isDisposed = true;
     disconnect();
     _connectivitySubscription.cancel();

@@ -499,7 +499,7 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('App Info & Updates'),
-        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+        backgroundColor: const Color.fromARGB(255, 240, 244, 247),
         elevation: 0,
       ),
       body: Center(
@@ -561,7 +561,7 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
                 fontSize: 20,
-                color: Theme.of(context).colorScheme.primary,
+                color: Theme.of(context).colorScheme.primary, 
               ),
             ),
             const SizedBox(height: 24),

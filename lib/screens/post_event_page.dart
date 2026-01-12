@@ -50,6 +50,7 @@ class PostEventPage extends StatefulWidget {
 
 class _PostEventPageState extends State<PostEventPage> {
   int userId = 0;
+  String organizerPhoneNumber = "";
   String role = "";
   final _formKey = GlobalKey<FormState>();
   final GlobalKey _imagePickerKey = GlobalKey();
@@ -68,11 +69,11 @@ class _PostEventPageState extends State<PostEventPage> {
   bool _isLoading = false;
   bool _isPaidEvent = true;
   bool _isDailyEvent = false;
-  bool _isPublicEvent = false;
+  bool _isPublicEvent = true;
   late final StorageService _storageService;
 
   final List<TicketType> _ticketTypes = [];
-  final List<String> _predefinedTicketTypes = ['Regular', 'VIP', 'VVIP'];
+  final List<String> _predefinedTicketTypes = ['Regular', 'VIP', 'VVIP', 'Single', 'Double'];
   final List<String> _categories = [
     'Comedy',
     'Fun',
@@ -107,6 +108,7 @@ class _PostEventPageState extends State<PostEventPage> {
     if (profile != null) {
       setState(() {
         userId = profile.id;
+        organizerPhoneNumber = profile.phoneNumber;
         role = profile.role;
       });
 
@@ -449,6 +451,7 @@ Future<void> _pickImage() async {
       'time': '${_selectedTime!.hour}:${_selectedTime!.minute}',
       'venue': _venueController.text.trim(),
       'location_link': _locationLinkController.text.trim(),
+      'organizer_phone_number': organizerPhoneNumber,
       'rows': (_selectedCategory == "Theater") ?    int.tryParse(_rowsController.text.trim()) ?? 0 : 0,
       'seats': (_selectedCategory == "Theater") ? int.tryParse(_seatsController.text.trim()) ?? 0 : 0,
       'description': _descriptionController.text.trim(),

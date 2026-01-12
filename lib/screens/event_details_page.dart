@@ -18,10 +18,12 @@ import 'package:tiketi_mkononi/screens/event_tickets_page.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tiketi_mkononi/screens/generate_cards_page.dart';
 import 'package:tiketi_mkononi/screens/qr_scanner_page.dart';
+import 'package:tiketi_mkononi/screens/send_reminder_messages_page.dart';
 import 'package:tiketi_mkononi/screens/set_scanner_page.dart';
 import 'package:tiketi_mkononi/screens/theater_checkout_page.dart';
 import 'package:tiketi_mkononi/screens/theater_confirm_page.dart';
 import 'package:tiketi_mkononi/screens/tickets_page.dart';
+import 'package:tiketi_mkononi/screens/verify_code_page.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/foundation.dart';
@@ -31,15 +33,17 @@ import 'package:share_plus/share_plus.dart';
 class EventDetailsPage extends StatefulWidget {
   final Event event;
   final int userId;
-  final Function refreshMethod;
+  final String role;
   final bool useDNS;
+  final Function refreshMethod;
 
   const EventDetailsPage({
     super.key,
     required this.event,
     required this.userId,
-    required this.refreshMethod,
+    required this.role,
     required this.useDNS,
+    required this.refreshMethod,
   });
 
   @override
@@ -48,6 +52,7 @@ class EventDetailsPage extends StatefulWidget {
 
 class _EventDetailsPageState extends State<EventDetailsPage> {
   int userId = 0;
+  String role = '';
   Event? event2;
   double? _imageHeight;
   double? _imageWidth;
@@ -64,6 +69,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
     super.initState();
     if(widget.userId > 0) {
       userId = widget.userId;
+      role = widget.role;
     }else {
       _initializeServices();
     }
@@ -171,6 +177,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
 
           final prefs = await SharedPreferences.getInstance();
           await prefs.setBool('use_dns', false);
+
           return;
         }
       }
@@ -215,7 +222,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
     widget.refreshMethod();
 
     try {
-      final Uri uri = useDNS ? Uri.parse('${backend_url}api/get_event/${widget.event.id}/${userId}') // Original URL 
+      final Uri uri = widget.useDNS ? Uri.parse('${backend_url}api/get_event/${widget.event.id}/${userId}') // Original URL 
       : Uri.parse('${backend_url_with_fallback_ip}get_event/${widget.event.id}/${userId}'); // Use IP
         
       final response = await http.get(uri);
@@ -284,7 +291,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
 
   void _loadImageDimensions() {
     final imageProvider = CachedNetworkImageProvider(
-        widget.useDNS ? '${backend_url}api/image/${widget.event.imageUrl}' : '${backend_url_with_fallback_ip}api/image/${widget.event.imageUrl}'
+        widget.useDNS ? '${backend_url}api/image/${widget.event.imageUrl}' : '${backend_url_with_fallback_ip}image/${widget.event.imageUrl}'
       );
     imageProvider.resolve(const ImageConfiguration()).addListener(
       ImageStreamListener((info, _) {
@@ -324,15 +331,32 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
     });
   }
 
-  void _handleQRCodeScannerUnavailablility () {
-    showDialog(
+  void _handleQRCodeScannerUnavailablility (Event event) {
+     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => AlertDialog( 
         title: const Text('QR Code Scanning Unavailable'),
         content: const Text('This feature is only supported in the Tiketi Mkononi mobile app. Please download and open the application on your smartphone to scan QR codes'),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(15),
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => VerifyCodePage(userId: userId, eventId: event.id),
+                ),
+              );
+            },
+            child: const Text('Proceed', style: TextStyle(color: Colors.green)),
+          ),
+        ],
       ),
     );
   }
@@ -346,6 +370,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
       'BARS & GRILLS': Colors.pink,
       'TRAINING': Colors.green,
       'THEATER': Colors.black,
+      'WEDDING': Colors.red,
     };
 
     return Chip(
@@ -431,7 +456,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
             ),
             
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Event Details',
               style: TextStyle(
                 fontSize: 16,
@@ -900,8 +925,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                   tag: 'event-image-${event.id}',
                   child:
                   CachedNetworkImage(
-                    imageUrl: '${backend_url}api/image/${event.imageUrl}',
-                    // imageUrl: widget.useDNS ? '${backend_url}api/image/${event.imageUrl}' : '${backend_url_with_fallback_ip}api/image/${event.imageUrl}',
+                    imageUrl: widget.useDNS ? '${backend_url}api/image/${event.imageUrl}' : '${backend_url_with_fallback_ip}image/${event.imageUrl}',
                     fit: BoxFit.cover,
                     placeholder: (context, url) => Container(
                       color: Colors.grey[300],
@@ -1072,7 +1096,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                     ),
                                     onPressed: () {
                                       (kIsWeb) ? 
-                                      _handleQRCodeScannerUnavailablility()
+                                      _handleQRCodeScannerUnavailablility(event)
                                       :
                                       Navigator.push(
                                         context,
@@ -1145,6 +1169,30 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
 
                                   ),
                                 ),
+                                 if ((role == 'admin') && (event.category.toUpperCase() == "WEDDING"))
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  child: TextButton(
+                                    style: TextButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      minimumSize: Size.zero,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => SendReminderMessagesPage(event: event),
+                                        ),
+                                      );
+                                    },
+                                    child: const Icon(
+                                      Icons.notifications_active,
+                                      size: 18,
+                                      color: Colors.blue
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -1187,7 +1235,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                 tag: 'event-image-${event.id}',
                 child: 
                 CachedNetworkImage(
-                  imageUrl: widget.useDNS ? '${backend_url}api/image/${event.imageUrl}' : '${backend_url_with_fallback_ip}api/image/${event.imageUrl}',
+                  imageUrl: widget.useDNS ? '${backend_url}api/image/${event.imageUrl}' : '${backend_url_with_fallback_ip}image/${event.imageUrl}',
                   fit: BoxFit.cover,
                   placeholder: (context, url) => Container(
                     color: Colors.grey[300],
@@ -1350,7 +1398,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                             ),
                             onPressed: () {
                               (kIsWeb) ? 
-                              _handleQRCodeScannerUnavailablility()
+                              _handleQRCodeScannerUnavailablility(event)
                               :
                               Navigator.push(
                                 context,
@@ -1421,6 +1469,30 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                 ),
                             ),
 
+                          ),
+                        ),
+                        if ((role == 'admin') && (event.category.toUpperCase() == "WEDDING"))
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: TextButton(
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => SendReminderMessagesPage(event: event),
+                                ),
+                              );
+                            },
+                            child: const Icon(
+                              Icons.notifications_active,
+                              size: 18,
+                              color: Colors.blue
+                            ),
                           ),
                         ),
                       ],

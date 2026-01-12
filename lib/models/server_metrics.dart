@@ -8,6 +8,8 @@ class ServerMetrics {
   final CpuLoad cpuLoadAvg;
   final String uptimeSeconds;
   bool dnsResolution;
+  final int smsBalance;
+  final String smsBalance2;
 
   ServerMetrics({
     required this.timestamp,
@@ -19,6 +21,8 @@ class ServerMetrics {
     required this.cpuLoadAvg,
     required this.uptimeSeconds,
     required this.dnsResolution,
+    required this.smsBalance,
+    required this.smsBalance2,
   });
 
   factory ServerMetrics.fromJson(Map<String, dynamic> json) {
@@ -32,6 +36,8 @@ class ServerMetrics {
       cpuLoadAvg: CpuLoad.fromJson(json['cpuLoadAvg']),
       uptimeSeconds: json['uptimeSeconds'],
       dnsResolution: json['dns_resolution'] ?? true,
+      smsBalance: json['sms_balance'] ?? 0,
+      smsBalance2: json['sms_balance_2'] ?? '',
     );
   }
 }

@@ -393,9 +393,9 @@ class _EditTicketPageState extends State<EditTicketPage> {
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
-                    initialValue: _ticketType,
+                    initialValue: _ticketTypes.contains(_ticketType) ? _ticketType : null,
                     decoration: InputDecoration(
-                      labelText: 'Ticket Type',
+                      labelText: _ticketTypes.contains(_ticketType) ? 'Ticket Type' : _ticketType,
                       labelStyle: TextStyle(
                         color: Colors.grey[600],
                         fontSize: 16,

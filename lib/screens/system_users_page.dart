@@ -163,7 +163,7 @@ class _SystemUsersPageState extends State<SystemUsersPage> {
                     user.role.toUpperCase(),
                     style: const TextStyle(fontSize: 12),
                   ),
-                  backgroundColor: Colors.green[100],
+                  backgroundColor: (user.role.toUpperCase() == 'ADMIN') ? Colors.green[100] : (user.role.toUpperCase() == 'ORGANIZER') ? Colors.orange[100] : Colors.blue[100],
                 ),
               ],
             ),
@@ -234,11 +234,14 @@ class _SystemUsersPageState extends State<SystemUsersPage> {
     );
   }
 
-  @override
+  @override 
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('System Users'),
+        title: Text(
+          'System Users (${users.length})',
+          style: TextStyle(fontSize: 18),
+        ),
         backgroundColor: const Color.fromARGB(255, 240, 244, 247),
         foregroundColor: Colors.black,
         actions: [
