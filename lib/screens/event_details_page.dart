@@ -1222,6 +1222,13 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
     );
   }
 
+  final _compactBtnStyle = TextButton.styleFrom(
+    padding: EdgeInsets.zero,
+    minimumSize: Size.zero,
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+  );
+
+
   Widget _buildMobileLayout(Event event, BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
@@ -1265,37 +1272,17 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.only(right: 4),
-                          child: _buildCategoryChip(event.category),
-                        ),
-                        if(event.hasTicket)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 2),
-                          child: TextButton(
-                            style: TextButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            child: (event.tickets.length > 1) ?
-                            Text(
-                              "View Tickets",
-                              style: TextStyle(
-                                fontSize: 11, 
-                                color: Colors.green
-                              ),
-                            ) : 
-                            Text(
-                              "View Ticket",
-                              style: TextStyle(
-                                fontSize: 11, 
-                                color: Colors.green
-                              ),
-                            ),
+                        _buildCategoryChip(event.category),
+                    
+                        const SizedBox(width: 10),
+
+                        // View Ticket / Card
+                        if (event.hasTicket) ...[
+                          TextButton(
+                            style: _compactBtnStyle,
                             onPressed: () {
                               Navigator.push(
                                 context,
@@ -1304,19 +1291,29 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                 ),
                               );
                             },
-                          ),
-                        ),
-                        if((userId == event.userId) && (event.status == "active"))
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: TextButton(
-                            style: TextButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            child: Text(
+                              (event.tickets.length > 1)
+                                  ? (event.category.toUpperCase() == "WEDDING"
+                                      ? "View Cards"
+                                      : "View Tickets")
+                                  : (event.category.toUpperCase() == "WEDDING"
+                                      ? "View Card"
+                                      : "View Ticket"),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Colors.green,
+                              ),
                             ),
+                          ),
+                          const SizedBox(width: 10),
+                        ],
+
+                        // Sell button
+                        if ((userId == event.userId) && (event.status == "active")) ...[
+                          TextButton(
+                            style: _compactBtnStyle,
                             onPressed: () {
-                              if(event.type == 'paid') { 
+                              if (event.type == 'paid') {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
@@ -1334,95 +1331,88 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                             child: const Icon(
                               Icons.sell,
                               size: 18,
-                              color: Colors.red
+                              color: Colors.red,
                             ),
                           ),
-                        ),
-                        if (userId == event.userId)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: TextButton(
-                            style: TextButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            onPressed: (userId == event.userId)
-                              ? () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => SetScannerPage(userId: userId, eventId: event.id),
-                                    ),
-                                  );
-                                }
-                              : null,
-                            child: const Icon(
-                              Icons.assignment_ind,
-                              size: 18,
-                              color: Colors.green
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: TextButton(
-                            onPressed: () async {
-                              final eventId = event.id;
-                              final link = "https://tiketimkononi.telabs.co.tz/event/$eventId";
+                          const SizedBox(width: 10),
+                        ],
 
-                              if (kIsWeb) {
-                                await Clipboard.setData(ClipboardData(text: "Check out this event! 🎟️\n$link"));
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Link copied to clipboard!')),
-                                );
-                              } else {
-                                Share.share("Check out this event! 🎟️\n$link");
-                              }
-                            },
-                            child: const Icon(
-                              Icons.share,
-                              size: 18,
-                              color: Colors.blue,
-                            ),
-                          ),
-                        ),
-                        if ((userId == event.userId) || ((userId != 0) && (userId == event.ticketScannerId)))
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: TextButton(
-                            style: TextButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
+                        // Assign scanner
+                        if (userId == event.userId) ...[
+                          TextButton(
+                            style: _compactBtnStyle,
                             onPressed: () {
-                              (kIsWeb) ?
-                              _handleQRCodeScannerUnavailablility(event)
-                              :
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => QRScannerPage(userId: userId, eventId: event.id),
+                                  builder: (context) =>
+                                      SetScannerPage(userId: userId, eventId: event.id),
                                 ),
                               );
                             },
                             child: const Icon(
-                              Icons.qr_code_scanner,
+                              Icons.assignment_ind,
                               size: 18,
-                              color: Colors.green
+                              color: Colors.green,
                             ),
                           ),
+                          const SizedBox(width: 10),
+                        ],
+
+                        // Share
+                        TextButton(
+                          style: _compactBtnStyle,
+                          onPressed: () async {
+                            final link =
+                                "https://tiketimkononi.telabs.co.tz/event/${event.id}";
+
+                            if (kIsWeb) {
+                              await Clipboard.setData(
+                                ClipboardData(text: "Check out this event! 🎟️\n$link"),
+                              );
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Link copied to clipboard!')),
+                              );
+                            } else {
+                              Share.share("Check out this event! 🎟️\n$link");
+                            }
+                          },
+                          child: const Icon(
+                            Icons.share,
+                            size: 18,
+                            color: Colors.blue,
+                          ),
                         ),
-                        if ((userId == event.userId) && (event.category.toUpperCase() == "WEDDING"))
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: TextButton(
-                            style: TextButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        const SizedBox(width: 10),
+
+                        // QR Scanner
+                        if ((userId == event.userId) || ((userId != 0) && (userId == event.ticketScannerId))) ...[
+                          TextButton(
+                            style: _compactBtnStyle,
+                            onPressed: () {
+                              kIsWeb
+                                  ? _handleQRCodeScannerUnavailablility(event)
+                                  : Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            QRScannerPage(userId: userId, eventId: event.id),
+                                      ),
+                                    );
+                            },
+                            child: const Icon(
+                              Icons.qr_code_scanner,
+                              size: 18,
+                              color: Colors.green,
                             ),
+                          ),
+                          const SizedBox(width: 10),
+                        ],
+
+                        // Generate cards (wedding)
+                        if ((userId == event.userId) && (event.category.toUpperCase() == "WEDDING")) ...[
+                          TextButton(
+                            style: _compactBtnStyle,
                             onPressed: () {
                               Navigator.push(
                                 context,
@@ -1434,70 +1424,62 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                             child: const Icon(
                               Icons.assignment,
                               size: 18,
-                              color: Colors.pink
+                              color: Colors.pink,
                             ),
                           ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(left: 12),
-                          child: TextButton(
-                            style: TextButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            onPressed: (userId == event.userId)
-                                ? () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => EventTicketsPage(
-                                          event: event,
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                : null,
-                            child: Text(
-                              event.type == 'free'
-                                  ? '🎟️ $eventTicketsCount Confirmed'
-                                  : '🎟️ $eventTicketsCount Sold',
-                              style: TextStyle(
-                                  fontSize: 11, 
-                                  color: Colors.orange[800],
-                                  overflow: TextOverflow.ellipsis
-                                ),
-                            ),
+                          const SizedBox(width: 10),
+                        ],
 
+                        // Ticket count
+                        TextButton(
+                          style: _compactBtnStyle,
+                          onPressed: (userId == event.userId)
+                          ? () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => EventTicketsPage(event: event),
+                                ),
+                              );
+                            }
+                          : null,
+                          child: Text(
+                            event.type == 'free'
+                                ? '🎟️ $eventTicketsCount Confirmed'
+                                : '🎟️ $eventTicketsCount Sold',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.orange[800],
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        if ((role == 'admin') && (event.category.toUpperCase() == "WEDDING"))
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: TextButton(
-                            style: TextButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
+
+                        // Admin reminder
+                        if ((role == 'admin') && (event.category.toUpperCase() == "WEDDING")) ...[
+                          const SizedBox(width: 10),
+                          TextButton(
+                            style: _compactBtnStyle,
                             onPressed: () {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => SendReminderMessagesPage(event: event),
+                                  builder: (context) =>
+                                      SendReminderMessagesPage(event: event),
                                 ),
                               );
                             },
                             child: const Icon(
                               Icons.notifications_active,
                               size: 18,
-                              color: Colors.blue
+                              color: Colors.blue,
                             ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ),
+
                   const SizedBox(height: 16),
                   _buildEventDetailsCard(event, context),
                   const SizedBox(height: 16),

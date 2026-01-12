@@ -450,6 +450,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
   String contactName = '';
   Uint8List? _webImageBytes;
   bool _isLoading = false;
+  bool isWhatsappSent = false;
   Iterable<Contact> contactsList = [];
 
   @override
@@ -465,6 +466,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
 
     scanStatus2 = widget.ticket.scanStatus;
     scannedAt = widget.ticket.updatedAt;
+    isWhatsappSent = widget.ticket.whatsappSent;
 
     if (widget.ticket.scanStatus != 1) {
       _webSocketService = ref.read(websocketServiceProvider);
@@ -1477,6 +1479,9 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
 
       if (response.statusCode == 200) {
         if (responseData['message'] == "Card sent successfully!") {
+          setState(() {
+            isWhatsappSent = true;
+          });
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(responseBody)),
           );
@@ -1563,7 +1568,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
 
     String text = "";
     if(widget.event!.category.toUpperCase() == "WEDDING"){
-      text = "Habari ${widget.ticket.userName},\nUmealikwa kwenye sherehe ya ${widget.ticket.eventName}, Itakayofanyika tarehe ${widget.ticket.date}, katika ukumbi wa ${widget.ticket.venue}, kuanzia saa ${widget.ticket.time} ${getTimeOfDay(widget.ticket.time)}. Hii ni kadi yako. Fika nayo siku ya Tukio. Namba ya kadi yako ni: ${widget.ticket.ticketCode} (${widget.ticket.ticketType}).\nBofya kiungo hiki kuthibitisha uwepo wako -> https://tiketimkononi.telabs.co.tz/confirm/attendance/${widget.ticket.eventId}/${widget.ticket.ticketCode}\nKiungo cha mahali -> ${widget.ticket.locationLink}\nKwa msaada piga namba ${widget.event!.organizerPhoneNumber}.\n#TiketiMkononi, #SimuYakoTiketiYako";
+      text = "Habari ${widget.ticket.userName},\nUmealikwa kwenye sherehe ya ${widget.ticket.eventName}, Itakayofanyika tarehe ${widget.ticket.date}, katika ukumbi wa ${widget.ticket.venue}, kuanzia saa ${widget.ticket.time} ${getTimeOfDay(widget.ticket.time)}. Namba ya kadi yako ni: ${widget.ticket.ticketCode} (${widget.ticket.ticketType}). Hii ni kadi yako, fika nayo siku ya tukio..\nBofya kiungo hiki kuthibitisha uwepo wako -> https://tiketimkononi.telabs.co.tz/confirm/attendance/${widget.ticket.eventId}/${widget.ticket.ticketCode}\nKiungo cha mahali -> ${widget.ticket.locationLink}\nKwa msaada piga namba ${widget.event!.organizerPhoneNumber}.\n#TiketiMkononi";
     } else {
       text = "Habari ${widget.ticket.userName},\n"
       "${widget.ticket.ticketCode} (${widget.ticket.ticketType}) ni namba ya tiketi yako ya "
@@ -1663,7 +1668,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
                                       ),
                                       const SizedBox(height: 8),
                                       ElevatedButton.icon(
-                                        onPressed: (_isCardGenerated && !_isLoading) ? _sendCard : null,
+                                        onPressed: (_isCardGenerated && !_isLoading && !isWhatsappSent) ? _sendCard : null,
                                         icon: const Icon(Icons.share),
                                         label: const Text("Send Card"),
                                         style: ElevatedButton.styleFrom(
@@ -1780,7 +1785,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
                                 ),
                                 const SizedBox(height: 8),
                                 ElevatedButton.icon(
-                                  onPressed: (_isCardGenerated && !_isLoading) ? _sendCard : null,
+                                  onPressed: (_isCardGenerated && !_isLoading && !isWhatsappSent) ? _sendCard : null,
                                   icon: const Icon(Icons.share),
                                   label: const Text("Send Card"),
                                   style: ElevatedButton.styleFrom(

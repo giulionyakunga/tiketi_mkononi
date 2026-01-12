@@ -162,8 +162,10 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
     final totalAmount = ticketsList.fold<double>(0.0, (sum, ticket) => sum + ticket.price);
     final confirmedTicketsCount = ticketsList.where((ticket) => ticket.confirmStatus == 1).length;
     final notConfirmedTicketsCount = numberOfTickets - confirmedTicketsCount;
+    final attendedTickets = countAttendedTickets();
     final scannedTicketsCount = ticketsList.where((ticket) => ticket.scanStatus == 1).length;
     final missedTicketsCount = numberOfTickets - scannedTicketsCount;
+
 
     // Add an empty row to visually separate data and summary
     sheet.appendRow([' ']);
@@ -172,7 +174,7 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
     sheet.appendRow(['Number of Tickets', numberOfTickets.toString()]);
     sheet.appendRow(['Confirmed', confirmedTicketsCount.toString()]);
     sheet.appendRow(['Not Confirmed', notConfirmedTicketsCount.toString()]);
-    sheet.appendRow(['Attended', scannedTicketsCount.toString()]);
+    sheet.appendRow(['Attended', attendedTickets.toString()]);
     sheet.appendRow(['Missed', missedTicketsCount.toString()]);
     sheet.appendRow(['Total Collection ', 'TSH${totalAmount.toStringAsFixed(2)}']);
 
@@ -347,8 +349,10 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
   }
 
   int countAttendedTickets() {
-    return ticketsList.where((ticket) => ticket.scanStatus == 1).length;
+    return ticketsList.where((ticket) => ticket.scanStatus == 1) // only attended tickets
+    .fold(0, (sum, ticket) => sum + ticket.scanTimes); // sum their scanTimes
   }
+
 
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
