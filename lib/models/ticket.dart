@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 class Ticket {
   final int id;
   final int userId;

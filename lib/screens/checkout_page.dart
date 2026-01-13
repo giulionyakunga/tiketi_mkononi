@@ -13,7 +13,6 @@ import 'package:http/http.dart' as http;
 import 'package:tiketi_mkononi/models/transaction_data.dart';
 import 'package:tiketi_mkononi/screens/tickets_page.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
-import 'package:flutter/services.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 class CheckoutPage extends ConsumerStatefulWidget {
@@ -52,7 +51,6 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> with WidgetsBinding
   Timer? _timer;
   bool _isAppActive = true;
   final _formKey = GlobalKey<FormState>();
-  final _formKey2 = GlobalKey<FormState>();
   DateTime? _selectedDate;
   DateTime _selectedDate2 = DateTime.now();
   int eventTicketsCount = 0;
@@ -77,7 +75,6 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> with WidgetsBinding
   void _loadUserProfile() {
     profile = _storageService.getUserProfile();
     if (profile != null) {
-      StringBuffer formatted = StringBuffer();
 
       setState(() {
         userId = profile.id;

@@ -12,7 +12,6 @@ import 'package:image/image.dart' as img;
 import 'package:http/http.dart' as http;
 import 'package:tiketi_mkononi/env.dart';
 import 'package:tiketi_mkononi/models/event.dart';
-import 'package:tiketi_mkononi/services/storage_service.dart';
 import 'package:path/path.dart' as path;
 
 
@@ -57,7 +56,6 @@ class CardViewPage extends StatefulWidget {
 
 class _CardViewPageState extends State<CardViewPage> {
   late OverlayConfig config;
-  bool _isLoading = false;
 
   @override
   void initState() {
@@ -112,8 +110,6 @@ class _CardViewPageState extends State<CardViewPage> {
     
     try {
 
-      setState(() => _isLoading = true);
-
       final Uri uri = useDNS ? Uri.parse('${backend_url}api/event_card_info') : 
       Uri.parse('${backend_url_with_fallback_ip}event_card_info'); // Use IP 
       final response = await http.post( 
@@ -157,8 +153,8 @@ class _CardViewPageState extends State<CardViewPage> {
         }
       }
       _handleSocketException(e);
-    } finally { 
-      setState(() => _isLoading = false); 
+    } catch (e)  { 
+      debugPrint('- Exception type: ${e.runtimeType}');
     } 
   }
 

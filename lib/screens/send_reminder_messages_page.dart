@@ -33,6 +33,7 @@ class _SendReminderMessagesPageState extends State<SendReminderMessagesPage> wit
   final _networkNameAccountNumber1Controller = TextEditingController();
   final _networkNameAccountNumber2Controller = TextEditingController();
   final _accountNameController = TextEditingController();
+  final _accountName2Controller = TextEditingController();
   String? fileType;
   bool _isLoading = false;
 
@@ -64,6 +65,7 @@ class _SendReminderMessagesPageState extends State<SendReminderMessagesPage> wit
     _networkNameAccountNumber1Controller.text = widget.event.networkNameAccountNumber1;
     _networkNameAccountNumber2Controller.text = widget.event.networkNameAccountNumber2;
     _accountNameController.text = widget.event.accountName;
+    _accountName2Controller.text = widget.event.accountName2;
 
     _initializeServices();
     _tabController = TabController(length: 2, vsync: this);
@@ -78,6 +80,7 @@ class _SendReminderMessagesPageState extends State<SendReminderMessagesPage> wit
     _networkNameAccountNumber1Controller.dispose();
     _networkNameAccountNumber2Controller.dispose();
     _accountNameController.dispose();
+    _accountName2Controller.dispose();
     super.dispose();
   }
 
@@ -137,7 +140,8 @@ class _SendReminderMessagesPageState extends State<SendReminderMessagesPage> wit
     }
     String networkNameAccountNumber1 = _networkNameAccountNumber1Controller.text.trim(); 
     String networkNameAccountNumber2 = _networkNameAccountNumber2Controller.text.trim();
-    String accountName = _accountNameController.text.trim(); 
+    String accountName = _accountNameController.text.trim();
+    String accountName2 = _accountName2Controller.text.trim();
 
     final Map<String, dynamic> requestBody = {
       'user_id': userId,
@@ -146,6 +150,7 @@ class _SendReminderMessagesPageState extends State<SendReminderMessagesPage> wit
       'network_name_account_number_1': networkNameAccountNumber1,
       'network_name_account_number_2': networkNameAccountNumber2,
       'account_name': accountName,
+      'account_name_2': accountName2,
       'document_type': fileType2,
       'document_name': fileName,
       'document_file': base64File,
@@ -268,6 +273,13 @@ class _SendReminderMessagesPageState extends State<SendReminderMessagesPage> wit
       return;
     }
 
+    if (_networkNameAccountNumber2Controller.text.trim().isEmpty && _accountName2Controller.text.trim().isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('NetworkName:AccountNumber2 can\'t be empty')),
+      );
+      return;
+    }
+
     String familyName = _familyNameController.text.trim();
     if (familyName.isNotEmpty) {
       final lower = familyName.toLowerCase();
@@ -280,7 +292,8 @@ class _SendReminderMessagesPageState extends State<SendReminderMessagesPage> wit
     String phoneNumber = _phoneNumberController.text.trim();
     String networkNameAccountNumber1 = _networkNameAccountNumber1Controller.text.trim(); 
     String networkNameAccountNumber2 = _networkNameAccountNumber2Controller.text.trim();
-    String accountName = _accountNameController.text.trim(); 
+    String accountName = _accountNameController.text.trim();
+    String accountName2 = _accountName2Controller.text.trim();
 
     final Map<String, dynamic> requestBody = {
       'user_id': userId,
@@ -291,6 +304,7 @@ class _SendReminderMessagesPageState extends State<SendReminderMessagesPage> wit
       'network_name_account_number_1': networkNameAccountNumber1,
       'network_name_account_number_2': networkNameAccountNumber2,
       'account_name': accountName,
+      'account_name_2': accountName2,
       'document_type': fileType2,
       'document_name': fileName,
       'document_file': base64File,
@@ -577,7 +591,7 @@ class _SendReminderMessagesPageState extends State<SendReminderMessagesPage> wit
             TextFormField(
               controller: _networkNameAccountNumber1Controller,
               maxLength: 50,
-              decoration: _buildInputDecoration('AccountName:AccountNumber', prefixIcon: Icons.emoji_events),
+              decoration: _buildInputDecoration('NetworkName:AccountNumber', prefixIcon: Icons.emoji_events),
               style: const TextStyle(fontSize: 16),
               validator: (value) {
                 if (value == null || value.isEmpty) return 'Please enter account name and number';
@@ -587,9 +601,21 @@ class _SendReminderMessagesPageState extends State<SendReminderMessagesPage> wit
             ),
             const SizedBox(height: 16),
             TextFormField(
+              controller: _accountNameController,
+              maxLength: 50,
+              decoration: _buildInputDecoration('Account Name', prefixIcon: Icons.emoji_events),
+              style: const TextStyle(fontSize: 16),
+              validator: (value) {
+                if (value == null || value.isEmpty) return 'Please enter account name';
+                if (value.length > 50) return 'Account name must be 50 characters or less';
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
               controller: _networkNameAccountNumber2Controller,
               maxLength: 50,
-              decoration: _buildInputDecoration('AccountName:AccountNumber2', prefixIcon: Icons.emoji_events),
+              decoration: _buildInputDecoration('NetworkName:AccountNumber2', prefixIcon: Icons.emoji_events),
               style: const TextStyle(fontSize: 16),
               validator: (value) {
                 if (value == null || value.isEmpty) return 'Please enter account name and number';
@@ -599,7 +625,7 @@ class _SendReminderMessagesPageState extends State<SendReminderMessagesPage> wit
             ),
             const SizedBox(height: 16),
              TextFormField(
-              controller: _accountNameController,
+              controller: _accountName2Controller,
               maxLength: 50,
               decoration: _buildInputDecoration('Account Name', prefixIcon: Icons.emoji_events),
               style: const TextStyle(fontSize: 16),
@@ -926,7 +952,7 @@ class _SendReminderMessagesPageState extends State<SendReminderMessagesPage> wit
               controller: _networkNameAccountNumber1Controller,
               maxLength: 50,
               decoration: InputDecoration(
-                labelText: 'Network name:account number',
+                labelText: 'Network Name:Account Number',
                 labelStyle: TextStyle(
                   color: Colors.grey[600],
                   fontSize: 16,
@@ -978,11 +1004,67 @@ class _SendReminderMessagesPageState extends State<SendReminderMessagesPage> wit
               },
             ),
             const SizedBox(height: 16),
+             TextFormField(
+              controller: _accountNameController,
+              maxLength: 50,
+              decoration: InputDecoration(
+                labelText: 'Account name',
+                labelStyle: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 16,
+                ),
+                prefixIcon: Icon(
+                  Icons.phone,
+                  color: Colors.grey[600],
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                  borderSide: BorderSide(
+                    color: Colors.grey[400]!,
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                  borderSide: BorderSide(
+                    color: Colors.grey[400]!,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                  borderSide: BorderSide(
+                    color: Colors.orange[800]!,
+                    width: 2.0,
+                  ),
+                ),
+                filled: true,
+                fillColor: Colors.grey[200],
+                contentPadding: const EdgeInsets.symmetric(
+                    vertical: 16.0, horizontal: 16.0),
+              ),
+              style: const TextStyle(
+                color: Colors.black87,
+                fontSize: 16,
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Please enter account name';
+                }
+
+                final accountName = value.trim();
+
+                if (accountName.length > 50) {
+                  return 'Account name can\'t exceed 50 characters';
+                }
+
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
             TextFormField(
               controller: _networkNameAccountNumber2Controller,
               maxLength: 50,
               decoration: InputDecoration(
-                labelText: 'Network name:account number',
+                labelText: 'Network Name:Account Number',
                 labelStyle: TextStyle(
                   color: Colors.grey[600],
                   fontSize: 16,
@@ -1035,7 +1117,7 @@ class _SendReminderMessagesPageState extends State<SendReminderMessagesPage> wit
             ),
             const SizedBox(height: 16),
             TextFormField(
-              controller: _accountNameController,
+              controller: _accountName2Controller,
               maxLength: 50,
               decoration: InputDecoration(
                 labelText: 'Account name',
