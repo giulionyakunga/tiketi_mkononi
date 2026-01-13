@@ -28,11 +28,13 @@ class _QRScannerPageState extends State<QRScannerPage> {
   int scannnedToday = 0;
   DateTime _selectedDate = DateTime.now();
   final AudioPlayer _audioPlayer = AudioPlayer();
+  bool _torchEnabled = false;
+  bool _isFrontCamera = false;
 
   @override
   void initState() {
     super.initState();
-    if(widget.eventId != 0) eventId = '${widget.eventId}';
+    if (widget.eventId != 0) eventId = '${widget.eventId}';
     checkTicketsScanStatus();
   }
 
@@ -44,27 +46,28 @@ class _QRScannerPageState extends State<QRScannerPage> {
   }
 
   Future<void> checkTicketsScanStatus({bool useDNS = true}) async {
-
-    final Uri uri = useDNS ? Uri.parse('${backend_url}api/check_tickets_scan_status/${widget.eventId}') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}check_tickets_scan_status/${widget.eventId}'); // Use IP
+    final Uri uri = useDNS
+        ? Uri.parse(
+            '${backend_url}api/check_tickets_scan_status/${widget.eventId}') // Original URL
+        : Uri.parse(
+            '${backend_url_with_fallback_ip}check_tickets_scan_status/${widget.eventId}'); // Use IP
 
     try {
       final response = await http.get(uri);
 
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body);
-        if((responseData['scanned_today']) != null){
+        if ((responseData['scanned_today']) != null) {
           setState(() {
             scannnedToday = responseData['scanned_today'];
           });
         }
-        
       }
     } on SocketException catch (e) {
       debugPrint('Network error occurred:');
       debugPrint('- Exception type: ${e.runtimeType}');
       debugPrint('- Message: ${e.message}');
-      
+
       if (e.osError != null) {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         debugPrint('  - OS message: ${e.osError!.message}');
@@ -72,8 +75,10 @@ class _QRScannerPageState extends State<QRScannerPage> {
         debugPrint('  - useDNS: ${useDNS}');
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) &&
+            useDNS) {
+          debugPrint(
+              'DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
           await checkTicketsScanStatus(useDNS: false); // Recursive retry
 
           final prefs = await SharedPreferences.getInstance();
@@ -86,34 +91,47 @@ class _QRScannerPageState extends State<QRScannerPage> {
     }
   }
 
-
   String formatDateTime(String dateString) {
-
     List<String> parts = dateString.split('-');
 
     // Parse components (day, month, year)
     DateTime dateTime = DateTime(
-      int.parse(parts[2]), // Year (2025)
-      int.parse(parts[1]), // Month (5)
-      int.parse(parts[0])  // Day (23)
-    );
+        int.parse(parts[2]), // Year (2025)
+        int.parse(parts[1]), // Month (5)
+        int.parse(parts[0]) // Day (23)
+        );
 
     final months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December'
     ];
     final weekdays = [
-      'Monday', 'Tuesday', 'Wednesday', 'Thursday', 
-      'Friday', 'Saturday', 'Sunday'
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday'
     ];
 
     DateTime localTime = dateTime.isUtc ? dateTime.toLocal() : dateTime;
-    
+
     return '${weekdays[localTime.weekday - 1]}, '
-          '${months[localTime.month - 1]} ${localTime.day}, '
-          '${localTime.year} - '
-          '${localTime.hour.toString().padLeft(2, '0')}:'
-          '${localTime.minute.toString().padLeft(2, '0')}';
+        '${months[localTime.month - 1]} ${localTime.day}, '
+        '${localTime.year} - '
+        '${localTime.hour.toString().padLeft(2, '0')}:'
+        '${localTime.minute.toString().padLeft(2, '0')}';
   }
 
   bool isSameDay(String dateString) {
@@ -125,7 +143,8 @@ class _QRScannerPageState extends State<QRScannerPage> {
       final int year = int.parse(parts[2]);
       final DateTime inputDate = DateTime(year, month, day);
 
-      final DateTime dayDateOnly = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+      final DateTime dayDateOnly =
+          DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
 
       // Compare if the dates are the same
       return inputDate == dayDateOnly;
@@ -146,7 +165,8 @@ class _QRScannerPageState extends State<QRScannerPage> {
 
       // Get today's date (without time, to compare only dates)
       final DateTime today = DateTime.now();
-      final DateTime todayDateOnly = DateTime(today.year, today.month, today.day);
+      final DateTime todayDateOnly =
+          DateTime(today.year, today.month, today.day);
 
       // Check if input date is before today
       return inputDate.isBefore(todayDateOnly);
@@ -156,21 +176,21 @@ class _QRScannerPageState extends State<QRScannerPage> {
     }
   }
 
-  Future<void> _onDetect(BarcodeCapture capture, {bool useDNS = true, bool isRetry = false}) async {
+  Future<void> _onDetect(BarcodeCapture capture,
+      {bool useDNS = true, bool isRetry = false}) async {
     if ((!_isScanning || _isLoading) && !isRetry) return;
-    
+
     final List<Barcode> barcodes = capture.barcodes;
-    
+
     for (final barcode in barcodes) {
       if (barcode.rawValue == null) return;
-      
+
       setState(() {
         _isScanning = false;
         _isLoading = true;
       });
-      
-      try {
 
+      try {
         // Include event ID if provided
         if (eventId.isEmpty) {
           setState(() {
@@ -178,28 +198,29 @@ class _QRScannerPageState extends State<QRScannerPage> {
             _isLoading = false;
           });
 
-          _showErrorSnackbar(context, 
-            'Please select event to scan'
-          );
+          _showErrorSnackbar(context, 'Please select event to scan');
           return;
         }
 
         int event_id = jsonDecode(SimpleCodec.decode(barcode.rawValue!))['eid'];
-        String event_date = jsonDecode(SimpleCodec.decode(barcode.rawValue!))['dt'];
-        
+        String event_date =
+            jsonDecode(SimpleCodec.decode(barcode.rawValue!))['dt'];
+
         if (int.tryParse(eventId) != event_id) {
           _showCustomDialog(context, "Invalid Ticket!");
           return;
         }
 
-        if(!isSameDay(event_date)) {
+        if (!isSameDay(event_date)) {
           String message = "Wrong Day Ticket!";
-          _showCustomDialog(context, message, ticketDate: '${formatDateTime(event_date)}');
+          _showCustomDialog(context, message,
+              ticketDate: '${formatDateTime(event_date)}');
           return;
         }
 
-        String url =  useDNS ? '${backend_url}api/check_ticket/${widget.userId}' 
-        : '${backend_url_with_fallback_ip}check_ticket/${widget.userId}';
+        String url = useDNS
+            ? '${backend_url}api/check_ticket/${widget.userId}'
+            : '${backend_url_with_fallback_ip}check_ticket/${widget.userId}';
         url += '?event_id=$eventId';
 
         final response = await http.post(
@@ -208,7 +229,8 @@ class _QRScannerPageState extends State<QRScannerPage> {
           body: SimpleCodec.decode(barcode.rawValue!),
         );
 
-        debugPrint(' rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr response.body : ${response.body}');
+        debugPrint(
+            ' rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr response.body : ${response.body}');
 
         if (response.statusCode == 200) {
           final responseData = jsonDecode(response.body);
@@ -218,39 +240,45 @@ class _QRScannerPageState extends State<QRScannerPage> {
             String ticketType = responseData['ticket_type'];
             int scanTimes = responseData['scan_times'];
             int maxScanTimes = responseData['max_scan_times'];
-                                    
+
             setState(() {
               scannnedToday = responseData['scanned_today'];
             });
 
-            _showCustomDialog(context, message, ticketType: ticketType, scanTimes: scanTimes, maxScanTimes: maxScanTimes); 
+            _showCustomDialog(context, message,
+                ticketType: ticketType,
+                scanTimes: scanTimes,
+                maxScanTimes: maxScanTimes);
           } else if (message.trim() == "Used Ticket!") {
             String scannedAt = "N/A";
-            if((responseData['scanned_at']) != null){
-              debugPrint('Formatted Date (debug): $scannedAt'); // For Flutter debug output
+            if ((responseData['scanned_at']) != null) {
+              debugPrint(
+                  'Formatted Date (debug): $scannedAt'); // For Flutter debug output
               scannedAt = responseData['scanned_at'];
             }
 
-            _showCustomDialog(context, message, scannedAt:scannedAt);
+            _showCustomDialog(context, message, scannedAt: scannedAt);
           } else if (message.trim() == "Ticket Already Used!") {
             String scannedAt = "N/A";
-            if((responseData['scanned_at']) != null){
-              debugPrint('Formatted Date (debug): $scannedAt'); // For Flutter debug output
+            if ((responseData['scanned_at']) != null) {
+              debugPrint(
+                  'Formatted Date (debug): $scannedAt'); // For Flutter debug output
               scannedAt = responseData['scanned_at'];
             }
 
-            _showCustomDialog(context, message, scannedAt:scannedAt);
+            _showCustomDialog(context, message, scannedAt: scannedAt);
           } else {
             _showCustomDialog(context, message);
           }
-
         } else if (response.statusCode == 302) {
           _handleHTTPRedirect();
         } else {
-          if((response.body.contains("Unexpected token")) || (response.body.contains("Unexpected character"))) {
+          if ((response.body.contains("Unexpected token")) ||
+              (response.body.contains("Unexpected character"))) {
             _showCustomDialog(context, "Invalid Ticket!");
           } else {
-            _showErrorSnackbar(context, 'Request failed with status: ${response.statusCode}');
+            _showErrorSnackbar(
+                context, 'Request failed with status: ${response.statusCode}');
           }
         }
       } on SocketException catch (e) {
@@ -260,7 +288,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
 
         bool showSocketException = true;
-        
+
         if (e.osError != null) {
           debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
           debugPrint('  - OS message: ${e.osError!.message}');
@@ -268,9 +296,12 @@ class _QRScannerPageState extends State<QRScannerPage> {
           debugPrint('  - useDNS: ${useDNS}');
 
           // Retry with IP if DNS fails (errno = 7) and not already retrying
-          if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-            await _onDetect(capture, useDNS: false, isRetry: true); // Recursive retry
+          if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) &&
+              useDNS) {
+            debugPrint(
+                'DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+            await _onDetect(capture,
+                useDNS: false, isRetry: true); // Recursive retry
 
             final prefs = await SharedPreferences.getInstance();
             await prefs.setBool('use_dns', false);
@@ -281,37 +312,37 @@ class _QRScannerPageState extends State<QRScannerPage> {
         Future.delayed(const Duration(seconds: 10), () {
           if (mounted) setState(() => _isScanning = true);
         });
-        if(showSocketException) _handleSocketException(e);
+        if (showSocketException) _handleSocketException(e);
       } catch (e) {
         debugPrint('An error occurred: ${e.toString()}');
 
-        if((e.toString().contains("Unexpected token")) || (e.toString().contains("Unexpected character"))) {
+        if ((e.toString().contains("Unexpected token")) ||
+            (e.toString().contains("Unexpected character"))) {
           _showCustomDialog(context, "Invalid Ticket!");
         } else {
           _showErrorSnackbar(context, 'An error occurred: ${e.toString()}');
         }
-
       } finally {
         setState(() => _isLoading = false);
       }
     }
   }
 
-  Future<void> _onDetect2(BarcodeCapture capture, {bool useDNS = true, bool isRetry = false}) async {
+  Future<void> _onDetect2(BarcodeCapture capture,
+      {bool useDNS = true, bool isRetry = false}) async {
     if ((!_isScanning || _isLoading) && !isRetry) return;
-    
+
     final List<Barcode> barcodes = capture.barcodes;
-    
+
     for (final barcode in barcodes) {
       if (barcode.rawValue == null) return;
-      
+
       setState(() {
         _isScanning = false;
         _isLoading = true;
       });
-      
-      try {
 
+      try {
         // Include event ID if provided
         if (eventId.isEmpty) {
           setState(() {
@@ -319,29 +350,29 @@ class _QRScannerPageState extends State<QRScannerPage> {
             _isLoading = false;
           });
 
-          _showErrorSnackbar(context, 
-            'Please select event to scan'
-          );
+          _showErrorSnackbar(context, 'Please select event to scan');
           return;
         }
 
         int event_id = jsonDecode(SimpleCodec.decode(barcode.rawValue!))['eid'];
-        String event_date = jsonDecode(SimpleCodec.decode(barcode.rawValue!))['dt'];
-        
+        String event_date =
+            jsonDecode(SimpleCodec.decode(barcode.rawValue!))['dt'];
+
         if (int.tryParse(eventId) != event_id) {
           _showCustomDialog(context, "Invalid Ticket!");
           return;
         }
 
-        if(!isSameDay(event_date)) {
-
+        if (!isSameDay(event_date)) {
           String message = "Wrong Day Ticket!";
-          _showCustomDialog(context, message, ticketDate: '${formatDateTime(event_date)}');
+          _showCustomDialog(context, message,
+              ticketDate: '${formatDateTime(event_date)}');
           return;
         }
 
-        String url =  useDNS ? '${backend_url}api/mark_as_left/${widget.userId}' 
-        : '${backend_url_with_fallback_ip}mark_as_left/${widget.userId}';
+        String url = useDNS
+            ? '${backend_url}api/mark_as_left/${widget.userId}'
+            : '${backend_url_with_fallback_ip}mark_as_left/${widget.userId}';
         url += '?event_id=$eventId';
 
         final response = await http.post(
@@ -350,7 +381,8 @@ class _QRScannerPageState extends State<QRScannerPage> {
           body: SimpleCodec.decode(barcode.rawValue!),
         );
 
-        debugPrint(' rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr response.body : ${response.body}');
+        debugPrint(
+            ' rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr response.body : ${response.body}');
 
         if (response.statusCode == 200) {
           final responseData = jsonDecode(response.body);
@@ -361,26 +393,31 @@ class _QRScannerPageState extends State<QRScannerPage> {
             int scanTimes = responseData['scan_times'];
             int maxScanTimes = responseData['max_scan_times'];
 
-            _showCustomDialog2(context, message, ticketType: ticketType, scanTimes: scanTimes, maxScanTimes: maxScanTimes); 
+            _showCustomDialog2(context, message,
+                ticketType: ticketType,
+                scanTimes: scanTimes,
+                maxScanTimes: maxScanTimes);
           } else if (message.trim() == "Ticket Not Scanned!") {
             String scannedAt = "N/A";
-            if((responseData['scanned_at']) != null){
-              debugPrint('Formatted Date (debug): $scannedAt'); // For Flutter debug output
+            if ((responseData['scanned_at']) != null) {
+              debugPrint(
+                  'Formatted Date (debug): $scannedAt'); // For Flutter debug output
               scannedAt = responseData['scanned_at'];
             }
 
-            _showCustomDialog2(context, message, scannedAt:scannedAt);
+            _showCustomDialog2(context, message, scannedAt: scannedAt);
           } else {
             _showCustomDialog(context, message);
           }
-
         } else if (response.statusCode == 302) {
           _handleHTTPRedirect();
         } else {
-          if((response.body.contains("Unexpected token")) || (response.body.contains("Unexpected character"))) {
+          if ((response.body.contains("Unexpected token")) ||
+              (response.body.contains("Unexpected character"))) {
             _showCustomDialog(context, "Invalid Ticket!");
           } else {
-            _showErrorSnackbar(context, 'Request failed with status: ${response.statusCode}');
+            _showErrorSnackbar(
+                context, 'Request failed with status: ${response.statusCode}');
           }
         }
       } on SocketException catch (e) {
@@ -390,7 +427,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
 
         bool showSocketException = true;
-        
+
         if (e.osError != null) {
           debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
           debugPrint('  - OS message: ${e.osError!.message}');
@@ -398,9 +435,12 @@ class _QRScannerPageState extends State<QRScannerPage> {
           debugPrint('  - useDNS: ${useDNS}');
 
           // Retry with IP if DNS fails (errno = 7) and not already retrying
-          if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-            await _onDetect2(capture, useDNS: false, isRetry: true); // Recursive retry
+          if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) &&
+              useDNS) {
+            debugPrint(
+                'DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+            await _onDetect2(capture,
+                useDNS: false, isRetry: true); // Recursive retry
 
             final prefs = await SharedPreferences.getInstance();
             await prefs.setBool('use_dns', false);
@@ -411,290 +451,304 @@ class _QRScannerPageState extends State<QRScannerPage> {
         Future.delayed(const Duration(seconds: 10), () {
           if (mounted) setState(() => _isScanning = true);
         });
-        if(showSocketException) _handleSocketException(e);
+        if (showSocketException) _handleSocketException(e);
       } catch (e) {
         debugPrint('An error occurred: ${e.toString()}');
 
-        if((e.toString().contains("Unexpected token")) || (e.toString().contains("Unexpected character"))) {
+        if ((e.toString().contains("Unexpected token")) ||
+            (e.toString().contains("Unexpected character"))) {
           _showCustomDialog(context, "Invalid Ticket!");
         } else {
           _showErrorSnackbar(context, 'An error occurred: ${e.toString()}');
         }
-
       } finally {
         setState(() => _isLoading = false);
       }
     }
   }
 
-  Future<void> _checkTicketsByCode({bool useDNS = true, bool isRetry = false}) async {
+  Future<void> _checkTicketsByCode(
+      {bool useDNS = true, bool isRetry = false}) async {
     if (_isLoading && !isRetry) return;
 
-      setState(() {
-        _isLoading = true;
-      });
+    setState(() {
+      _isLoading = true;
+    });
 
-      
-      try {
-
-        // Include event ID if provided
-        if (_ticketCodeController.text.isEmpty) {
-          setState(() {
-            _isLoading = false;
-          });
-
-          _showErrorSnackbar(context, 
-            'Please enter ticket code'
-          );
-          return;
-        }
-
-        if (eventId.isEmpty) {
-          setState(() {
-            _isLoading = false;
-          });
-
-          _showErrorSnackbar(context, 
-            'Please select event to scan'
-          );
-          return;
-        }
-
-        final Map<String, dynamic> requestBody = {
-          'user_id': widget.userId,
-          'event_id': widget.eventId,
-          'ticket_code': _ticketCodeController.text.trim(),
-        };
-
-        String url =  useDNS ? '${backend_url}api/check_ticket_by_code' 
-        : '${backend_url_with_fallback_ip}check_ticket_by_code';
-        url += '?event_id=$eventId';
-
-        final response = await http.post(
-          Uri.parse(url),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode(requestBody),
-        );
-
-        if (response.statusCode == 200) {
-          final responseData = jsonDecode(response.body);
-          String message = responseData['message'];
-
-          if (message.trim() == "Valid Ticket!") {
-            String ticketType = responseData['ticket_type'];
-            int scanTimes = responseData['scan_times'];
-            int maxScanTimes = responseData['max_scan_times'];
-                                    
-            setState(() {
-              scannnedToday = responseData['scanned_today'];
-            });
-
-            _showCustomDialog(context, message, ticketType: ticketType, scanTimes: scanTimes, maxScanTimes: maxScanTimes); 
-          } else if (message.trim() == "Used Ticket!") {
-            String scannedAt = "N/A";
-            if((responseData['scanned_at']) != null){
-              debugPrint('Formatted Date (debug): $scannedAt'); // For Flutter debug output
-              scannedAt = responseData['scanned_at'];
-            }
-
-            _showCustomDialog(context, message, scannedAt:scannedAt);
-          } else if (message.trim() == "Ticket Already Used!") {
-            String scannedAt = "N/A";
-            if((responseData['scanned_at']) != null){
-              debugPrint('Formatted Date (debug): $scannedAt'); // For Flutter debug output
-              scannedAt = responseData['scanned_at'];
-            }
-
-            _showCustomDialog(context, message, scannedAt:scannedAt);
-          } else {
-            _showCustomDialog(context, message);
-          }
-
-        } else if (response.statusCode == 302) {
-          _handleHTTPRedirect();
-        } else {
-          if((response.body.contains("Unexpected token")) || (response.body.contains("Unexpected character"))) {
-            _showCustomDialog(context, "Invalid Ticket!");
-          } else {
-            _showErrorSnackbar(context, 'Request failed with status: ${response.statusCode}');
-          }
-        }
-      } on SocketException catch (e) {
-        debugPrint('Network error occurred:');
-        debugPrint('- Exception type: ${e.runtimeType}');
-        debugPrint('- Message: ${e.message}');
-        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
-
-        bool showSocketException = true;
-        
-        if (e.osError != null) {
-          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
-          debugPrint('  - OS message: ${e.osError!.message}');
-          debugPrint('  - errorCode: ${e.osError!.errorCode}');
-          debugPrint('  - useDNS: ${useDNS}');
-
-          // Retry with IP if DNS fails (errno = 7) and not already retrying
-          if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-            await _checkTicketsByCode(useDNS: false, isRetry: true); // Recursive retry
-
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setBool('use_dns', false);
-            return;
-          }
-        }
-
-        Future.delayed(const Duration(seconds: 10), () {
-          if (mounted) setState(() => _isScanning = true);
+    try {
+      // Include event ID if provided
+      if (_ticketCodeController.text.isEmpty) {
+        setState(() {
+          _isLoading = false;
         });
-        if(showSocketException) _handleSocketException(e);
-      } catch (e) {
-        debugPrint('An error occurred: ${e.toString()}');
 
-        if((e.toString().contains("Unexpected token")) || (e.toString().contains("Unexpected character"))) {
+        _showErrorSnackbar(context, 'Please enter ticket code');
+        return;
+      }
+
+      if (eventId.isEmpty) {
+        setState(() {
+          _isLoading = false;
+        });
+
+        _showErrorSnackbar(context, 'Please select event to scan');
+        return;
+      }
+
+      final Map<String, dynamic> requestBody = {
+        'user_id': widget.userId,
+        'event_id': widget.eventId,
+        'ticket_code': _ticketCodeController.text.trim(),
+      };
+
+      String url = useDNS
+          ? '${backend_url}api/check_ticket_by_code'
+          : '${backend_url_with_fallback_ip}check_ticket_by_code';
+      url += '?event_id=$eventId';
+
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(requestBody),
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        String message = responseData['message'];
+
+        if (message.trim() == "Valid Ticket!") {
+          String ticketType = responseData['ticket_type'];
+          int scanTimes = responseData['scan_times'];
+          int maxScanTimes = responseData['max_scan_times'];
+
+          setState(() {
+            scannnedToday = responseData['scanned_today'];
+          });
+
+          _showCustomDialog(context, message,
+              ticketType: ticketType,
+              scanTimes: scanTimes,
+              maxScanTimes: maxScanTimes);
+        } else if (message.trim() == "Used Ticket!") {
+          String scannedAt = "N/A";
+          if ((responseData['scanned_at']) != null) {
+            debugPrint(
+                'Formatted Date (debug): $scannedAt'); // For Flutter debug output
+            scannedAt = responseData['scanned_at'];
+          }
+
+          _showCustomDialog(context, message, scannedAt: scannedAt);
+        } else if (message.trim() == "Ticket Already Used!") {
+          String scannedAt = "N/A";
+          if ((responseData['scanned_at']) != null) {
+            debugPrint(
+                'Formatted Date (debug): $scannedAt'); // For Flutter debug output
+            scannedAt = responseData['scanned_at'];
+          }
+
+          _showCustomDialog(context, message, scannedAt: scannedAt);
+        } else {
+          _showCustomDialog(context, message);
+        }
+      } else if (response.statusCode == 302) {
+        _handleHTTPRedirect();
+      } else {
+        if ((response.body.contains("Unexpected token")) ||
+            (response.body.contains("Unexpected character"))) {
           _showCustomDialog(context, "Invalid Ticket!");
         } else {
-          _showErrorSnackbar(context, 'An error occurred: ${e.toString()}');
+          _showErrorSnackbar(
+              context, 'Request failed with status: ${response.statusCode}');
         }
-
-      } finally {
-        setState(() => _isLoading = false);
       }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+
+      bool showSocketException = true;
+
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) &&
+            useDNS) {
+          debugPrint(
+              'DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await _checkTicketsByCode(
+              useDNS: false, isRetry: true); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
+          return;
+        }
+      }
+
+      Future.delayed(const Duration(seconds: 10), () {
+        if (mounted) setState(() => _isScanning = true);
+      });
+      if (showSocketException) _handleSocketException(e);
+    } catch (e) {
+      debugPrint('An error occurred: ${e.toString()}');
+
+      if ((e.toString().contains("Unexpected token")) ||
+          (e.toString().contains("Unexpected character"))) {
+        _showCustomDialog(context, "Invalid Ticket!");
+      } else {
+        _showErrorSnackbar(context, 'An error occurred: ${e.toString()}');
+      }
+    } finally {
+      setState(() => _isLoading = false);
+    }
   }
 
-  Future<void> _markAsLeftByCode({bool useDNS = true, bool isRetry = false}) async {
+  Future<void> _markAsLeftByCode(
+      {bool useDNS = true, bool isRetry = false}) async {
     if (_isLoading && !isRetry) return;
-  
-      setState(() {
-        _isLoading = true;
-      });
-      
-      try {
 
-        // Include event ID if provided
-        if (_ticketCodeController.text.isEmpty) {
-          setState(() {
-            _isLoading = false;
-          });
+    setState(() {
+      _isLoading = true;
+    });
 
-          _showErrorSnackbar(context, 
-            'Please enter ticket code'
-          );
-          return;
-        }
-
-        if (eventId.isEmpty) {
-          setState(() {
-            _isLoading = false;
-          });
-
-          _showErrorSnackbar(context, 
-            'Please select event to scan'
-          );
-          return;
-        }
-
-        final Map<String, dynamic> requestBody = {
-          'user_id': widget.userId,
-          'event_id': widget.eventId,
-          'ticket_code': _ticketCodeController.text.trim(),
-        };
-
-        String url =  useDNS ? '${backend_url}api/mark_as_left_by_code' 
-        : '${backend_url_with_fallback_ip}mark_as_left_by_code';
-        url += '?event_id=$eventId';
-
-        final response = await http.post(
-          Uri.parse(url),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode(requestBody),
-        );
-
-        if (response.statusCode == 200) {
-          final responseData = jsonDecode(response.body);
-          String message = responseData['message'];
-
-          if (message.trim() == "Marked As Left!") {
-            String ticketType = responseData['ticket_type'];
-            int scanTimes = responseData['scan_times'];
-            int maxScanTimes = responseData['max_scan_times'];                        
-
-            _showCustomDialog2(context, message, ticketType: ticketType, scanTimes: scanTimes, maxScanTimes: maxScanTimes); 
-          } else if (message.trim() == "Ticket Not Scanned!") {
-            String scannedAt = "N/A";
-            if((responseData['scanned_at']) != null){
-              debugPrint('Formatted Date (debug): $scannedAt'); // For Flutter debug output
-              scannedAt = responseData['scanned_at'];
-            }
-
-            _showCustomDialog(context, message, scannedAt:scannedAt);
-          } else {
-            _showCustomDialog2(context, message);
-          }
-
-        } else if (response.statusCode == 302) {
-          _handleHTTPRedirect();
-        } else {
-          if((response.body.contains("Unexpected token")) || (response.body.contains("Unexpected character"))) {
-            _showCustomDialog(context, "Invalid Ticket!");
-          } else {
-            _showErrorSnackbar(context, 'Request failed with status: ${response.statusCode}');
-          }
-        }
-      } on SocketException catch (e) {
-        debugPrint('Network error occurred:');
-        debugPrint('- Exception type: ${e.runtimeType}');
-        debugPrint('- Message: ${e.message}');
-        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
-
-        bool showSocketException = true;
-        
-        if (e.osError != null) {
-          debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
-          debugPrint('  - OS message: ${e.osError!.message}');
-          debugPrint('  - errorCode: ${e.osError!.errorCode}');
-          debugPrint('  - useDNS: ${useDNS}');
-
-          // Retry with IP if DNS fails (errno = 7) and not already retrying
-          if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-            debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-            await _markAsLeftByCode(useDNS: false, isRetry: true); // Recursive retry
-
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setBool('use_dns', false);
-            return;
-          }
-        }
-
-        Future.delayed(const Duration(seconds: 10), () {
-          if (mounted) setState(() => _isScanning = true);
+    try {
+      // Include event ID if provided
+      if (_ticketCodeController.text.isEmpty) {
+        setState(() {
+          _isLoading = false;
         });
-        if(showSocketException) _handleSocketException(e);
-      } catch (e) {
-        debugPrint('An error occurred: ${e.toString()}');
 
-        if((e.toString().contains("Unexpected token")) || (e.toString().contains("Unexpected character"))) {
+        _showErrorSnackbar(context, 'Please enter ticket code');
+        return;
+      }
+
+      if (eventId.isEmpty) {
+        setState(() {
+          _isLoading = false;
+        });
+
+        _showErrorSnackbar(context, 'Please select event to scan');
+        return;
+      }
+
+      final Map<String, dynamic> requestBody = {
+        'user_id': widget.userId,
+        'event_id': widget.eventId,
+        'ticket_code': _ticketCodeController.text.trim(),
+      };
+
+      String url = useDNS
+          ? '${backend_url}api/mark_as_left_by_code'
+          : '${backend_url_with_fallback_ip}mark_as_left_by_code';
+      url += '?event_id=$eventId';
+
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(requestBody),
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        String message = responseData['message'];
+
+        if (message.trim() == "Marked As Left!") {
+          String ticketType = responseData['ticket_type'];
+          int scanTimes = responseData['scan_times'];
+          int maxScanTimes = responseData['max_scan_times'];
+
+          _showCustomDialog2(context, message,
+              ticketType: ticketType,
+              scanTimes: scanTimes,
+              maxScanTimes: maxScanTimes);
+        } else if (message.trim() == "Ticket Not Scanned!") {
+          String scannedAt = "N/A";
+          if ((responseData['scanned_at']) != null) {
+            debugPrint(
+                'Formatted Date (debug): $scannedAt'); // For Flutter debug output
+            scannedAt = responseData['scanned_at'];
+          }
+
+          _showCustomDialog(context, message, scannedAt: scannedAt);
+        } else {
+          _showCustomDialog2(context, message);
+        }
+      } else if (response.statusCode == 302) {
+        _handleHTTPRedirect();
+      } else {
+        if ((response.body.contains("Unexpected token")) ||
+            (response.body.contains("Unexpected character"))) {
           _showCustomDialog(context, "Invalid Ticket!");
         } else {
-          _showErrorSnackbar(context, 'An error occurred: ${e.toString()}');
+          _showErrorSnackbar(
+              context, 'Request failed with status: ${response.statusCode}');
         }
-
-      } finally {
-        setState(() => _isLoading = false);
       }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+
+      bool showSocketException = true;
+
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) &&
+            useDNS) {
+          debugPrint(
+              'DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await _markAsLeftByCode(
+              useDNS: false, isRetry: true); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
+          return;
+        }
+      }
+
+      Future.delayed(const Duration(seconds: 10), () {
+        if (mounted) setState(() => _isScanning = true);
+      });
+      if (showSocketException) _handleSocketException(e);
+    } catch (e) {
+      debugPrint('An error occurred: ${e.toString()}');
+
+      if ((e.toString().contains("Unexpected token")) ||
+          (e.toString().contains("Unexpected character"))) {
+        _showCustomDialog(context, "Invalid Ticket!");
+      } else {
+        _showErrorSnackbar(context, 'An error occurred: ${e.toString()}');
+      }
+    } finally {
+      setState(() => _isLoading = false);
+    }
   }
 
   void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _handleSocketException(SocketException e) {
-    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 101 || e.osError?.errorCode == 111) {
+    if (e.osError?.errorCode == 7 ||
+        e.osError?.errorCode == 101 ||
+        e.osError?.errorCode == 111) {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('Connection Error'),
-          content: const Text('Could not connect to the server. Please check your internet connection.'),
+          content: const Text(
+              'Could not connect to the server. Please check your internet connection.'),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -710,7 +764,8 @@ class _QRScannerPageState extends State<QRScannerPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Connection Error'),
-        content: const Text('Could not connect to the server. Please check your internet connection.'),
+        content: const Text(
+            'Could not connect to the server. Please check your internet connection.'),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
@@ -720,12 +775,16 @@ class _QRScannerPageState extends State<QRScannerPage> {
 
   Future<void> playBeep(bool success) async {
     debugPrint('Trying to play: ${success ? 'success' : 'error'}');
-    await _audioPlayer.play(
-      AssetSource(success ? 'sounds/success.mp3' : 'sounds/error.mp3')
-    );
+    await _audioPlayer
+        .play(AssetSource(success ? 'sounds/success.mp3' : 'sounds/error.mp3'));
   }
-   
-  void _showCustomDialog(BuildContext context, String message, { String ticketType = "", int scanTimes = 0, int maxScanTimes = 0, String ticketDate = "", String scannedAt = ""}) {
+
+  void _showCustomDialog(BuildContext context, String message,
+      {String ticketType = "",
+      int scanTimes = 0,
+      int maxScanTimes = 0,
+      String ticketDate = "",
+      String scannedAt = ""}) {
     final isSuccess = message == "Valid Ticket!";
     final isUsedTicket = message == "Used Ticket!";
     final ticketAlreadyUsed = message == "Ticket Already Used!";
@@ -759,61 +818,57 @@ class _QRScannerPageState extends State<QRScannerPage> {
               ),
               textAlign: TextAlign.center,
             ),
-
             const SizedBox(height: 5),
-
-            if(isSuccess)
-            Column(
-              children: [
-                Text(
-                  'Type: $ticketType',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
+            if (isSuccess)
+              Column(
+                children: [
+                  Text(
+                    'Type: $ticketType',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  'Used: $scanTimes/$maxScanTimes',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.normal,
-                    color: Colors.black,
+                  const SizedBox(height: 5),
+                  Text(
+                    'Used: $scanTimes/$maxScanTimes',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.normal,
+                      color: Colors.black,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  textAlign: TextAlign.center,
+                ],
+              ),
+            if (isUsedTicket || ticketAlreadyUsed)
+              Text(
+                'Used On: $scannedAt',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
                 ),
-              ],
-            ),
-
-            if(isUsedTicket || ticketAlreadyUsed)
-            Text(
-              'Used On: $scannedAt',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-            ),
-
-            if(wrongDayTicket)
-            Text(
-              'Booked For: $ticketDate',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
+            if (wrongDayTicket)
+              Text(
+                'Booked For: $ticketDate',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-            ),
-
             const SizedBox(height: 20),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: isSuccess ? Colors.green : Colors.red,
-                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -833,7 +888,12 @@ class _QRScannerPageState extends State<QRScannerPage> {
     );
   }
 
-  void _showCustomDialog2(BuildContext context, String message, { String ticketType = "", int scanTimes = 0, int maxScanTimes = 0, String ticketDate = "", String scannedAt = ""}) {
+  void _showCustomDialog2(BuildContext context, String message,
+      {String ticketType = "",
+      int scanTimes = 0,
+      int maxScanTimes = 0,
+      String ticketDate = "",
+      String scannedAt = ""}) {
     final isSuccess = message == "Marked As Left!";
 
     playBeep(isSuccess);
@@ -865,36 +925,36 @@ class _QRScannerPageState extends State<QRScannerPage> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 5),
-            if(isSuccess)
-            Column(
-              children: [
-                Text(
-                  'Type: $ticketType',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 5),
+            if (isSuccess)
+              Column(
+                children: [
                   Text(
-                  'Used: $scanTimes/$maxScanTimes',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.normal,
-                    color: Colors.black,
+                    'Type: $ticketType',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-
+                  const SizedBox(height: 5),
+                  Text(
+                    'Used: $scanTimes/$maxScanTimes',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.normal,
+                      color: Colors.black,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             const SizedBox(height: 20),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: isSuccess ? Colors.green : Colors.red,
-                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -938,11 +998,11 @@ class _QRScannerPageState extends State<QRScannerPage> {
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
-      firstDate: DateTime(2025),    // Allow dates as early as year 2000
+      firstDate: DateTime(2025), // Allow dates as early as year 2000
       lastDate: DateTime.now().add(const Duration(days: 365)),
     );
     if (picked != null) {
-      if((picked != _selectedDate)) {
+      if ((picked != _selectedDate)) {
         setState(() {
           _selectedDate = picked;
         });
@@ -954,7 +1014,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
     return TextButton.icon(
       onPressed: () => _selectDate(context),
       icon: Icon(
-        Icons.calendar_today, 
+        Icons.calendar_today,
         size: 18,
         color: Colors.white.withOpacity(0.7),
       ),
@@ -967,17 +1027,17 @@ class _QRScannerPageState extends State<QRScannerPage> {
         ),
       ),
       style: TextButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0), // Near-zero vertical padding
-        minimumSize: const Size(0, 30), // Set a small fixed height (e.g., 30 logical pixels)
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap, // Reduces touch target to content size
+        padding: const EdgeInsets.symmetric(
+            horizontal: 8, vertical: 0), // Near-zero vertical padding
+        minimumSize: const Size(
+            0, 30), // Set a small fixed height (e.g., 30 logical pixels)
+        tapTargetSize: MaterialTapTargetSize
+            .shrinkWrap, // Reduces touch target to content size
         visualDensity: VisualDensity.compact, // Squeezes elements closer
         backgroundColor: Colors.black.withOpacity(0.4),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
-          side: BorderSide(
-            color: Colors.black.withOpacity(0.4),
-            width: 1.5
-          ),
+          side: BorderSide(color: Colors.black.withOpacity(0.4), width: 1.5),
         ),
       ),
     );
@@ -1020,10 +1080,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
       appBar: AppBar(
         title: Text(
           _isScanningTickets ? 'Scan Tickets' : 'Mark As Left',
-          style: TextStyle(
-            fontWeight: FontWeight.bold, 
-            fontSize: 18
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         centerTitle: false,
         titleSpacing: 0,
@@ -1033,40 +1090,37 @@ class _QRScannerPageState extends State<QRScannerPage> {
             gradient: LinearGradient(
               colors: isDarkMode
                   ? [Colors.deepPurple.shade800, Colors.purple.shade900]
-                  :  [Colors.orange[200]!, Colors.orange[800]!],
+                  : [Colors.orange[200]!, Colors.orange[800]!],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
           ),
-        ), 
+        ),
         actions: [
           IconButton(
-            icon: ValueListenableBuilder(
-              valueListenable: cameraController.torchState,
-              builder: (context, state, child) {
-                return Icon(
-                  state == TorchState.off ? Icons.flash_off : Icons.flash_on,
-                  color: Colors.white,
-                );
-              },
+            icon: Icon(
+              _torchEnabled ? Icons.flash_on : Icons.flash_off,
+              color: Colors.white,
             ),
-            onPressed: () => cameraController.toggleTorch(),
+            onPressed: () async {
+              await cameraController.toggleTorch();
+              setState(() {
+                _torchEnabled = !_torchEnabled;
+              });
+            },
           ),
           IconButton(
-            icon: ValueListenableBuilder(
-              valueListenable: cameraController.cameraFacingState,
-              builder: (context, state, child) {
-                return Icon(
-                  state == CameraFacing.front
-                      ? Icons.camera_front
-                      : Icons.camera_rear,
-                  color: Colors.white,
-                );
-              },
+            icon: Icon(
+              _isFrontCamera ? Icons.camera_front : Icons.camera_rear,
+              color: Colors.white,
             ),
-            onPressed: () => cameraController.switchCamera(),
+            onPressed: () async {
+              await cameraController.switchCamera();
+              setState(() {
+                _isFrontCamera = !_isFrontCamera;
+              });
+            },
           ),
-
           PopupMenuButton<String>(
             padding: EdgeInsets.zero,
             tooltip: 'More Options',
@@ -1089,18 +1143,18 @@ class _QRScannerPageState extends State<QRScannerPage> {
               }
             },
             itemBuilder: (context) => [
-              if(!_isScanningTickets)
-              _buildMenuItem(
-                icon: Icons.qr_code_scanner,
-                text: 'Scan tickets',
-                value: 'scan_tickets',
-              ),
-              if(_isScanningTickets)
-              _buildMenuItem(
-                icon: Icons.person_off,
-                text: 'Mark as left',
-                value: 'mark_as_left',
-              ),
+              if (!_isScanningTickets)
+                _buildMenuItem(
+                  icon: Icons.qr_code_scanner,
+                  text: 'Scan tickets',
+                  value: 'scan_tickets',
+                ),
+              if (_isScanningTickets)
+                _buildMenuItem(
+                  icon: Icons.person_off,
+                  text: 'Mark as left',
+                  value: 'mark_as_left',
+                ),
               const PopupMenuDivider(),
               _buildMenuItem(
                 icon: Icons.exit_to_app,
@@ -1124,7 +1178,6 @@ class _QRScannerPageState extends State<QRScannerPage> {
                 _onDetect2(barcode);
               }
             },
-
           ),
 
           Positioned.fill(
@@ -1136,20 +1189,20 @@ class _QRScannerPageState extends State<QRScannerPage> {
                   borderLength: 40,
                   borderWidth: 8,
                   cutOutSize: 280,
-                  overlayColor: isDarkMode 
-                    ? Colors.black.withOpacity(0.5) 
-                    : Colors.black.withOpacity(0.4),
+                  overlayColor: isDarkMode
+                      ? Colors.black.withOpacity(0.5)
+                      : Colors.black.withOpacity(0.4),
                 ),
               ),
             ),
           ),
 
           if (_isLoading)
-          const Center(
-            child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            const Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
             ),
-          ),
 
           Positioned(
             bottom: 50,
@@ -1157,60 +1210,64 @@ class _QRScannerPageState extends State<QRScannerPage> {
             right: 0,
             child: Column(
               children: [
-                if(!_isCheckingTicketsByCode)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.55),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Text(
-                    'Align QR code within the frame',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                if(_isCheckingTicketsByCode)
-                Center(
-                  child: Container(
-                    width: MediaQuery.of(context).size.width * 0.6,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                if (!_isCheckingTicketsByCode)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 10),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.4),
-                      borderRadius: BorderRadius.circular(30),
+                      color: Colors.black.withOpacity(0.55),
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                    child: TextField(
-                      controller: _ticketCodeController,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        hintText: 'Ticket Code',
-                        hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                        prefixIcon: Icon(Icons.numbers, color: Colors.white.withOpacity(0.7)),
-                        suffixIcon: _ticketCodeController.text.isNotEmpty
-                            ? IconButton(
-                                icon: Icon(Icons.clear, color: Colors.white.withOpacity(0.7)),
-                                onPressed: () {
-                                  _ticketCodeController.clear();
-                                  setState(() {});
-                                },
-                              )
-                            : null,
+                    child: const Text(
+                      'Align QR code within the frame',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
                       ),
-                      onChanged: (value) => setState(() {}),
                     ),
                   ),
-                ),
+                const SizedBox(height: 20),
+                if (_isCheckingTicketsByCode)
+                  Center(
+                    child: Container(
+                      width: MediaQuery.of(context).size.width * 0.6,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.4),
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      child: TextField(
+                        controller: _ticketCodeController,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          hintText: 'Ticket Code',
+                          hintStyle:
+                              TextStyle(color: Colors.white.withOpacity(0.7)),
+                          border: InputBorder.none,
+                          contentPadding:
+                              const EdgeInsets.symmetric(vertical: 14),
+                          prefixIcon: Icon(Icons.numbers,
+                              color: Colors.white.withOpacity(0.7)),
+                          suffixIcon: _ticketCodeController.text.isNotEmpty
+                              ? IconButton(
+                                  icon: Icon(Icons.clear,
+                                      color: Colors.white.withOpacity(0.7)),
+                                  onPressed: () {
+                                    _ticketCodeController.clear();
+                                    setState(() {});
+                                  },
+                                )
+                              : null,
+                        ),
+                        onChanged: (value) => setState(() {}),
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: 20),
                 Center(
                   child: Wrap(
-                  spacing: 16,
+                    spacing: 16,
                     children: [
                       FloatingActionButton(
                         onPressed: () => Navigator.pop(context),
@@ -1218,15 +1275,18 @@ class _QRScannerPageState extends State<QRScannerPage> {
                         child: const Icon(Icons.close, color: Colors.white),
                       ),
                       FloatingActionButton(
-                        onPressed: _isCheckingTicketsByCode ? _isScanningTickets ? () => _checkTicketsByCode() : () => _markAsLeftByCode() : 
-                        () => setState(() {
-                          _isCheckingTicketsByCode = !_isCheckingTicketsByCode;
-                        }), 
+                        onPressed: _isCheckingTicketsByCode
+                            ? _isScanningTickets
+                                ? () => _checkTicketsByCode()
+                                : () => _markAsLeftByCode()
+                            : () => setState(() {
+                                  _isCheckingTicketsByCode =
+                                      !_isCheckingTicketsByCode;
+                                }),
                         backgroundColor: Colors.green.shade400,
                         child: Icon(
-                          _isCheckingTicketsByCode ? Icons.check : Icons.edit,
-                          color: Colors.white
-                        ),
+                            _isCheckingTicketsByCode ? Icons.check : Icons.edit,
+                            color: Colors.white),
                       ),
                     ],
                   ),
@@ -1242,32 +1302,31 @@ class _QRScannerPageState extends State<QRScannerPage> {
             right: 20,
             child: Center(
               child: Container(
-                width: MediaQuery.of(context).size.width * 0.6,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.4),
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                child: 
-                Container(
-                  padding: const EdgeInsets.symmetric(vertical: 14), // Match TextField's vertical padding
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.event,
-                        color: Colors.white.withOpacity(0.7)
-                      ), // Same prefix icon
-                      const SizedBox(width: 10), // Default icon spacing
-                      Text(
-                        'Event ID: $eventId',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.7), // Match hint style
-                        ),
-                      ),
-                    ],
+                  width: MediaQuery.of(context).size.width * 0.6,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.4),
+                    borderRadius: BorderRadius.circular(30),
                   ),
-                )
-              ),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 14), // Match TextField's vertical padding
+                    child: Row(
+                      children: [
+                        Icon(Icons.event,
+                            color: Colors.white
+                                .withOpacity(0.7)), // Same prefix icon
+                        const SizedBox(width: 10), // Default icon spacing
+                        Text(
+                          'Event ID: $eventId',
+                          style: TextStyle(
+                            color: Colors.white
+                                .withOpacity(0.7), // Match hint style
+                          ),
+                        ),
+                      ],
+                    ),
+                  )),
             ),
           ),
 
@@ -1277,32 +1336,31 @@ class _QRScannerPageState extends State<QRScannerPage> {
             right: 20,
             child: Center(
               child: Container(
-                width: MediaQuery.of(context).size.width * 0.6,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.4),
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                child: 
-                Container(
-                  padding: const EdgeInsets.symmetric(vertical: 14), // Match TextField's vertical padding
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.qr_code_scanner,
-                        color: Colors.white.withOpacity(0.7)
-                      ), // Same prefix icon
-                      const SizedBox(width: 10), // Default icon spacing
-                      Text(
-                        'Scanned: $scannnedToday',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.7), // Match hint style
-                        ),
-                      ),
-                    ],
+                  width: MediaQuery.of(context).size.width * 0.6,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.4),
+                    borderRadius: BorderRadius.circular(30),
                   ),
-                )
-              ),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 14), // Match TextField's vertical padding
+                    child: Row(
+                      children: [
+                        Icon(Icons.qr_code_scanner,
+                            color: Colors.white
+                                .withOpacity(0.7)), // Same prefix icon
+                        const SizedBox(width: 10), // Default icon spacing
+                        Text(
+                          'Scanned: $scannnedToday',
+                          style: TextStyle(
+                            color: Colors.white
+                                .withOpacity(0.7), // Match hint style
+                          ),
+                        ),
+                      ],
+                    ),
+                  )),
             ),
           ),
 
@@ -1319,7 +1377,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
               //     color: Colors.black.withOpacity(0.4),
               //     borderRadius: BorderRadius.circular(30),
               //   ),
-              //   child: 
+              //   child:
               //   Container(
               //     padding: const EdgeInsets.symmetric(vertical: 14), // Match TextField's vertical padding
               //     child: Row(
@@ -1331,20 +1389,11 @@ class _QRScannerPageState extends State<QRScannerPage> {
               // ),
             ),
           ),
-
-
-
-
-
-
-
-
         ],
       ),
     );
   }
 }
-
 
 class QrScannerOverlayShape extends ShapeBorder {
   final Color borderColor;
@@ -1393,9 +1442,8 @@ class QrScannerOverlayShape extends ShapeBorder {
     final width = rect.width;
     final height = rect.height;
     final adjustedCutOutSize = cutOutSize < width ? cutOutSize : width - 25;
-    final adjustedBorderLength = borderLength > adjustedCutOutSize 
-      ? adjustedCutOutSize 
-      : borderLength;
+    final adjustedBorderLength =
+        borderLength > adjustedCutOutSize ? adjustedCutOutSize : borderLength;
 
     final backgroundPaint = Paint()
       ..color = overlayColor
@@ -1432,7 +1480,8 @@ class QrScannerOverlayShape extends ShapeBorder {
       ..restore();
 
     // Draw animated border (conceptual - would need animation controller for real animation)
-    final borderAnimationValue = 0.5; // This would come from an animation controller
+    final borderAnimationValue =
+        0.5; // This would come from an animation controller
     final animatedBorderLength = adjustedBorderLength * borderAnimationValue;
 
     // Draw corners with slight animation effect
