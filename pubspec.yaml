@@ -68,6 +68,10 @@ dependencies:
   audioplayers: ^6.5.1
   contacts_service_plus: ^0.0.2
   mobile_scanner: ^7.1.4
+  barcode_widget: ^2.0.4
+  csv: ^6.0.0
+  barcode: ^2.2.6
+  flutter_svg: ^2.2.3
   # permission_handler: ^10.4.0  # For requesting permission
 
 

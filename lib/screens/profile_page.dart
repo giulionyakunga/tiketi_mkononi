@@ -12,13 +12,13 @@ import 'package:tiketi_mkononi/screens/apply_to_be_organizer_page.dart';
 import 'package:tiketi_mkononi/screens/edit_profile_page.dart';
 import 'package:tiketi_mkononi/screens/event_organizers_page.dart';
 import 'package:tiketi_mkononi/screens/favorite_events_page.dart';
+import 'package:tiketi_mkononi/screens/generate_barcodes_page.dart';
 import 'package:tiketi_mkononi/screens/help_support_page.dart';
 import 'package:tiketi_mkononi/screens/language_settings_page.dart';
 import 'package:tiketi_mkononi/screens/notifications_page.dart';
 import 'package:tiketi_mkononi/screens/organizer_requests_page.dart';
 import 'package:tiketi_mkononi/screens/privacy_security_page.dart';
 import 'package:tiketi_mkononi/screens/purchase_history_page.dart';
-import 'package:tiketi_mkononi/screens/qr_scanner_page.dart';
 import 'package:tiketi_mkononi/screens/system_users_page.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
 import 'package:http/http.dart' as http;
@@ -32,7 +32,7 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
   int userId = 0;
-  String role = "";
+  String role = "user";
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -547,19 +547,6 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
     );
   }
 
-  void _handleQRCodeScannerUnavailablility () {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('QR Code Scanning Unavailable'),
-        content: const Text('This feature is only supported in the Tiketi Mkononi mobile app. Please download and open the application on your smartphone to scan QR codes'),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-      ),
-    );
-  }
-
   Widget _buildSettingsMenu(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -589,20 +576,18 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
             );
           },
         ),
-        if(role != "user")
+
+        if((role == "admin") || (role == "barcode_generator"))
         _buildActionTile(
           context,
           icon: Icons.qr_code_scanner,
           iconColor: Colors.purple,
-          title: 'QR Code Scanner',
+          title: 'Barcode Generator',
           onTap: () {
-            (kIsWeb) ? 
-            _handleQRCodeScannerUnavailablility()
-            :
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => QRScannerPage(userId: userId, eventId: 0),
+                builder: (context) => GenerateBarcodesPage(),
               ),
             );
           },

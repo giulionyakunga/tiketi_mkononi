@@ -1408,7 +1408,6 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                           ),
                           const SizedBox(width: 10),
                         ],
-
                         // Generate cards (wedding)
                         if ((userId == event.userId) && (event.category.toUpperCase() == "WEDDING")) ...[
                           TextButton(
