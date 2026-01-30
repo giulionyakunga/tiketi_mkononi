@@ -30,8 +30,10 @@
 	<string>Main</string>
 	<key>NSCameraUsageDescription</key>
 	<string>This app uses the camera to scan QR codes for ticket validation</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app needs access to your photo library to save and share event tickets and images</string>
 	<key>NSContactsUsageDescription</key>
-    <string>This app needs access to your contacts</string>
+	<string>This app needs access to your contacts</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
