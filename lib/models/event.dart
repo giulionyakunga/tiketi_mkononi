@@ -77,8 +77,10 @@ class Event {
   final String familyName;
   final String networkNameAccountNumber1;
   final String networkNameAccountNumber2;
+  final String networkNameAccountNumber3;
   final String accountName;
   final String accountName2;
+  final String accountName3;
   
   Event({
     required this.id,
@@ -113,8 +115,10 @@ class Event {
     required this.familyName,
     required this.networkNameAccountNumber1,
     required this.networkNameAccountNumber2,
+    required this.networkNameAccountNumber3,
     required this.accountName,
     required this.accountName2,
+    required this.accountName3,
   });
 
   // Factory method to create an Event from JSON
@@ -155,8 +159,10 @@ class Event {
       familyName: json['family_name'] ?? '',
       networkNameAccountNumber1: json['network_name_account_number_1'] ?? '',
       networkNameAccountNumber2: json['network_name_account_number_2'] ?? '',
+      networkNameAccountNumber3: json['network_name_account_number_3'] ?? '',
       accountName: json['account_name'] ?? '',
       accountName2: json['account_name_2'] ?? '',
+      accountName3: json['account_name_3'] ?? '',
     );
   }
 }

@@ -775,8 +775,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
 
   Future<void> playBeep(bool success) async {
     debugPrint('Trying to play: ${success ? 'success' : 'error'}');
-    await _audioPlayer
-        .play(AssetSource(success ? 'sounds/success.mp3' : 'sounds/error.mp3'));
+    await _audioPlayer.play(AssetSource(success ? 'sounds/success.mp3' : 'sounds/error.mp3'));
   }
 
   void _showCustomDialog(BuildContext context, String message,
