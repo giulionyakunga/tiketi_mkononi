@@ -171,6 +171,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       final profile = UserProfile(
         id: user['id'],
+        companyId: user['company_id'],
+        officeId: user['office_id'],
+        shopId: user['shop_id'],
         firstName: user['first_name'],
         middleName: user['middle_name'],
         lastName: user['last_name'],

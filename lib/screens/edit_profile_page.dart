@@ -30,7 +30,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
   final _wardKey = GlobalKey();
   final _streetKey = GlobalKey();
 
-  int user_id = 0;
+  int userId = 0;
+  int companyId = 0;
+  int officeId = 0;
+  int shopId = 0;
   final _firstNameController = TextEditingController();
   final _middleNameController = TextEditingController();
   final _lastNameController = TextEditingController();
@@ -70,7 +73,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
     final profile = _storageService.getUserProfile();
     if (profile != null) {
       setState(() {
-        user_id = profile.id;
+        userId = profile.id;
+        companyId = profile.companyId;
+        officeId = profile.officeId;
+        shopId = profile.shopId;
         _firstNameController.text = profile.firstName;
         _middleNameController.text = profile.middleName;
         _lastNameController.text = profile.lastName;
@@ -128,7 +134,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
     try {
       final profile = UserProfile(
-        id: user_id,
+        id: userId,
+        companyId: companyId,
+        officeId: officeId,
+        shopId: shopId,
         firstName: _firstNameController.text.trim(),
         middleName: _middleNameController.text.trim(),
         lastName: _lastNameController.text.trim(),
@@ -186,7 +195,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     setState(() => _isLoading = true);
 
     try {
-      String response = await _apiService.deleteUserProfile(user_id);
+      String response = await _apiService.deleteUserProfile(userId);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

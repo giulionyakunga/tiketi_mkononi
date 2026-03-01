@@ -164,6 +164,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
       final profile = UserProfile(
         id: responseData['id'],
+        companyId: responseData['company_id'] ?? 0,
+        officeId: responseData['office_id'] ?? 0,
+        shopId: responseData['shop_id'] ?? 0,
         firstName: responseData['first_name'],
         middleName: responseData['middle_name'],
         lastName: responseData['last_name'],

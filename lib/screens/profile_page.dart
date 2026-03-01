@@ -7,7 +7,12 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:tiketi_mkononi/screens/app_info_updates_page.dart';
+import 'package:tiketi_mkononi/screens/apply_to_be_business_owner_page.dart';
+import 'package:tiketi_mkononi/screens/apply_to_be_cargo_transporter_page.dart';
 import 'package:tiketi_mkononi/screens/apply_to_be_organizer_page.dart';
+import 'package:tiketi_mkononi/screens/auth/login_screen2.dart';
+import 'package:tiketi_mkononi/screens/add_consignment_page.dart';
+import 'package:tiketi_mkononi/screens/book_of_accounts_page.dart';
 // import 'package:tiketi_mkononi/screens/contact_page.dart';
 import 'package:tiketi_mkononi/screens/edit_profile_page.dart';
 import 'package:tiketi_mkononi/screens/event_organizers_page.dart';
@@ -16,9 +21,12 @@ import 'package:tiketi_mkononi/screens/generate_barcodes_page.dart';
 import 'package:tiketi_mkononi/screens/help_support_page.dart';
 import 'package:tiketi_mkononi/screens/language_settings_page.dart';
 import 'package:tiketi_mkononi/screens/notifications_page.dart';
+import 'package:tiketi_mkononi/screens/offices_page.dart';
 import 'package:tiketi_mkononi/screens/organizer_requests_page.dart';
 import 'package:tiketi_mkononi/screens/privacy_security_page.dart';
 import 'package:tiketi_mkononi/screens/purchase_history_page.dart';
+import 'package:tiketi_mkononi/screens/sales_book_page.dart';
+import 'package:tiketi_mkononi/screens/shops_page.dart';
 import 'package:tiketi_mkononi/screens/system_users_page.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
 import 'package:http/http.dart' as http;
@@ -32,6 +40,12 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
   int userId = 0;
+  int companyId = 0;
+  int officeId = 0;
+  int shopId = 0;
+  String companyName = "";
+  String officeName = "";
+  String shopName = "";
   String role = "user";
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
@@ -56,6 +70,8 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
     if (profile != null) {
       setState(() {
         userId = profile.id;
+        companyId = profile.companyId;
+        shopId = profile.shopId;
         role = profile.role;
         _firstNameController.text = profile.firstName;
         _lastNameController.text = profile.lastName;
@@ -73,6 +89,152 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
 
    
   Future<void> getUserRole({bool useDNS = true}) async {
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/get_user_role/$userId') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}get_user_role/$useDNS'); // Use IP
+        
+    try {
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        debugPrint('response.body : ${response.body}');
+        if((role != responseData['role'])) {
+          setState(() {
+            companyId = responseData['company_id'] ?? 0;
+            officeId = responseData['office_id'] ?? 0;
+            shopId = responseData['shop_id'] ?? 0;
+            role = responseData['role'];
+          });
+          var profile = _storageService.getUserProfile();
+          profile!.role =  responseData['role'];
+          await _storageService.saveUserProfile(profile);
+        }        
+      }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await getUserRole(useDNS: false); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
+          return;
+        }
+      }
+
+      _handleSocketException(e);
+    } catch (e) {
+      debugPrint('Error getting server metrics: $e');
+    } finally {
+      debugPrint('Process finished');
+    }
+  }
+
+  Future<void> getCompanyInfo({bool useDNS = true}) async {
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/company/$companyId') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}company/$companyId'); // Use IP
+        
+    try {
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        if((companyId != responseData['name'])) {
+          setState(() {
+            companyId = responseData['id'];
+            companyName = responseData['name'];
+          });
+          var profile = _storageService.getUserProfile();
+          profile!.role =  responseData['role'];
+          await _storageService.saveUserProfile(profile);
+        }        
+      }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await getUserRole(useDNS: false); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
+          return;
+        }
+      }
+
+      _handleSocketException(e);
+    } catch (e) {
+      debugPrint('Error getting server metrics: $e');
+    } finally {
+      debugPrint('Process finished');
+    }
+  }
+
+  Future<void> getOfficeInfo({bool useDNS = true}) async {
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/get_user_role/$userId') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}get_user_role/$useDNS'); // Use IP
+        
+    try {
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);   
+        if((role != responseData['role'])) {
+          setState(() {
+            role = responseData['role'];
+          });
+          var profile = _storageService.getUserProfile();
+          profile!.role =  responseData['role'];
+          await _storageService.saveUserProfile(profile);
+        }        
+      }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await getUserRole(useDNS: false); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
+          return;
+        }
+      }
+
+      _handleSocketException(e);
+    } catch (e) {
+      debugPrint('Error getting server metrics: $e');
+    } finally {
+      debugPrint('Process finished');
+    }
+  }
+
+  Future<void> getShopInfo({bool useDNS = true}) async {
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/get_user_role/$userId') // Original URL 
     : Uri.parse('${backend_url_with_fallback_ip}get_user_role/$useDNS'); // Use IP
         
@@ -496,6 +658,77 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
     );
   }
 
+  Widget _buildOtherApps(BuildContext context) {
+    final otherApps = [
+      _buildActionTile(
+        context,
+        icon: Icons.security,
+        iconColor: Colors.teal,
+        title: 'Book of Accounts',
+        onTap: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => BookOfAccountsPage(userId: userId),
+            ),
+          );
+        },
+      ),
+      _buildActionTile(
+        context,
+        icon: Icons.security,
+        iconColor: Colors.teal,
+        title: 'Sales Book',
+        onTap: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => SalesBookPage(userId: userId, shopId: shopId),
+            ),
+          );
+        },
+      ),
+      _buildActionTile(
+        context,
+        icon: Icons.security,
+        iconColor: Colors.teal,
+        title: 'Cargo',
+        onTap: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AddConsignmentPage(refreshMethod: () {},),
+            ),
+          );
+        },
+      ),
+      _buildActionTile(
+        context,
+        icon: Icons.security,
+        iconColor: Colors.teal,
+        title: 'Sales Book',
+        onTap: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => LoginScreen2(),
+            ),
+          );
+        },
+      ),
+    ];
+
+    return Column(
+      children: [
+        _buildProfileCard(
+          context,
+          title: 'Other Apps',
+          items: otherApps,
+        ),
+      ],
+    );
+  }
+
   Widget _buildProfileCard(BuildContext context, {required String title, required List<Widget> items}) {
     return Card(
       elevation: 3,
@@ -605,6 +838,74 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
               context,
               MaterialPageRoute(
                 builder: (context) => ApplyToBeOrganizerPage(userId: userId),
+              ),
+            );
+          },
+        ),
+
+        if(role == "user")
+        _buildActionTile(
+          context,
+          icon: Icons.mic_external_on,
+          iconColor: Colors.purple,
+          title: 'Become Business Owner',
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ApplyToBeBusinessOwnerPage(userId: userId),
+              ),
+            );
+          },
+        ),
+
+        if(role == "shop_owner")
+        _buildActionTile(
+          context,
+          icon: Icons.mic_external_on,
+          iconColor: Colors.purple,
+          title: 'My Shops',
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ShopsPage(userId: userId),
+              ),
+            );
+          },
+        ),
+
+        if(role == "transport_business_owner")
+        _buildActionTile(
+          context,
+          icon: Icons.mic_external_on,
+          iconColor: Colors.purple,
+          title: 'My Offices',
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => OfficesPage(userId: userId),
+              ),
+            );
+          },
+        ),
+
+        if(role == "user")
+        _buildActionTile(
+          context,
+          icon: Icons.mic_external_on,
+          iconColor: Colors.purple,
+          title: 'Become Cargo Transporter',
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ApplyToBeCargoTransporterPage(userId: userId),
               ),
             );
           },
@@ -753,6 +1054,8 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
                 _buildProfileHeader(context, isDarkMode, isLargeScreen),
                 const SizedBox(height: 24),
                 _buildActionCards(context, isLargeScreen),
+                const SizedBox(height: 24),
+                _buildOtherApps(context),
                 const SizedBox(height: 24),
                 SizedBox(
                   width: isLargeScreen ? 400 : double.infinity,

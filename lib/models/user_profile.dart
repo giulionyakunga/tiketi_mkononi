@@ -1,5 +1,8 @@
 class UserProfile {
   final int id;
+  final int companyId;
+  final int officeId;
+  final int shopId;
   final String firstName;
   final String middleName;
   final String lastName;
@@ -18,6 +21,9 @@ class UserProfile {
 
   UserProfile({
     required this.id,
+    required this.companyId,
+    required this.officeId,
+    required this.shopId,
     required this.firstName,
     required this.middleName,
     required this.lastName,
@@ -38,6 +44,9 @@ class UserProfile {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'company_id': companyId,
+      'office_id': officeId,
+      'shop_id': shopId,
       'firstName': firstName,
       'middleName': middleName,
       'lastName': lastName,
@@ -57,6 +66,9 @@ class UserProfile {
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
       id: json['id'] as int,
+      companyId: (json['company_id'] ?? 0) as int,
+      officeId: (json['office_id'] ?? 0) as int,
+      shopId: (json['shop_id'] ?? 0) as int,
       firstName: json['firstName'] as String,
       middleName: json['middleName'] as String,
       lastName: json['lastName'] as String,
@@ -78,6 +90,9 @@ class UserProfile {
   factory UserProfile.fromJson2(Map<String, dynamic> json) {
     return UserProfile(
       id: json['id'] as int,
+      companyId: (json['company_id'] ?? 0) as int,
+      officeId: (json['office_id'] ?? 0) as int,
+      shopId: (json['shop_id'] ?? 0) as int,
       firstName: json['first_name'] as String,
       middleName: json['middle_name'] as String,
       lastName: json['last_name'] as String,

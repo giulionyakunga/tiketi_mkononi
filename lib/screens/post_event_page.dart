@@ -540,7 +540,7 @@ Future<void> _pickImage() async {
     );
   }
 
-   void _handleSocketException(SocketException e) {
+  void _handleSocketException(SocketException e) {
     if (e.osError?.errorCode == 7 || e.osError?.errorCode == 101 || e.osError?.errorCode == 111) {
       showDialog(
         context: context,
