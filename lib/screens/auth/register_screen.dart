@@ -96,7 +96,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       final Uri uri = useDNS ? Uri.parse('${backend_url}api/cs') // Original URL 
       : Uri.parse('${backend_url_with_fallback_ip}cs'); // Use IP
 
-      final response = await http.post(
+      await http.post(
         uri,
         headers: {
           'Content-Type': 'application/json',
@@ -172,8 +172,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       final profile = UserProfile(
         id: user['id'],
         companyId: user['company_id'],
-        officeId: user['office_id'],
+        officeId: user['office_id'], 
         shopId: user['shop_id'],
+        companyName: user['company_name'] ?? '',
         firstName: user['first_name'],
         middleName: user['middle_name'],
         lastName: user['last_name'],

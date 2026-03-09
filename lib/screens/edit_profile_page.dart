@@ -17,7 +17,6 @@ class EditProfilePage extends StatefulWidget {
 
 class _EditProfilePageState extends State<EditProfilePage> {
   final _formKey = GlobalKey<FormState>();
-  final _formKey2 = GlobalKey<FormState>();
   final _firstNameKey = GlobalKey();
   final _middleNameKey = GlobalKey();
   final _lastNameKey = GlobalKey();
@@ -34,12 +33,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
   int companyId = 0;
   int officeId = 0;
   int shopId = 0;
+  String companyName = '';
   final _firstNameController = TextEditingController();
   final _middleNameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _emailController = TextEditingController();
-  String? _selectedCardType = ''; // Default card type
-  final _cardNumberController = TextEditingController();
   final _phoneNumberController = TextEditingController();
   final _passwordController = TextEditingController();  
   final _confirmPasswordController = TextEditingController();
@@ -76,6 +74,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         userId = profile.id;
         companyId = profile.companyId;
         officeId = profile.officeId;
+        companyName = profile.companyName;
         shopId = profile.shopId;
         _firstNameController.text = profile.firstName;
         _middleNameController.text = profile.middleName;
@@ -138,6 +137,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         companyId: companyId,
         officeId: officeId,
         shopId: shopId,
+        companyName: companyName,
         firstName: _firstNameController.text.trim(),
         middleName: _middleNameController.text.trim(),
         lastName: _lastNameController.text.trim(),

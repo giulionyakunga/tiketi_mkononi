@@ -31,6 +31,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _isNewVerionAvailable = false;
   int userId = 0;
   String role = '';
+  int companyId = 0;
+  int officeId = 0;
+  int shopId = 0;
+  String companyName = "";
+  String userName = "";
+  String userPhoneNumber = "";
+
   final TextEditingController _searchController = TextEditingController();
   bool useDNS_2 = true;
 
@@ -59,6 +66,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       setState(() {
         userId = profile.id;
         role = profile.role;
+        companyId = profile.companyId;
+        officeId = profile.officeId;
+        shopId = profile.shopId;
+        companyName = profile.companyName;
+        userName = '${profile.firstName} ${profile.lastName}';
+        userPhoneNumber = profile.phoneNumber;
       });
       fetchEvents();
     }else {
@@ -411,11 +424,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
                   if (!isWideScreen) _buildSearchBar(isDarkMode),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 5),
                   _buildFeaturedEventsSection(isDarkMode, filteredEvents, isWideScreen),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 10),
                   _buildCategoriesSection(isDarkMode, filteredEvents, isWideScreen),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 10),
                 ]),
               ),
             ),
@@ -528,7 +541,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             ],
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
         FeaturedEvents(
           events: filteredEvents,
           userId: userId,
@@ -555,11 +568,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             ),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         (!isWideScreen) ? CategoryGrid(
-          events: filteredEvents,
-          userId: userId,
-          // isWideScreen: isWideScreen,
+          userId: userId, role: role, companyId: companyId, officeId: officeId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber
         ) :
         CategoryGrid2(
           events: filteredEvents,

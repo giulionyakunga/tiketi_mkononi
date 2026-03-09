@@ -104,7 +104,7 @@ class RecordDetailsPage extends StatelessWidget {
                         ),
                         Expanded(
                           child: Text(
-                            'Unit Price: TSH${record.unitPrice.toStringAsFixed(2)}',
+                            'Unit Price: TSH${NumberFormat('#,##0').format(record.unitPrice.toInt())}',
                             style: TextStyle(fontSize: 14, color: Colors.grey[700]),
                           ),
                         ),
@@ -125,7 +125,7 @@ class RecordDetailsPage extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 child: Center(
                   child: Text(
-                    'Total: TSH${record.totalPrice.toStringAsFixed(2)}',
+                    'Total: TSH${NumberFormat('#,##0').format(record.totalPrice.toInt())}',
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,

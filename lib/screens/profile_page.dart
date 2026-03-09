@@ -7,9 +7,9 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:tiketi_mkononi/screens/app_info_updates_page.dart';
-import 'package:tiketi_mkononi/screens/apply_to_be_business_owner_page.dart';
 import 'package:tiketi_mkononi/screens/apply_to_be_cargo_transporter_page.dart';
 import 'package:tiketi_mkononi/screens/apply_to_be_organizer_page.dart';
+import 'package:tiketi_mkononi/screens/apply_to_be_shop_owner_page.dart';
 import 'package:tiketi_mkononi/screens/auth/login_screen2.dart';
 import 'package:tiketi_mkononi/screens/add_consignment_page.dart';
 import 'package:tiketi_mkononi/screens/book_of_accounts_page.dart';
@@ -22,9 +22,9 @@ import 'package:tiketi_mkononi/screens/help_support_page.dart';
 import 'package:tiketi_mkononi/screens/language_settings_page.dart';
 import 'package:tiketi_mkononi/screens/notifications_page.dart';
 import 'package:tiketi_mkononi/screens/offices_page.dart';
-import 'package:tiketi_mkononi/screens/organizer_requests_page.dart';
 import 'package:tiketi_mkononi/screens/privacy_security_page.dart';
 import 'package:tiketi_mkononi/screens/purchase_history_page.dart';
+import 'package:tiketi_mkononi/screens/requests_page.dart';
 import 'package:tiketi_mkononi/screens/sales_book_page.dart';
 import 'package:tiketi_mkononi/screens/shops_page.dart';
 import 'package:tiketi_mkononi/screens/system_users_page.dart';
@@ -44,9 +44,10 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
   int officeId = 0;
   int shopId = 0;
   String companyName = "";
-  String officeName = "";
   String shopName = "";
   String role = "user";
+  String userName = "";
+  String userPhoneNumber = "";
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -71,15 +72,15 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
       setState(() {
         userId = profile.id;
         companyId = profile.companyId;
+        officeId = profile.officeId;
+        companyName = profile.companyName;
         shopId = profile.shopId;
         role = profile.role;
         _firstNameController.text = profile.firstName;
         _lastNameController.text = profile.lastName;
         _emailController.text = profile.email;
       });
-      if(profile.role == "user") {
-        getUserRole();
-      }
+      getUserRole();
     }
   }
 
@@ -97,17 +98,19 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body);
         debugPrint('response.body : ${response.body}');
-        if((role != responseData['role'])) {
-          setState(() {
-            companyId = responseData['company_id'] ?? 0;
-            officeId = responseData['office_id'] ?? 0;
-            shopId = responseData['shop_id'] ?? 0;
-            role = responseData['role'];
-          });
-          var profile = _storageService.getUserProfile();
-          profile!.role =  responseData['role'];
-          await _storageService.saveUserProfile(profile);
-        }        
+        setState(() {
+          companyId = responseData['company_id'] ?? 0;
+          officeId = responseData['office_id'] ?? 0;
+          shopId = responseData['shop_id'] ?? 0;
+          role = responseData['role'];
+          companyName = responseData['company_name'];
+          userName = '${responseData['first_name']} ${responseData['last_name']}';
+          userPhoneNumber = '${responseData['phone_number']}';
+        });
+        var profile = _storageService.getUserProfile();
+        profile!.role =  responseData['role'];
+        profile.companyName =  responseData['company_name'];
+        await _storageService.saveUserProfile(profile);
       }
     } on SocketException catch (e) {
       debugPrint('Network error occurred:');
@@ -133,7 +136,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
 
       _handleSocketException(e);
     } catch (e) {
-      debugPrint('Error getting server metrics: $e');
+      debugPrint('Error getting user role: $e');
     } finally {
       debugPrint('Process finished');
     }
@@ -171,54 +174,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await getUserRole(useDNS: false); // Recursive retry
-
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setBool('use_dns', false);
-          return;
-        }
-      }
-
-      _handleSocketException(e);
-    } catch (e) {
-      debugPrint('Error getting server metrics: $e');
-    } finally {
-      debugPrint('Process finished');
-    }
-  }
-
-  Future<void> getOfficeInfo({bool useDNS = true}) async {
-    final Uri uri = useDNS ? Uri.parse('${backend_url}api/get_user_role/$userId') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}get_user_role/$useDNS'); // Use IP
-        
-    try {
-      final response = await http.get(uri);
-      if (response.statusCode == 200) {
-        final responseData = jsonDecode(response.body);   
-        if((role != responseData['role'])) {
-          setState(() {
-            role = responseData['role'];
-          });
-          var profile = _storageService.getUserProfile();
-          profile!.role =  responseData['role'];
-          await _storageService.saveUserProfile(profile);
-        }        
-      }
-    } on SocketException catch (e) {
-      debugPrint('Network error occurred:');
-      debugPrint('- Exception type: ${e.runtimeType}');
-      debugPrint('- Message: ${e.message}');
-      
-      if (e.osError != null) {
-        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
-        debugPrint('  - OS message: ${e.osError!.message}');
-        debugPrint('  - errorCode: ${e.osError!.errorCode}');
-        debugPrint('  - useDNS: ${useDNS}');
-
-        // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await getUserRole(useDNS: false); // Recursive retry
+          await getCompanyInfo(useDNS: false); // Recursive retry
 
           final prefs = await SharedPreferences.getInstance();
           await prefs.setBool('use_dns', false);
@@ -265,7 +221,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await getUserRole(useDNS: false); // Recursive retry
+          await getShopInfo(useDNS: false); // Recursive retry
 
           final prefs = await SharedPreferences.getInstance();
           await prefs.setBool('use_dns', false);
@@ -664,7 +620,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
         context,
         icon: Icons.security,
         iconColor: Colors.teal,
-        title: 'Book of Accounts',
+        title: 'My Book of Accounts',
         onTap: () async {
           await Navigator.push(
             context,
@@ -674,6 +630,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
           );
         },
       ),
+      if((role == "shop_attendant") && (shopId > 0))
       _buildActionTile(
         context,
         icon: Icons.security,
@@ -688,6 +645,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
           );
         },
       ),
+      if((role == "cargo_office_attendant") && (companyId > 0) && (officeId > 0))
       _buildActionTile(
         context,
         icon: Icons.security,
@@ -697,21 +655,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
           await Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => AddConsignmentPage(refreshMethod: () {},),
-            ),
-          );
-        },
-      ),
-      _buildActionTile(
-        context,
-        icon: Icons.security,
-        iconColor: Colors.teal,
-        title: 'Sales Book',
-        onTap: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => LoginScreen2(),
+              builder: (context) => AddConsignmentPage(userId: userId, companyId: companyId, companyName:companyName, officeId: officeId, userName: userName, userPhoneNumber: userPhoneNumber),
             ),
           );
         },
@@ -846,15 +790,15 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
         if(role == "user")
         _buildActionTile(
           context,
-          icon: Icons.mic_external_on,
-          iconColor: Colors.purple,
-          title: 'Become Business Owner',
+          icon: Icons.store,
+          iconColor: Colors.blue,
+          title: 'Become Shop Owner',
           onTap: () {
             Navigator.pop(context);
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => ApplyToBeBusinessOwnerPage(userId: userId),
+                builder: (context) => ApplyToBeShopOwnerPage(userId: userId),
               ),
             );
           },
@@ -863,8 +807,8 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
         if(role == "shop_owner")
         _buildActionTile(
           context,
-          icon: Icons.mic_external_on,
-          iconColor: Colors.purple,
+          icon: Icons.store,
+          iconColor: Colors.blue,
           title: 'My Shops',
           onTap: () {
             Navigator.pop(context);
@@ -877,18 +821,18 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
           },
         ),
 
-        if(role == "transport_business_owner")
+        if(role == "cargo_transporter")
         _buildActionTile(
           context,
-          icon: Icons.mic_external_on,
-          iconColor: Colors.purple,
+          icon: Icons.business,
+          iconColor: Colors.teal,
           title: 'My Offices',
           onTap: () {
             Navigator.pop(context);
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => OfficesPage(userId: userId),
+                builder: (context) => OfficesPage(userId: userId, companyId: companyId, companyName: companyName, role: role),
               ),
             );
           },
@@ -897,8 +841,8 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
         if(role == "user")
         _buildActionTile(
           context,
-          icon: Icons.mic_external_on,
-          iconColor: Colors.purple,
+          icon: Icons.business,
+          iconColor: Colors.teal,
           title: 'Become Cargo Transporter',
           onTap: () {
             Navigator.pop(context);
@@ -916,13 +860,13 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
           context,
           icon: Icons.edit,
           iconColor: Colors.green,
-          title: 'Check Organizer Requests',
+          title: 'Check Requests',
           onTap: () {
             Navigator.pop(context);
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => OrganizerRequestsPage(userId: userId),
+                builder: (context) => RequestsPage(userId: userId),
               ),
             );
           },
@@ -1018,7 +962,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
     
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Profile', style: TextStyle(fontWeight: FontWeight.normal)),
+        title: Text('My Profile', style: TextStyle(fontWeight: FontWeight.normal)),
         centerTitle: false, 
         backgroundColor: const Color.fromARGB(255, 240, 244, 247),
         actions: [

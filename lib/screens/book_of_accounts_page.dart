@@ -30,7 +30,7 @@ class _BookOfAccountsPageState extends State<BookOfAccountsPage> {
   List<AccountRecord> _filteredRecords = [];
   final TextEditingController _searchController = TextEditingController();
   String _selectedFilter = 'All';
-    DateTime _selectedDate = DateTime.now();
+  DateTime _selectedDate = DateTime.now();
 
 
   @override

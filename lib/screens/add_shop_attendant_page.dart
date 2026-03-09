@@ -3,14 +3,13 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-
 import 'package:tiketi_mkononi/env.dart';
 
 class AddShopAttendantPage extends StatefulWidget {
   final int userId;
-  final int eventId;
+  final int shopId;
 
-  const AddShopAttendantPage({Key? key, required this.userId, required this.eventId}) : super(key: key);
+  const AddShopAttendantPage({Key? key, required this.userId, required this.shopId}) : super(key: key);
 
   @override
   _AddShopAttendantPageState createState() => _AddShopAttendantPageState();
@@ -19,15 +18,16 @@ class AddShopAttendantPage extends StatefulWidget {
 class _AddShopAttendantPageState extends State<AddShopAttendantPage> {
   final TextEditingController _emailController = TextEditingController();
   Map<String, dynamic>? _userData;
+  List<dynamic> shopAttendants = [];
   bool _isLoading = false;
-  bool _isScanner = false;
+  bool _isShopAttendant = false;
   String _errorMessage = '';
   bool _searchPerformed = false;
 
   @override
   void initState() {
     super.initState();
-    getEventScanner();
+    getShopAttendants();
   }
 
   @override
@@ -36,11 +36,11 @@ class _AddShopAttendantPageState extends State<AddShopAttendantPage> {
     super.dispose();
   }
 
-  Future<void> getEventScanner({bool useDNS = true}) async {
+  Future<void> getShopAttendants({bool useDNS = true}) async {
     try {
 
-      final Uri uri = useDNS ?   Uri.parse('${backend_url}api/event_scanner/${widget.eventId}') 
-      : Uri.parse('${backend_url_with_fallback_ip}event_scanner/${widget.eventId}'); // Use IP
+      final Uri uri = useDNS ?   Uri.parse('${backend_url}api/shop_attendants/${widget.shopId}') 
+      : Uri.parse('${backend_url_with_fallback_ip}shop_attendants/${widget.shopId}'); // Use IP
 
       final response = await http.get(
         uri,
@@ -50,14 +50,14 @@ class _AddShopAttendantPageState extends State<AddShopAttendantPage> {
       debugPrint("Response : ${response.body}");
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+        final List<dynamic> jsonList = jsonDecode(response.body);
+
         setState(() {
-          _userData = data;
-          _isScanner = data['is_scanner'] ?? false;
+          shopAttendants = jsonList;
         });
       } else {
         setState(() {
-          _userData = null;
+          shopAttendants = [];
         });
       }
     } on SocketException catch (e) {
@@ -74,7 +74,7 @@ class _AddShopAttendantPageState extends State<AddShopAttendantPage> {
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await getEventScanner(useDNS: false); // Recursive retry
+          await getShopAttendants(useDNS: false); // Recursive retry
 
           return;
         }
@@ -84,7 +84,7 @@ class _AddShopAttendantPageState extends State<AddShopAttendantPage> {
     } catch (e) {
       setState(() {
         _errorMessage = 'Error connecting to server';
-        _userData = null;
+        shopAttendants = [];
       });
     } finally {
       setState(() {
@@ -109,8 +109,8 @@ class _AddShopAttendantPageState extends State<AddShopAttendantPage> {
       _searchPerformed = true;
     });
 
-    final Uri uri = useDNS ?   Uri.parse('${backend_url}api/user_with_scanner_status_by_email/$email/${widget.eventId}') 
-    : Uri.parse('${backend_url_with_fallback_ip}user_with_scanner_status_by_email/$email/${widget.eventId}'); // Use IP
+    final Uri uri = useDNS ?   Uri.parse('${backend_url}api/find_shop_attendant_by_email/$email/${widget.shopId}') 
+    : Uri.parse('${backend_url_with_fallback_ip}find_shop_attendant_by_email/$email/${widget.shopId}'); // Use IP
 
     try {
       final response = await http.get(
@@ -119,10 +119,12 @@ class _AddShopAttendantPageState extends State<AddShopAttendantPage> {
       );
 
       if (response.statusCode == 200) {
+        debugPrint("Response 2 : ${response.body}");
+
         final data = json.decode(response.body);
         setState(() {
           _userData = data;
-          _isScanner = data['is_scanner'] ?? false;
+          _isShopAttendant = data['is_shop_attendant'] ?? false;
         });
       } else {
         setState(() {
@@ -163,13 +165,13 @@ class _AddShopAttendantPageState extends State<AddShopAttendantPage> {
     }
   }
 
-  Future<void> _toggleScannerStatus(bool value, {bool useDNS = true}) async {
+  Future<void> _toggleShopAttendantStatus(bool value, {bool useDNS = true}) async {
     if (_userData == null) return;
 
     if(widget.userId == _userData!['id']) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('You are default scanner for this event'),
+          content: Text('You are default attendant for this shop'),
           backgroundColor: Colors.green,
         ),
       );
@@ -180,32 +182,32 @@ class _AddShopAttendantPageState extends State<AddShopAttendantPage> {
       _isLoading = true;
     });
 
-    final Uri uri = useDNS ? Uri.parse('${backend_url}api/set_event_scanner/${widget.eventId}/${widget.userId}') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}set_event_scanner/${widget.eventId}/${widget.userId}'); // Use IP
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/set_shop_attendant/${widget.shopId}/${widget.userId}') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}set_shop_attendant/${widget.shopId}/${widget.userId}'); // Use IP
 
     try {
       final response = await http.post(
         uri,
         headers: {'Content-Type': 'application/json'},
-        body: json.encode({'is_scanner': value, 'ticket_scanner_id': _userData!['id'] }),
+        body: json.encode({'set_shop_attendant': value, 'shop_attendant_id': _userData!['id'] }),
       );
 
       if (response.statusCode == 200) {
         setState(() {
-          _isScanner = value;
+          _isShopAttendant = value;
         });
 
-        if(response.body == "Event scanner added successfully!") {
+        if(response.body == "Shop attendant added successfully!") {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('${_userData!['first_name']} is now a scanner for this event'),
+              content: Text('${_userData!['first_name']} is now an attendant for this shop'),
               backgroundColor: Colors.green,
             ),
           );
-        }else if(response.body == "Event scanner removed successfully!") {
+        }else if(response.body == "Shop attendant removed successfully!") {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('${_userData!['first_name']} is no longer a scanner for this event'),
+              content: Text('${_userData!['first_name']} is no longer an attendant for this shop'),
               backgroundColor: Colors.green,
             ),
           );
@@ -220,7 +222,7 @@ class _AddShopAttendantPageState extends State<AddShopAttendantPage> {
       } else if (response.statusCode == 302) {
         _handleHTTPRedirect();
       } else {
-        throw Exception('Failed to update scanner status');
+        throw Exception('Failed to update shop attendant status');
       }
     } on SocketException catch (e) {
       debugPrint('Network error occurred:');
@@ -236,7 +238,7 @@ class _AddShopAttendantPageState extends State<AddShopAttendantPage> {
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await _toggleScannerStatus(value, useDNS: false); // Recursive retry
+          await _toggleShopAttendantStatus(value, useDNS: false); // Recursive retry
 
           return;
         }
@@ -304,7 +306,7 @@ class _AddShopAttendantPageState extends State<AddShopAttendantPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Assign Scanner'),
+        title: const Text('Assign Shop Attendant'),
         centerTitle: true,
         elevation: 0,
       ),
@@ -314,7 +316,7 @@ class _AddShopAttendantPageState extends State<AddShopAttendantPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Assign Ticket Scanner',
+              'Assign Shop Attendant',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: Colors.blueGrey[800],
@@ -322,7 +324,7 @@ class _AddShopAttendantPageState extends State<AddShopAttendantPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Search for a user by email to assign them as a ticket scanner for this event.',
+              'Search for a user by email to assign them as attendants for this shop.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Colors.blueGrey[600],
               ),
@@ -432,14 +434,14 @@ class _AddShopAttendantPageState extends State<AddShopAttendantPage> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text(
-                            'Scanner Status:',
+                            'Shop Attendant Status:',
                             style: TextStyle(fontWeight: FontWeight.bold),
                           ),
                           Switch(
-                            value: _isScanner,
+                            value: _isShopAttendant,
                             onChanged: _isLoading
                                 ? null
-                                : (value) => _toggleScannerStatus(value),
+                                : (value) => _toggleShopAttendantStatus(value),
                             activeColor: Colors.green,
                           ),
                         ],
@@ -450,16 +452,94 @@ class _AddShopAttendantPageState extends State<AddShopAttendantPage> {
               ),
               const SizedBox(height: 8),
               Text(
-                _isScanner
-                    ? 'This user can scan tickets for your event'
-                    : 'This user cannot scan tickets',
+                _isShopAttendant
+                    ? 'This user can attendant your shop'
+                    : 'This user cannot attendant your shop',
                 style: TextStyle(
-                  color: _isScanner ? Colors.green : Colors.grey,
+                  color: _isShopAttendant ? Colors.green : Colors.grey,
                   fontStyle: FontStyle.italic,
                 ),
                 textAlign: TextAlign.center,
               ),
             ],
+
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.all(16.0),
+                itemCount: shopAttendants.length,
+                itemBuilder: (context, index) {
+                  final shopAttendant = shopAttendants[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 16.0),
+                    child: Card(
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                CircleAvatar(
+                                  backgroundColor: Colors.blue[100],
+                                  child: Text(
+                                    shopAttendant['first_name'][0] +
+                                        shopAttendant['last_name'][0],
+                                    style: const TextStyle(color: Colors.blue),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '${shopAttendant['first_name']} ${shopAttendant['last_name']}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    Text(
+                                      shopAttendant['email'],
+                                      style: TextStyle(color: Colors.grey[600]),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Phone: ${shopAttendant['phone_number']}',
+                              style: TextStyle(color: Colors.grey[600]),
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Shop Attendant Status:',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                Switch(
+                                  value: (shopAttendant['shop_id'] == widget.shopId),
+                                  onChanged: _isLoading
+                                      ? null
+                                      : (value) => _toggleShopAttendantStatus(value),
+                                  activeColor: Colors.green,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
           ],
         ),
       ),

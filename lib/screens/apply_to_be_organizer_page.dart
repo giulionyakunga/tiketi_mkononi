@@ -29,13 +29,16 @@ class _ApplyToBeOrganizerPageState extends State<ApplyToBeOrganizerPage> {
     try {
       setState(() => _isLoading = true);
 
-      final Uri uri = useDNS ? Uri.parse('${backend_url}api/apply_to_be_organizer') // Original URL 
-      : Uri.parse('${backend_url_with_fallback_ip}apply_to_be_organizer'); // Use IP
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/apply_to_be') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}apply_to_be'); // Use IP
         
       final response = await http.post(
         uri,
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'user_id': userId}),
+        body: jsonEncode({
+          'user_id': userId,
+          'type': 'event_organizer'
+        }),
       );
 
       if (response.statusCode == 200) {

@@ -1,8 +1,11 @@
 // book_of_accounts_page.dart
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:tiketi_mkononi/models/account_record.dart';
 import 'package:tiketi_mkononi/screens/record_details_page.dart';
@@ -28,12 +31,12 @@ class SalesBookPage extends StatefulWidget {
 class _SalesBookPageState extends State<SalesBookPage> {
   List<AccountRecord> _records = [];
   bool _isLoading = true;
+  String? shopName;
   String? _errorMessage;
   List<AccountRecord> _filteredRecords = [];
   final TextEditingController _searchController = TextEditingController();
   String _selectedFilter = 'All';
-    DateTime _selectedDate = DateTime.now();
-
+  DateTime _selectedDate = DateTime.now();
 
   @override
   void initState() {
@@ -44,7 +47,100 @@ class _SalesBookPageState extends State<SalesBookPage> {
     String dateStr = DateFormat('d-M-yyyy').format(DateTime.now());
     _selectedDate = DateFormat('d-M-yyyy').parse(dateStr);
 
+    _loadUserProfile();
+
   }
+
+  Future<void> _loadUserProfile() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? cachedShopName = prefs.getString('shop_name');
+
+    if (cachedShopName != null) {
+      setState(() {
+        shopName = cachedShopName;
+      });
+    } else {
+      getShopInforomation();
+    }
+  }
+
+  Future<void> getShopInforomation({bool useDNS = true}) async {
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/shop/${widget.shopId}') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}shop/${widget.shopId}'); // Use IP
+        
+    try {
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        debugPrint('response.body : ${response.body}');
+        if((shopName != responseData['name'])) {
+          setState(() {
+            shopName = responseData['name'] ?? '';
+          });
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('shop_name', responseData['name']);
+        }        
+      }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await getShopInforomation(useDNS: false); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
+          return;
+        }
+      }
+
+      _handleSocketException(e);
+    } catch (e) {
+      debugPrint('Error getting server metrics: $e');
+    } finally {
+      debugPrint('Process finished');
+    }
+  }
+
+  void _handleSocketException(SocketException e) {
+    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 101 || e.osError?.errorCode == 111) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Connection Error'),
+          content: const Text('Could not connect to the server. Please check your internet connection.'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      );
+    } else {
+      _showSnackBar('Connection Error: ${e.message}');
+    }
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
+
+
 
   @override
   void dispose() {
@@ -224,11 +320,11 @@ class _SalesBookPageState extends State<SalesBookPage> {
         elevation: 0,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
-        title: const Text(
-          'Add Sale Record',
+        title: Text(
+          'Sale Record ($shopName)',
           style: TextStyle( 
             fontWeight: FontWeight.w600,
-            fontSize: 19,
+            fontSize: 15,
           ),
         ),
         titleSpacing: 0,
@@ -645,7 +741,8 @@ class _SalesBookPageState extends State<SalesBookPage> {
                   ),
                   Expanded(
                     child: Text(
-                      'Unit: TSH${record.unitPrice.toStringAsFixed(2)}',
+                      // 'Unit: TSH${record.unitPrice.toStringAsFixed(2)}',
+                      'Unit: TSH${NumberFormat('#,##0').format(record.unitPrice.toInt())}',
                       style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
                   ),
@@ -663,7 +760,8 @@ class _SalesBookPageState extends State<SalesBookPage> {
                 ),
                 child: Center(
                   child: Text(
-                    'Total: TSH${record.totalPrice.toStringAsFixed(2)}',
+                    'Total: TSH${NumberFormat('#,##0').format(record.totalPrice.toInt())}',
+                    // 'Total: TSH${record.totalPrice.toStringAsFixed(2)}',
                     style: const TextStyle(
                         fontWeight: FontWeight.bold, color: Colors.green),
                   ),
@@ -814,7 +912,7 @@ class _AddNewRecordPageState extends State<AddNewRecordPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add New Record'),
+        title: const Text('Add Sales Record'),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
         elevation: 1,

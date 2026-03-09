@@ -54,7 +54,7 @@ class FeaturedEvents extends StatelessWidget {
                 final event = events[index];
                 return Container(
                   width: 280,
-                  margin: const EdgeInsets.only(right: 16),
+                  margin: const EdgeInsets.only(right: 8),
                   child: Card(
                     clipBehavior: Clip.antiAlias,
                     shape: RoundedRectangleBorder(

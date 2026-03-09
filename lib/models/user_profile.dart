@@ -3,6 +3,7 @@ class UserProfile {
   final int companyId;
   final int officeId;
   final int shopId;
+  String companyName;
   final String firstName;
   final String middleName;
   final String lastName;
@@ -24,6 +25,7 @@ class UserProfile {
     required this.companyId,
     required this.officeId,
     required this.shopId,
+    required this.companyName,
     required this.firstName,
     required this.middleName,
     required this.lastName,
@@ -47,6 +49,7 @@ class UserProfile {
       'company_id': companyId,
       'office_id': officeId,
       'shop_id': shopId,
+      'companyName': companyName,
       'firstName': firstName,
       'middleName': middleName,
       'lastName': lastName,
@@ -69,6 +72,7 @@ class UserProfile {
       companyId: (json['company_id'] ?? 0) as int,
       officeId: (json['office_id'] ?? 0) as int,
       shopId: (json['shop_id'] ?? 0) as int,
+      companyName: (json['companyName'] ?? '') as String,
       firstName: json['firstName'] as String,
       middleName: json['middleName'] as String,
       lastName: json['lastName'] as String,
@@ -93,6 +97,7 @@ class UserProfile {
       companyId: (json['company_id'] ?? 0) as int,
       officeId: (json['office_id'] ?? 0) as int,
       shopId: (json['shop_id'] ?? 0) as int,
+      companyName: (json['companyName'] ?? '') as String,
       firstName: json['first_name'] as String,
       middleName: json['middle_name'] as String,
       lastName: json['last_name'] as String,

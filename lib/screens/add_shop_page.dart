@@ -16,6 +16,7 @@ class AddShopPage extends StatefulWidget {
 class _AddShopPageState extends State<AddShopPage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _shopNameController = TextEditingController();
+  final TextEditingController _shopLocationController = TextEditingController();
 
   bool _isLoading = false;
 
@@ -35,6 +36,7 @@ class _AddShopPageState extends State<AddShopPage> {
         body: jsonEncode({
           'user_id': widget.userId,
           'shop_name': _shopNameController.text.trim(),
+          'shop_location': _shopLocationController.text.trim(),
         }),
       );
 
@@ -144,6 +146,25 @@ class _AddShopPageState extends State<AddShopPage> {
                           return null;
                         },
                       ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _shopLocationController,
+                        decoration: InputDecoration(
+                          labelText: 'Shop Location',
+                          hintText: 'e.g. Kariakoo',
+                          prefixIcon: const Icon(Icons.store),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Shop location is required';
+                          }
+                          if (value.trim().length < 3) {
+                            return 'Shop location is too short';
+                          }
+                          return null;
+                        },
+                      ),
                       const SizedBox(height: 32),
                       SizedBox(
                         width: double.infinity,
@@ -158,7 +179,11 @@ class _AddShopPageState extends State<AddShopPage> {
                               ? const CircularProgressIndicator(color: Colors.white)
                               : const Text(
                                   'Add Shop',
-                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold
+                                  ),
                                 ),
                         ),
                       ),

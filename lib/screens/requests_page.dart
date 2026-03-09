@@ -6,16 +6,16 @@ import 'package:intl/intl.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-class OrganizerRequestsPage extends StatefulWidget {
+class RequestsPage extends StatefulWidget {
   final int userId;
 
-  const OrganizerRequestsPage({super.key, required this.userId});
+  const RequestsPage({super.key, required this.userId});
 
   @override 
-  State<OrganizerRequestsPage> createState() => _OrganizerRequestsPageState();
+  State<RequestsPage> createState() => _RequestsPageState();
 }
 
-class _OrganizerRequestsPageState extends State<OrganizerRequestsPage> {
+class _RequestsPageState extends State<RequestsPage> {
   List<dynamic> _requests = [];
   bool _isLoading = false;
 
@@ -66,8 +66,8 @@ class _OrganizerRequestsPageState extends State<OrganizerRequestsPage> {
     try {
       setState(() => _isLoading = true);
 
-      final Uri uri = useDNS ? Uri.parse('${backend_url}api/update_organizer_request') // Original URL 
-      : Uri.parse('${backend_url_with_fallback_ip}update_organizer_request'); // Use IP
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/update_request') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}update_request'); // Use IP
       
       final response = await http.post(
         uri,
@@ -169,8 +169,8 @@ class _OrganizerRequestsPageState extends State<OrganizerRequestsPage> {
    /// Fetch get_organizer_requests from backend and cache them
   Future<void> fetchOrganizerRequests({bool useDNS = true}) async {
 
-    final Uri uri = useDNS ? Uri.parse('${backend_url}api/get_organizer_requests') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}get_organizer_requests'); // Use IP
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/get_requests') // Original URL
+    : Uri.parse('${backend_url_with_fallback_ip}get_requests'); // Use IP
 
     try {
       final response = await http.get(uri);
@@ -247,6 +247,8 @@ class _OrganizerRequestsPageState extends State<OrganizerRequestsPage> {
               ],
             ),
             const SizedBox(height: 8),
+            Text('Request Type: ${request['type']}'),
+            const SizedBox(height: 8),
             Text('Request Date: ${DateFormat('dd MMM yyyy').format(DateTime.parse(request['updatedAt']))}'),
             const SizedBox(height: 8),
             Row(
@@ -320,9 +322,9 @@ class _OrganizerRequestsPageState extends State<OrganizerRequestsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Organizer Requests'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.white,
+        title: Text('Requests', style: TextStyle(fontWeight: FontWeight.normal)),
+        centerTitle: false, 
+        backgroundColor: const Color.fromARGB(255, 240, 244, 247),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),

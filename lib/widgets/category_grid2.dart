@@ -34,6 +34,11 @@ class CategoryGrid2 extends StatelessWidget {
         color: Colors.red.shade700,
       ),
       Category(
+        name: 'Cargo', icon: 
+        Icons.local_shipping, 
+        color: Colors.teal
+      ),
+      Category(
         name: 'Comedy', 
         icon: Icons.theater_comedy, 
         color: Colors.brown.shade700,

@@ -167,6 +167,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         companyId: responseData['company_id'] ?? 0,
         officeId: responseData['office_id'] ?? 0,
         shopId: responseData['shop_id'] ?? 0,
+        companyName: responseData['company_name'] ?? '',
         firstName: responseData['first_name'],
         middleName: responseData['middle_name'],
         lastName: responseData['last_name'],

@@ -21,8 +21,7 @@ class _ApplyToBeCargoTransporterPageState
   bool _isLoading = false;
   bool _applied = false;
 
-  final TextEditingController _companyNameController =
-      TextEditingController();
+  final TextEditingController _companyNameController = TextEditingController();
 
   @override
   void initState() {
@@ -40,15 +39,16 @@ class _ApplyToBeCargoTransporterPageState
       setState(() => _isLoading = true);
 
       final Uri uri = useDNS
-          ? Uri.parse('${backend_url}api/apply_to_be_cargo_transporter')
+          ? Uri.parse('${backend_url}api/apply_to_be')
           : Uri.parse(
-              '${backend_url_with_fallback_ip}apply_to_be_cargo_transporter');
+              '${backend_url_with_fallback_ip}apply_to_be');
 
       final response = await http.post(
         uri,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'user_id': userId,
+          'type': 'cargo_transporter',
           'company_name': _companyNameController.text.trim(),
         }),
       );
@@ -80,7 +80,12 @@ class _ApplyToBeCargoTransporterPageState
           children: [
             Icon(Icons.check_circle, color: Colors.green),
             SizedBox(width: 10),
-            Text('Application Submitted'),
+            Text(
+              'Application Submitted',
+              style: const TextStyle(
+                fontSize: 16,
+              )
+            ),
           ],
         ),
         content: const Text(

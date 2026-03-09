@@ -6,8 +6,9 @@ import 'package:tiketi_mkononi/env.dart';
 
 class AddOfficePage extends StatefulWidget {
   final int userId;
+  final int companyId;
 
-  const AddOfficePage({super.key, required this.userId});
+  const AddOfficePage({super.key, required this.userId, required this.companyId});
 
   @override
   State<AddOfficePage> createState() => _AddOfficePageState();
@@ -16,6 +17,7 @@ class AddOfficePage extends StatefulWidget {
 class _AddOfficePageState extends State<AddOfficePage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _officeNameController = TextEditingController();
+  final TextEditingController _officeLocationController = TextEditingController();
 
   bool _isLoading = false;
 
@@ -34,7 +36,9 @@ class _AddOfficePageState extends State<AddOfficePage> {
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'user_id': widget.userId,
+          'company_id': widget.companyId,
           'office_name': _officeNameController.text.trim(),
+          'office_location': _officeLocationController.text.trim(),
         }),
       );
 
@@ -94,8 +98,8 @@ class _AddOfficePageState extends State<AddOfficePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add Office'),
-        backgroundColor: Colors.blueGrey[800],
+        title: Text('Add Office ${widget.companyId}'),
+        backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
         elevation: 4,
       ),
@@ -137,6 +141,19 @@ class _AddOfficePageState extends State<AddOfficePage> {
                             ? 'Office name is required'
                             : null,
                       ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _officeLocationController,
+                        decoration: const InputDecoration(
+                          labelText: 'Office Location',
+                          hintText: 'e.g. Mwanza',
+                          prefixIcon: Icon(Icons.apartment),
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (value) => value == null || value.trim().isEmpty
+                            ? 'Office location is required'
+                            : null,
+                      ),
                       const SizedBox(height: 32),
                       SizedBox(
                         width: double.infinity,
@@ -144,7 +161,7 @@ class _AddOfficePageState extends State<AddOfficePage> {
                         child: ElevatedButton(
                           onPressed: _isLoading ? null : _submitOffice,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blueGrey[800],
+                            backgroundColor: Colors.teal,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
@@ -153,7 +170,11 @@ class _AddOfficePageState extends State<AddOfficePage> {
                               ? const CircularProgressIndicator(color: Colors.white)
                               : const Text(
                                   'Add Office',
-                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold
+                                  ),
                                 ),
                         ),
                       ),

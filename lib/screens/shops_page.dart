@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:tiketi_mkononi/screens/add_shop_attendant_page.dart';
 import 'package:tiketi_mkononi/screens/add_shop_page.dart';
+import 'package:tiketi_mkononi/screens/sales_book_page.dart';
 import '../env.dart';
 
 class ShopsPage extends StatefulWidget {
@@ -54,7 +56,7 @@ class _ShopsPageState extends State<ShopsPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Shops'),
-        backgroundColor: Colors.indigo[700],
+        backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
         elevation: 2,
       ),
@@ -76,7 +78,7 @@ class _ShopsPageState extends State<ShopsPage> {
                       ),
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.indigo,
+        backgroundColor: Colors.teal,
         onPressed: () {
           Navigator.push(
             context,
@@ -84,62 +86,119 @@ class _ShopsPageState extends State<ShopsPage> {
               builder: (context) => AddShopPage(userId: widget.userId,),
           ));
         }, // future: add office
-        child: const Icon(Icons.add),
+        child: const Icon(
+          Icons.add,
+          color: Colors.white
+        ),
       ),
     );
   }
 
   Widget _shopCard(Map<String, dynamic> shop) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => SalesBookPage(userId: widget.userId, shopId: shop['id']), 
+          ),
+        );
+      },
+      child: Card(
+        margin: const EdgeInsets.only(bottom: 16),
+        elevation: 3,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
           children: [
-            CircleAvatar(
-              radius: 26,
-              backgroundColor: Colors.indigo.withOpacity(0.1),
-              child: const Icon(Icons.store, color: Colors.indigo, size: 28),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
                 children: [
-                  Text(
-                    shop['name'] ?? 'Unnamed Shop',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                  CircleAvatar(
+                    radius: 26,
+                    backgroundColor: Colors.indigo.withOpacity(0.1),
+                    child: const Icon(
+                      Icons.store,
+                      color: Colors.teal,
+                      size: 28,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    shop['location'] ?? 'Location not specified',
-                    style: TextStyle(color: Colors.grey[600]),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          shop['name'] ?? 'Unnamed Shop',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          shop['location'] ?? 'Location not specified',
+                          style: TextStyle(color: Colors.grey[600]),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            _chip(
+                              icon: Icons.people,
+                              label: '${shop['wingas'] ?? 0} Wingas',
+                            ),
+                            const SizedBox(width: 10),
+                            _chip(
+                              icon: Icons.trending_up,
+                              label: 'Sales: ${shop['total_sales'] ?? 0}',
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      _chip(
-                        icon: Icons.people,
-                        label: '${shop['wingas'] ?? 0} Wingas',
-                      ),
-                      const SizedBox(width: 10),
-                      _chip(
-                        icon: Icons.trending_up,
-                        label: 'Sales: ${shop['total_sales'] ?? 0}',
-                      ),
-                    ],
-                  ),
+                  const Icon(Icons.chevron_right, color: Colors.grey),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: Colors.grey),
-          ],
-        ),
+
+             Padding(
+                padding: const EdgeInsets.only(
+                  top: 0,
+                  left: 16,
+                  right: 16,
+                  bottom: 4,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    InkWell(
+                      onTap: () {
+                        // your action here
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => AddShopAttendantPage(
+                              userId: widget.userId,
+                              shopId: shop['id'],      // pass what you need
+                            ),
+                          ),
+                        );
+                      },
+                      child: const Icon(
+                        Icons.edit,
+                        size: 14,
+                        color: Colors.grey,
+                      ),
+                    )
+                  ],
+                )
+              )
+          ]
+        )
       ),
     );
   }

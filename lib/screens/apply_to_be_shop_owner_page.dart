@@ -5,18 +5,18 @@ import 'package:tiketi_mkononi/env.dart';
 import 'package:http/http.dart' as http;
 import 'package:tiketi_mkononi/screens/privacy_security_page.dart';
 
-class ApplyToBeBusinessOwnerPage extends StatefulWidget {
+class ApplyToBeShopOwnerPage extends StatefulWidget {
   final int userId;
 
-  const ApplyToBeBusinessOwnerPage({super.key, required this.userId});
+  const ApplyToBeShopOwnerPage({super.key, required this.userId});
 
   @override
-  State<ApplyToBeBusinessOwnerPage> createState() =>
-      _ApplyToBeBusinessOwnerPageState();
+  State<ApplyToBeShopOwnerPage> createState() =>
+      _ApplyToBeShopOwnerPageState();
 }
 
-class _ApplyToBeBusinessOwnerPageState
-    extends State<ApplyToBeBusinessOwnerPage> {
+class _ApplyToBeShopOwnerPageState
+    extends State<ApplyToBeShopOwnerPage> {
   late int userId;
   bool _isLoading = false;
   bool _applied = false;
@@ -32,14 +32,17 @@ class _ApplyToBeBusinessOwnerPageState
       setState(() => _isLoading = true);
 
       final Uri uri = useDNS
-          ? Uri.parse('${backend_url}api/apply_to_be_business_owner')
+          ? Uri.parse('${backend_url}api/apply_to_be')
           : Uri.parse(
-              '${backend_url_with_fallback_ip}apply_to_be_business_owner');
+              '${backend_url_with_fallback_ip}apply_to_be');
 
       final response = await http.post(
         uri,
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'user_id': userId}),
+        body: jsonEncode({
+          'user_id': userId,
+          'type': 'shop_owner',
+        }),
       );
 
       if (response.statusCode == 200 &&
@@ -69,11 +72,16 @@ class _ApplyToBeBusinessOwnerPageState
           children: [
             Icon(Icons.check_circle, color: Colors.green),
             SizedBox(width: 10),
-            Text('Application Submitted'),
+            Text(
+              'Application Submitted',
+              style: const TextStyle(
+                fontSize: 16,
+              )
+            ),
           ],
         ),
         content: const Text(
-          'Your request to become a Business Owner on Tiketi Mkononi '
+          'Your request to become a Shop Owner on Tiketi Mkononi '
           'has been received. Our team will review and activate your account shortly.',
         ),
         actions: [
@@ -102,7 +110,7 @@ class _ApplyToBeBusinessOwnerPageState
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Become a Business Owner'),
+        title: const Text('Become a Shop Owner'),
         backgroundColor: Colors.indigo,
         foregroundColor: Colors.white,
       ),
@@ -127,7 +135,7 @@ class _ApplyToBeBusinessOwnerPageState
                   Icon(Icons.storefront, size: 70, color: Colors.white),
                   SizedBox(height: 16),
                   Text(
-                    'Digitize Your Wholesale Business',
+                    'Digitize Your Wholesale Shop',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white,
@@ -137,7 +145,7 @@ class _ApplyToBeBusinessOwnerPageState
                   ),
                   SizedBox(height: 10),
                   Text(
-                    'Track sales, manage Wingas, and pay commissions fairly — all in one app.',
+                    'Track sales, manage Shop Attendants, and pay commissions fairly — all in one app.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Colors.white70, fontSize: 16),
                   ),
@@ -151,17 +159,17 @@ class _ApplyToBeBusinessOwnerPageState
             _feature(
               Icons.bar_chart,
               'Track Total Sales',
-              'Monitor daily, weekly, and monthly sales from all Wingas.',
+              'Monitor daily, weekly, and monthly sales from all Shop Attendants.',
             ),
             _feature(
               Icons.groups,
-              'Manage Wingas',
+              'Manage Shop Attendants',
               'View sales performance for each Winga clearly.',
             ),
             _feature(
               Icons.calculate,
               'Automatic Commission Calculation',
-              'Pay Wingas proportionally based on recorded sales.',
+              'Pay Shop Attendants proportionally based on recorded sales.',
             ),
             _feature(
               Icons.security,
@@ -197,7 +205,7 @@ class _ApplyToBeBusinessOwnerPageState
                           Text(
                             _applied
                                 ? 'Application Submitted'
-                                : 'Apply as Business Owner',
+                                : 'Apply as Shop Owner',
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,

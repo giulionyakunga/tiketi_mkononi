@@ -73,6 +73,7 @@ dependencies:
   barcode: ^2.2.6
   flutter_svg: ^2.2.3
   # permission_handler: ^10.4.0  # For requesting permission
+  blue_thermal_printer: ^1.2.3
 
 
 dev_dependencies:

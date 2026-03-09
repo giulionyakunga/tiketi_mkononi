@@ -3,13 +3,17 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:tiketi_mkononi/env.dart';
+import 'package:tiketi_mkononi/screens/add_office_attendant_page.dart';
 import 'package:tiketi_mkononi/screens/add_office_page.dart';
-import 'package:tiketi_mkononi/screens/add_shop_page.dart';
+import 'package:tiketi_mkononi/screens/consignments_page.dart';
 
 class OfficesPage extends StatefulWidget {
   final int userId;
+  final int companyId;
+  final String companyName;
+  final String role;
 
-  const OfficesPage({super.key, required this.userId});
+  const OfficesPage({super.key, required this.userId, required this.companyId, required this.companyName, required this.role});
 
   @override
   State<OfficesPage> createState() => _OfficesPageState();
@@ -69,24 +73,40 @@ class _OfficesPageState extends State<OfficesPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Cargo Offices'),
-        backgroundColor: Colors.indigo,
+        backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
         elevation: 3,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.local_shipping),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ConsignmentsPage(userId: widget.userId, officeId: 0, officeName: '', companyId: widget.companyId, companyName: widget.companyName, role: widget.role),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: _fetchOffices,
         child: _buildBody(),
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.indigo,
+        backgroundColor: Colors.teal,
         onPressed: () {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => AddOfficePage(userId: widget.userId,),
+              builder: (context) => AddOfficePage(userId: widget.userId, companyId: widget.companyId),
           ));
         }, // future: add office
-        child: const Icon(Icons.add),
+        child: const Icon(
+          Icons.add,
+          color: Colors.white
+        ),
       ),
     );
   }
@@ -126,7 +146,7 @@ class _OfficesPageState extends State<OfficesPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.location_city, size: 80, color: Colors.grey),
+            Icon(Icons.location_city, size: 80, color: Colors.teal),
             SizedBox(height: 16),
             Text(
               'No offices registered yet',
@@ -151,7 +171,7 @@ class _OfficesPageState extends State<OfficesPage> {
           child: ListTile(
             leading: CircleAvatar(
               backgroundColor: Colors.indigo.withOpacity(0.1),
-              child: const Icon(Icons.apartment, color: Colors.indigo),
+              child: const Icon(Icons.apartment, color: Colors.teal),
             ),
             title: Text(
               office['name'] ?? 'Office',
@@ -169,9 +189,50 @@ class _OfficesPageState extends State<OfficesPage> {
                 ),
               ],
             ),
-            trailing: const Icon(Icons.chevron_right),
+
+            // 👇 two actions: edit + navigate
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(
+                    Icons.edit,
+                    size: 12,
+                    color: Colors.teal
+                  ),
+                  tooltip: 'Edit office',
+                  onPressed: () {
+                    // EDIT ACTION HERE
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => AddOfficeAttendantPage(
+                          userId: widget.userId,
+                          officeId: office['id'],
+                          companyId: office['company_id'],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+
+            // 👇 card tap remains unchanged
             onTap: () {
-              // Navigate to office details page
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ConsignmentsPage(
+                    userId: widget.userId,
+                    officeId: office['id'],
+                    officeName: office['name'],
+                    companyId: office['company_id'],
+                    companyName: widget.companyName,
+                    role: widget.role,
+                  ),
+                ),
+              );
             },
           ),
         );
