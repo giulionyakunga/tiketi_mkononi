@@ -40,6 +40,7 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
   int userId = 0;
+  String token = "";
   int companyId = 0;
   int officeId = 0;
   int shopId = 0;
@@ -71,6 +72,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
     if (profile != null) {
       setState(() {
         userId = profile.id;
+        token = profile.token;
         companyId = profile.companyId;
         officeId = profile.officeId;
         companyName = profile.companyName;
@@ -104,7 +106,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
           shopId = responseData['shop_id'] ?? 0;
           role = responseData['role'];
           companyName = responseData['company_name'];
-          userName = '${responseData['first_name']} ${responseData['last_name']}';
+          userName = responseData['first_name'];
           userPhoneNumber = '${responseData['phone_number']}';
         });
         var profile = _storageService.getUserProfile();
@@ -900,7 +902,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => SystemUsersPage(userId: userId),
+                builder: (context) => SystemUsersPage(userId: userId, token: token),
               ),
             );
           },

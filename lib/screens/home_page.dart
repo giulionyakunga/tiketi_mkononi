@@ -70,9 +70,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         officeId = profile.officeId;
         shopId = profile.shopId;
         companyName = profile.companyName;
-        userName = '${profile.firstName} ${profile.lastName}';
+        userName = profile.firstName;
         userPhoneNumber = profile.phoneNumber;
       });
+      getUserRole();
       fetchEvents();
     }else {
       fetchEvents();
@@ -102,6 +103,59 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       setState(() {
         eventsList = dataList.map((json) => Event.fromJson(json)).toList();
       });
+    }
+  }
+
+    Future<void> getUserRole({bool useDNS = true}) async {
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/get_user_role/$userId') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}get_user_role/$useDNS'); // Use IP
+        
+    try {
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        debugPrint('response.body : ${response.body}');
+        setState(() {
+          companyId = responseData['company_id'] ?? 0;
+          officeId = responseData['office_id'] ?? 0;
+          shopId = responseData['shop_id'] ?? 0;
+          role = responseData['role'];
+          companyName = responseData['company_name'];
+          userName = responseData['first_name'];
+          userPhoneNumber = '${responseData['phone_number']}';
+        });
+        var profile = _storageService.getUserProfile();
+        profile!.role =  responseData['role'];
+        profile.companyName =  responseData['company_name'];
+        await _storageService.saveUserProfile(profile);
+      }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await getUserRole(useDNS: false); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
+          return;
+        }
+      }
+
+      _handleSocketException(e);
+    } catch (e) {
+      debugPrint('Error getting user role: $e');
+    } finally {
+      debugPrint('Process finished');
     }
   }
 
@@ -157,6 +211,35 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       } catch (e) {
       debugPrint('Error fetching events: $e');
     }
+  }
+
+  void _handleSocketException(SocketException e) {
+    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 101 || e.osError?.errorCode == 111) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Connection Error'),
+          content: const Text('Could not connect to the server. Please check your internet connection.'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      );
+    } else {
+      _showSnackBar('Connection Error: ${e.message}');
+    }
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
   }
 
   void refreshMethod() {

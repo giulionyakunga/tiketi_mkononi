@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:tiketi_mkononi/models/event.dart';
 import 'package:tiketi_mkononi/screens/add_consignment_page.dart';
 import 'package:tiketi_mkononi/screens/apply_to_be_cargo_transporter_page.dart';
 import 'package:tiketi_mkononi/screens/category_events_page.dart';

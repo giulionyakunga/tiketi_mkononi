@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'package:blue_thermal_printer/blue_thermal_printer.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 import 'package:tiketi_mkononi/env.dart';
@@ -9,6 +11,7 @@ import 'package:http/http.dart' as http;
 import 'package:tiketi_mkononi/screens/consignments_page.dart';
 import 'package:tiketi_mkononi/screens/platform_detector_stub.dart';
 import 'package:tiketi_mkononi/screens/qr_scanner_cargo_page.dart';
+import 'package:tiketi_mkononi/services/SimpleCodec.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -57,14 +60,26 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
   bool _isParcel = true;
   late final StorageService _storageService;
 
-  List<ConsignmentItem> _consignmentItems = [];
+  final BlueThermalPrinter bluetooth = BlueThermalPrinter.instance;
+  BluetoothDevice? selectedDevice;
+  BluetoothDevice? selectedPrinter;
+  int _selectedNumberofReceiptsToPrint = 1;
 
+  List<ConsignmentItem> _consignmentItems = [];
+  Map<String, dynamic>? _addedConsignment;
+  
+  String selectedPaymentMethod = 'MIXX BY YAS';
+  final List<String> paymentMethods = ['MIXX BY YAS', 'M-PESA', 'AIRTEL MONEY', 'HALOPESA', 'AZAMPESA'];
+
+  int receiptsBalance = 0;
 
   @override
   void initState() {
     super.initState();
     _initializeServices();
     _addConsignmentItem();
+    _refreshBluetoothPrinters();
+    _loadNumberOfReceipts();
   }
 
   Future<void> _initializeServices() async {
@@ -109,8 +124,6 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
         // Loop through each office
         for (var office in responseData) {
-          debugPrint("offices > ${responseData.length} id: ${widget.officeId}, ${office['id']}, ${office['name']}");
-
           // Add name to officeNames
           if (office['id'] != widget.officeId) {
             officeNames2.add(office['name']);
@@ -354,11 +367,16 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       );
 
       if (response.statusCode == 200) {
-        if (response.body == "Consignment added successfully!") {
+
+        final responseData = jsonDecode(response.body);
+        String message = responseData['message'];
+        receiptsBalance = responseData['number_of_sms'];
+        _saveReceiptsBalance(responseData['number_of_sms']);
+
+        if ((message.trim() == "Consignment added successfully!") || (message.trim() == "Parcel added successfully!"))  {
           _packageNameController.clear();
           _senderNameController.clear();
           _senderPhoneNumberController.clear();
-          _fromController.clear();
           _toController.clear();
           _receiverNameController.clear();
           _receiverPhoneNumberController.clear();
@@ -366,18 +384,30 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
           _paidAmountController.clear();
           _consignmentItems.clear();
           if(!_isParcel) {
+            _consignmentItems.clear();
             _addConsignmentItem();
+          } else {
+            _consignmentItems.clear();
           }
 
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ConsignmentsPage(userId: userId, officeId: 0, officeName: '', companyId: 0, role: role, companyName: widget.companyName,),
-            ),
-          );
+          setState(() {
+            _addedConsignment = requestBody;
+          });
+
+          if(_selectedNumberofReceiptsToPrint == 2) {
+            _printBluetoothReceipt(requestBody);
+            _printBluetoothReceipt2(requestBody);
+          } else {
+            _printBluetoothReceipt(requestBody);
+          }
         }
+
+        if (message.trim() == "Kifurushi chako kimeisha!") { 
+          _payDialog();
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(response.body)),
+          SnackBar(content: Text(message.trim())),
         );
       } else if (response.statusCode == 302) {
         _handleHTTPRedirect();
@@ -415,6 +445,221 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       );
     } finally {
       setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _payDialog() async {
+    String? selectedPackage;
+    String? selectedCustomers;
+    int? selectedAmount;
+    String? selectedPaymentMethod;
+
+    final TextEditingController phoneController = TextEditingController();
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              title: const Text(
+                "Chagua kifurushi",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+
+                    /// Packages
+                    ...[
+                      {"customers": "10", "amount": 1250},
+                      {"customers": "25", "amount": 2500},
+                      {"customers": "50", "amount": 5000},
+                      {"customers": "100", "amount": 10000},
+                      {"customers": "200", "amount": 20000},
+                      {"customers": "300", "amount": 30000},
+                      {"customers": "400", "amount": 40000},
+                    ].map((pkg) {
+                      return RadioListTile(
+                        dense: true,  
+                        visualDensity: const VisualDensity(vertical: -4),
+                        title: Text(
+                          "Wateja ${pkg["customers"]} - TSH ${pkg["amount"]}",
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        value: pkg["customers"],
+                        groupValue: selectedPackage,
+                        onChanged: (value) {
+                          setState(() {
+                            selectedPackage = value.toString();
+                            selectedCustomers = value.toString();
+                            selectedAmount = pkg["amount"] as int;
+                          });
+                        },
+                      );
+                    }),
+
+                    const SizedBox(height: 6),
+
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        "Payment Method",
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+
+                    const Divider(height: 10),
+
+                    /// Payment Methods
+                    Column(
+                      children: paymentMethods.map((method) {
+                        return RadioListTile(
+                          dense: true,
+                          visualDensity: const VisualDensity(vertical: -4),
+                          title: Text(method, style: const TextStyle(fontSize: 12)),
+                          value: method,
+                          groupValue: selectedPaymentMethod,
+                          onChanged: (value) {
+                            setState(() {
+                              selectedPaymentMethod = value.toString();
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+
+                    const SizedBox(height: 6),
+
+                    /// Phone
+                    TextField(
+                      controller: phoneController,
+                      keyboardType: TextInputType.phone,
+                      decoration: const InputDecoration(
+                        isDense: true,
+                        labelText: "Namba ya simu ya malipo",
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    /// Pay button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          await _sendPaymentRequest(
+                            phoneController.text.trim(),
+                            selectedCustomers,
+                            selectedAmount,
+                          );
+                        },
+                        child: const Text("Lipa"),
+                      ),
+                    )
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _sendPaymentRequest(
+    String phone,
+    String? customers,
+    int? amount,
+    {bool useDNS = true}
+  ) async {
+
+    if (phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Phone number cannot be empty')),
+      );
+      return;
+    }
+
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/pay_daily_package/${widget.userId}')
+    : Uri.parse('${backend_url_with_fallback_ip}pay_daily_package/${widget.userId}'); // Use IP
+
+      String selectedPaymentMethod2 = '';
+      if(selectedPaymentMethod == 'M-PESA') {
+        selectedPaymentMethod2 = 'Mpesa';
+      }else if(selectedPaymentMethod == 'MIXX BY YAS') {
+        selectedPaymentMethod2 = 'Tigo';
+      }else if(selectedPaymentMethod == 'AIRTEL MONEY') {
+        selectedPaymentMethod2 = 'Airtel';
+      }else if(selectedPaymentMethod == 'HALOPESA') {
+        selectedPaymentMethod2 = 'Halopesa';
+      }else if(selectedPaymentMethod == 'AZAMPESA') {
+        selectedPaymentMethod2 = 'Azampesa';
+      }
+
+    try {
+      final response = await http.post(
+        uri,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: jsonEncode({
+          "phone_number": phone,
+          "customers": customers,
+          "amount": amount,
+          'selected_payment_method': selectedPaymentMethod2,
+        }),
+      );
+
+      debugPrint('phone_number: $phone');
+      debugPrint('customers: $customers');
+      debugPrint('amount: $amount');
+
+      if (response.statusCode == 200) {
+        if (response.body == "Processing payment!") { 
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Ombi la malipo limetumwa")),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(response.body)),
+          );
+        }
+
+        Navigator.pop(context);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Malipo yameshindwa")),
+        );
+      }
+    }  on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await _sendPaymentRequest(phone, customers, amount, useDNS: false); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
+          return;
+        }
+      }
+
+      _handleSocketException(e);
+    } catch (e) {
+      print("Payment error: $e");
     }
   }
 
@@ -724,6 +969,33 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     }
   }
 
+  PopupMenuItem<String> _buildMenuItem({
+    required IconData icon,
+    required String text,
+    required String value,
+  }) {
+    return PopupMenuItem<String>(
+      value: value,
+      height: 44,
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 20,
+            color: Colors.grey.shade800,
+          ),
+          const SizedBox(width: 12),
+          Text(
+            text,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -759,6 +1031,76 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                 ),
               );
             },
+          ),
+          PopupMenuButton<String>(
+            padding: EdgeInsets.zero,
+            tooltip: 'More Options',
+            elevation: 8,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            icon: Icon(
+              Icons.more_vert,
+              color: Colors.white,
+              size: 22,
+            ),
+            onSelected: (value) async {
+              if (value == 'reprint_receipt') {
+                if (_addedConsignment != null) {
+                  _printBluetoothReceipt(_addedConsignment);
+                }
+              } else if (value == 'my_receipt') {
+                if (_addedConsignment != null) {
+                  _printBluetoothReceipt2(_addedConsignment);
+                }
+              } else if (value == 'refresh_printers') {
+                _refreshBluetoothPrinters();
+              } else if (value == 'number_of_receipts_to_print') {
+                await _selectNumberofReceiptsToPrintDialog();
+              } else if (value == 'topup_receipt') {
+                _payDialog();
+              } else if (value == 'exit') {
+                Navigator.pop(context);
+              }
+            },
+            itemBuilder: (context) => [
+              _buildMenuItem(
+                icon: Icons.print,
+                text: 'Reprint Receipt',
+                value: 'reprint_receipt',
+              ),
+              _buildMenuItem(
+                icon: Icons.print,
+                text: 'My Receipt',
+                value: 'my_receipt',
+              ),
+              _buildMenuItem(
+                icon: Icons.refresh,
+                text: 'Refresh Printers',
+                value: 'refresh_printers',
+              ),
+              _buildMenuItem(
+                icon: Icons.numbers,
+                text: 'Print ${_selectedNumberofReceiptsToPrint} Receipts',
+                value: 'number_of_receipts_to_print',
+              ),
+              _buildMenuItem(
+                icon: Icons.account_balance_wallet,
+                text: 'Receipts Balance: ${receiptsBalance}',
+                value: 'topup_receipt',
+              ),
+              _buildMenuItem(
+                icon: Icons.add_card,
+                text: 'Topup Receipt',
+                value: 'topup_receipt',
+              ),
+              const PopupMenuDivider(),
+              _buildMenuItem(
+                icon: Icons.exit_to_app,
+                text: 'Exit',
+                value: 'exit',
+              ),
+            ],
           ),
         ],
       ),
@@ -970,4 +1312,437 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       ),
     );
   }
+  
+  Future<void> _refreshBluetoothPrinters() async {
+
+    bool? isConnected = await bluetooth.isConnected;
+
+    if (!(isConnected ?? false)) {
+      debugPrint(' Not Connected to bluetooth device, connecting...');
+      List<BluetoothDevice> devices = await bluetooth.getBondedDevices();
+
+      if (devices.isNotEmpty) {
+        await _selectPrinterDialog(devices);
+
+        if (selectedPrinter == null) {
+          print("No printer found");
+          return;
+        }
+
+        try {
+          await bluetooth.connect(selectedPrinter!);
+          isConnected = true;
+        } catch (e) {
+          isConnected = false;
+          debugPrint('Failed to connect to printer: $e');
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to connect to printer'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return; // stop printing
+        }
+      } else {
+        // No paired printer found
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No paired Bluetooth printer found.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return; // stop printing
+      }
+    }
+
+    if (!(isConnected ?? false)) {
+      // Printer still not connected
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Printer is not connected.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    bluetooth.printNewLine();
+    bluetooth.printCustom("********************************", 1, 1);
+    bluetooth.printCustom("*${widget.companyName}*", 2, 1);
+    bluetooth.printCustom("********************************", 1, 1);
+    bluetooth.printNewLine();
+    bluetooth.printNewLine();
+    bluetooth.paperCut();
+   
+  }
+
+
+  Future<void> _printBluetoothReceipt(dynamic consignment) async {
+
+    bool? isConnected = await bluetooth.isConnected;
+
+    if (!(isConnected ?? false)) {
+      debugPrint(' Not Connected to bluetooth device, connecting...');
+      List<BluetoothDevice> devices = await bluetooth.getBondedDevices();
+
+      if (devices.isNotEmpty) {
+        await _selectPrinterDialog(devices);
+
+        if (selectedPrinter == null) {
+          print("No printer found");
+          return;
+        }
+
+        try {
+          await bluetooth.connect(selectedPrinter!);
+          isConnected = true;
+        } catch (e) {
+          isConnected = false;
+          debugPrint('Failed to connect to printer: $e');
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to connect to printer'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return; // stop printing
+        }
+      } else {
+        // No paired printer found
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No paired Bluetooth printer found.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return; // stop printing
+      }
+    }
+
+    if (!(isConnected ?? false)) {
+      // Printer still not connected
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Printer is not connected.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final items = consignment['consignment_items'] ?? [];
+
+    bluetooth.printNewLine();
+    bluetooth.printCustom("********************************", 1, 1);
+    bluetooth.printCustom(widget.companyName, 1, 1);
+    bluetooth.printCustom("********************************", 1, 1);
+    bluetooth.printCustom(consignment['is_parcel'] ? "PARCEL RECEIPT" : "CONSIGNMENT RECEIPT", 1, 1);
+    bluetooth.printCustom("Package No: ${consignment['id']}", 1, 1);
+    bluetooth.printLeftRight("Package Name", consignment['package_name'] ?? '', 1);
+
+    // final packageValue = (consignment['package_value'] ?? 0).toInt();
+    // bluetooth.printLeftRight(
+    //   "Package Value",
+    //   packageValue == 0
+    //       ? "N/A"
+    //       : "TZS ${NumberFormat('#,##0').format((consignment['package_value'] ?? 0).toInt())}",
+    //   1,
+    // );
+    bluetooth.printLeftRight(
+      "Package Value",
+      "TZS ${consignment['package_value']}",
+      1,
+    );
+
+    bluetooth.printLeftRight("Payment Status", consignment['payment_status'] ? 'Paid' : 'Not Paid', 1);
+
+    if(consignment['payment_status']) {
+      bluetooth.printLeftRight(
+        "Paid Amount",
+        "TZS ${consignment['paid_amount']}",
+        // "TZS ${NumberFormat('#,##0').format((consignment['paid_amount'] ?? 0).toInt())}",
+        1,
+      );
+    }
+
+    bluetooth.printCustom("Route", 1, 0);
+    bluetooth.printLeftRight("From", consignment['from'] ?? '', 1);
+    bluetooth.printLeftRight("To", consignment['to'] ?? '', 1);
+
+    bluetooth.printCustom("Sender", 1, 0);
+    bluetooth.printLeftRight("Name", consignment['sender_name'] ?? '', 1);
+    bluetooth.printLeftRight("Phone", consignment['sender_phone_number'] ?? '', 1);
+
+    bluetooth.printCustom("Receiver", 1, 0); 
+    bluetooth.printLeftRight("Name", consignment['receiver_name'] ?? '', 1);
+    bluetooth.printLeftRight("Phone", consignment['receiver_phone_number'] ?? '', 1);
+
+    if ((items.length > 1) && (items.length <= 10)) {
+      bluetooth.printCustom("Items", 1, 0);
+
+      int index = 1;
+      for (var item in items) {
+        bluetooth.printLeftRight(
+          "$index. ${item['name']} (x${item['quantity']})",
+          "TZS ${NumberFormat('#,##0').format((((item['value'] ?? 0).toInt()) * item['quantity']).toInt())}",
+          1,
+        );
+
+        index++;
+      }
+    }
+
+    bluetooth.printNewLine();
+    bluetooth.printCustom("Issued By", 1, 0);
+    bluetooth.printLeftRight("Name", consignment['issued_by'] ?? '', 1);
+    bluetooth.printLeftRight("Phone", consignment['issuer_phone_number'] ?? '', 1);
+
+    String data = SimpleCodec.encode(jsonEncode({
+      "cid": consignment['id'],
+      "oid": consignment['office_id'],
+    }));
+
+    // QR CODE
+    bluetooth.printQRcode(
+      data,
+      200,
+      200,
+      1,
+    );
+
+    bluetooth.printCustom("Thank you", 1, 1);
+    bluetooth.printNewLine();
+    bluetooth.printCustom("Powered by Tiketi Mkononi", 1, 1);
+    bluetooth.printCustom("https://tiketimkononi.telabs.co.tz", 1, 1);
+    bluetooth.printCustom("********************************", 1, 1);
+    bluetooth.printNewLine();
+    bluetooth.printNewLine();
+    bluetooth.paperCut();
+  }
+
+  Future<void> _printBluetoothReceipt2(dynamic consignment) async {
+
+    bool? isConnected = await bluetooth.isConnected;
+
+    if (!(isConnected ?? false)) {
+      debugPrint(' Not Connected to bluetooth device, connecting...');
+      List<BluetoothDevice> devices = await bluetooth.getBondedDevices();
+
+      if (devices.isNotEmpty) {
+        await _selectPrinterDialog(devices);
+
+        if (selectedPrinter == null) {
+          print("No printer found");
+          return;
+        }
+
+        try {
+          await bluetooth.connect(selectedPrinter!);
+          isConnected = true;
+        } catch (e) {
+          isConnected = false;
+          debugPrint('Failed to connect to printer: $e');
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to connect to printer'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return; // stop printing
+        }
+      } else {
+        // No paired printer found
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No paired Bluetooth printer found.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return; // stop printing
+      }
+    }
+
+    if (!(isConnected ?? false)) {
+      // Printer still not connected
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Printer is not connected.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final items = consignment['consignment_items'] ?? [];
+
+    bluetooth.printNewLine();
+    bluetooth.printCustom("********************************", 1, 1);
+    bluetooth.printCustom(widget.companyName, 2, 1);
+    bluetooth.printCustom("********************************", 1, 1);
+    bluetooth.printCustom(consignment['is_parcel'] ? "PARCEL CODE" : "CONSIGNMENT CODE", 2, 1);
+    bluetooth.printCustom("Pkg No: ${consignment['id']}", 2, 1);
+
+    if(consignment['is_parcel']) {
+      bluetooth.printCustom("${consignment['package_name']}", 2, 1);
+    } else {
+      if (items.length > 1) {
+        bluetooth.printCustom("${consignment['package_name']}(${items.length})", 2, 1);
+      } else {
+        bluetooth.printCustom("${consignment['package_name']}", 2, 1);
+      }
+    }
+
+    bluetooth.printCustom("${consignment['receiver_name']}", 2, 1);
+    bluetooth.printCustom("${consignment['receiver_phone_number']}", 2, 1);
+
+    String data = SimpleCodec.encode(jsonEncode({
+      "cid": consignment['id'],
+      "oid": consignment['office_id'],
+    }));
+
+    // QR CODE
+    bluetooth.printQRcode(
+      data,
+      250,
+      250,
+      1,
+    );
+
+    bluetooth.printCustom("Powered by Tiketi Mkononi", 1, 1);
+    bluetooth.printCustom("https://tiketimkononi.telabs.co.tz", 1, 1);
+    bluetooth.printCustom("********************************", 1, 1);
+    bluetooth.printNewLine();
+    bluetooth.printNewLine();
+    bluetooth.paperCut();
+  }
+
+  Future<void> _saveNumberOfReceipts(int value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('number_of_receipts_to_print', value);
+  }
+
+  Future<void> _saveReceiptsBalance(int value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('receipts_balance', value);
+  }
+
+  Future<void> _loadNumberOfReceipts() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    setState(() {
+      _selectedNumberofReceiptsToPrint = prefs.getInt('number_of_receipts_to_print') ?? 1;
+      receiptsBalance = prefs.getInt('receipts_balance') ?? 0;
+    });
+  }
+
+  Future<void> _selectNumberofReceiptsToPrintDialog() async {
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final isSmallScreen = constraints.maxWidth < 400;
+            final dialogWidth =
+                isSmallScreen ? constraints.maxWidth * 0.9 : 400.0;
+
+            return AlertDialog(
+              contentPadding: const EdgeInsets.all(20),
+              title: const Text("Select number of receipts"),
+              content: SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: dialogWidth),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ListTile(
+                        title: const Text("Print 1 receipt"),
+                        selected: _selectedNumberofReceiptsToPrint == 1,
+                        trailing: (_selectedNumberofReceiptsToPrint == 1) ? const Icon(Icons.check, color: Colors.green) : null,
+                        onTap: () {
+                          setState(() {
+                            _selectedNumberofReceiptsToPrint = 1;
+                          });
+                          _saveNumberOfReceipts(1);
+                          Navigator.of(context).pop();
+                        },
+                      ),
+                      ListTile(
+                        title: const Text("Print 2 receipts"),
+                        selected: _selectedNumberofReceiptsToPrint == 2,
+                        trailing: (_selectedNumberofReceiptsToPrint == 2) ? const Icon(Icons.check, color: Colors.green) : null,
+                        onTap: () {
+                          setState(() {
+                            _selectedNumberofReceiptsToPrint = 2;
+                          });
+                          _saveNumberOfReceipts(2);
+                          Navigator.of(context).pop();
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _selectPrinterDialog(List<BluetoothDevice> devices) async {
+    if (devices.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No printers found.')),
+      );
+      return;
+    }
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final isSmallScreen = constraints.maxWidth < 400;
+            final dialogWidth = isSmallScreen ? constraints.maxWidth * 0.9 : 400.0;
+
+            return AlertDialog(
+              contentPadding: EdgeInsets.all(20),
+              title: Text("Select a printer"),
+              content: SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: dialogWidth),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: devices
+                        .map(
+                          (device) => ListTile(
+                            title: Text(device.name!),
+                            subtitle: Text(device.address!),
+                            onTap: () async {
+                              _saveSelectedPrinter(device.name!);
+                              selectedPrinter = device;
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _saveSelectedPrinter(String printerName) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('selected_printer_name', printerName);
+  }
+
+
 }

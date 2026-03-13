@@ -98,7 +98,7 @@ class _AddOfficePageState extends State<AddOfficePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Add Office ${widget.companyId}'),
+        title: const Text('Add Office'),
         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
         elevation: 4,

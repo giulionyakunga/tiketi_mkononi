@@ -10,8 +10,9 @@ import 'package:url_launcher/url_launcher.dart';
 
 class SystemUsersPage extends StatefulWidget {
   final int userId;
+  final String token;
 
-  const SystemUsersPage({super.key, required this.userId});
+  const SystemUsersPage({super.key, required this.userId, required this.token});
 
   @override 
   State<SystemUsersPage> createState() => _SystemUsersPageState();
@@ -98,7 +99,14 @@ class _SystemUsersPageState extends State<SystemUsersPage> {
     : Uri.parse('${backend_url_with_fallback_ip}get_users_only_by_admin/${widget.userId}');
 
     try {
-      final response = await http.get(uri);
+
+      final response = await http.get(
+        uri,
+        headers: {
+          'Authorization': 'Bearer ${widget.token}',
+          'Content-Type': 'application/json',
+        },
+      );
 
       if (response.statusCode == 200) {
         

@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -10,9 +12,9 @@ import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 import 'package:blue_thermal_printer/blue_thermal_printer.dart';
 import 'package:tiketi_mkononi/services/SimpleCodec.dart';
+import 'package:excel/excel.dart' hide Border;  // Hide Excel's Border
 
 
 class ConsignmentsPage extends StatefulWidget {
@@ -38,7 +40,9 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
   bool _showDetails = false;
   DateTime _selectedDate = DateTime.now();
   BluetoothDevice? selectedPrinter;
+  String _appbarLabel = 'Consignment';
   String _typeFilter = 'all'; // all | parcel | consignment
+  String _paymentFilter = 'all'; // all | parcel | consignment
   
   final BlueThermalPrinter bluetooth = BlueThermalPrinter.instance;
   BluetoothDevice? selectedDevice;
@@ -186,7 +190,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          (widget.officeId > 0) ? '${widget.officeName} Consignments' : 'All Consignments',
+          (widget.officeId > 0) ? '${widget.officeName} $_appbarLabel' : 'All $_appbarLabel',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600
@@ -202,11 +206,12 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
           ),
           if (_selectedConsignment != null)
             IconButton(
-              icon: const Icon(Icons.close),
+              icon: const Icon(Icons.refresh),
               onPressed: () {
                 setState(() {
                   _showDetails = false;
                   _selectedConsignment = null;
+                  _refreshBluetoothPrinters();
                 });
               },
             ),
@@ -283,75 +288,413 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
   Widget _buildTypeFilter() {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-      child: Row(
-        children: [
-          _buildFilterChip(
-            label: "All",
-            icon: Icons.list,
-            value: "all",
-          ),
-          const SizedBox(width: 8),
-          _buildFilterChip(
-            label: "Parcel",
-            icon: Icons.inventory_2,
-            value: "parcel",
-          ),
-          const SizedBox(width: 8),
-          _buildFilterChip(
-            label: "Consignment",
-            icon: Icons.local_shipping,
-            value: "consignment",
-          ),
-        ],
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _buildFilterChip(
+              label: "All",
+              icon: Icons.list,
+              value: "all",
+            ),
+            const SizedBox(width: 8),
+            _buildFilterChip(
+              label: "Parcel",
+              icon: Icons.inventory_2,
+              value: "parcel",
+            ),
+            const SizedBox(width: 8),
+            _buildFilterChip(
+              label: "Consignment",
+              icon: Icons.local_shipping,
+              value: "consignment",
+            ),
+            const SizedBox(width: 8),
+            _buildFilterChip(
+              label: "Paid",
+              icon: Icons.check_circle,
+              value: "paid",
+            ),
+            const SizedBox(width: 8),
+            _buildFilterChip(
+              label: "Unpaid",
+              icon: Icons.money_off,
+              value: "unpaid",
+            ),
+            const SizedBox(width: 8),
+            _buildFilterChip(
+              label: "Export Unpaid",
+              icon: Icons.download,
+              value: "export_unpaid",
+            ),
+            const SizedBox(width: 8),
+            _buildFilterChip(
+              label: "Export Paid",
+              icon: Icons.download,
+              value: "export_paid",
+            ),
+            const SizedBox(width: 8),
+            _buildFilterChip(
+              label: "Export All",
+              icon: Icons.download,
+              value: "export_all",
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildFilterChip({
-  required String label,
-  required IconData icon,
-  required String value,
-}) {
-  final bool isActive = _typeFilter == value;
+    required String label,
+    required IconData icon,
+    required String value,
+  }) {
+    final bool isActive = _typeFilter == value;
 
-  return GestureDetector(
-    onTap: () {
-      setState(() {
-        _typeFilter = value;
-      });
-    },
-    child: AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: isActive ? Colors.teal : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isActive ? Colors.teal : Colors.grey.shade300,
+    return GestureDetector(
+      onTap: () {
+        if((value == 'all') || (value == 'parcel') || (value == 'consignment')) {
+          setState(() {
+            _paymentFilter = 'all';
+            _typeFilter = value;
+            _appbarLabel = '${value[0].toUpperCase() + value.substring(1)}s';
+          });
+        } else if (value == 'unpaid') {
+          setState(() {
+            _typeFilter = 'all';
+            _paymentFilter = value;
+          });
+        } else if (value == 'export_unpaid') {
+          exportUnpaidPackages(_consignments);
+        } else if (value == 'export_paid') {
+          exportPaidPackages(_consignments);
+        } else if (value == 'export_all') {
+          exportAllPackages(_consignments);
+        } else if (value == 'paid') {
+          setState(() {
+            _typeFilter = 'all';
+            _paymentFilter = value;
+          });
+        }
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive ? Colors.teal : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isActive ? Colors.teal : Colors.grey.shade300,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 14,
+              color: isActive ? Colors.white : Colors.grey.shade700,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: isActive ? Colors.white : Colors.grey.shade800,
+              ),
+            ),
+          ],
         ),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 14,
-            color: isActive ? Colors.white : Colors.grey.shade700,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: isActive ? Colors.white : Colors.grey.shade800,
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
+    );
+  }
+  
+  Future<void> exportUnpaidPackages(List<dynamic> consignments) async {
+    if(consignments.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No packages found')),
+      );
+      return;
+    }
+    
+    consignments = consignments.where((c) {
+      return (c['payment_status'] == false);
+    }).toList();
+
+    // Create a new Excel document
+    final excel = Excel.createExcel();
+    final Sheet sheet = excel.sheets['Sheet1']!;
+
+    // Add header row
+    sheet.appendRow([
+      'Package Name',
+      'Sender Name',
+      'Sender Phone',
+      'From',
+      'To',
+      'Receiver Name',
+      'Receiver Phone',
+      'Package Value',
+      'Amount to be Paid',
+      'Payment Status',
+      'Is Parcel',
+      'Items',
+      'Issued By',
+      'Issuer Phone'
+    ]);
+
+    // Add consignment data
+    for (final consignment in consignments) {
+
+      // Convert consignment items to a readable string
+      final items = (consignment['consignment_items'] as List)
+          .map((item) =>
+              "${item['name']} (x${item['quantity']}) - ${item['value']}")
+          .join(", ");
+
+      sheet.appendRow([
+        consignment['package_name'],
+        consignment['sender_name'],
+        consignment['sender_phone_number'],
+        consignment['from'],
+        consignment['to'],
+        consignment['receiver_name'],
+        consignment['receiver_phone_number'],
+        consignment['package_value'],
+        consignment['paid_amount'],
+        consignment['payment_status'] ? 'Paid' : 'Unpaid',
+        consignment['is_parcel'] ? 'Yes' : 'No',
+        items,
+        consignment['issued_by'],
+        consignment['issuer_phone_number'],
+      ]);
+    }
+
+
+    // Save the file
+    try {
+      if(kIsWeb) { 
+        // Trigger download in browser
+        excel.save(fileName: 'Unpaid_Packages.xlsx');
+      } else {
+        // if(share) {
+        //     // 2. Save to a temporary file (mobile only)
+        //     final dir = await getTemporaryDirectory();
+        //     final file = File('${dir.path}/Unpaid_Packages.xlsx');
+        //     await file.writeAsBytes(excel.encode()!);
+
+        //     // 3. Share the file
+        //     await Share.shareXFiles(
+        //       [XFile(file.path)],  // Wrap in XFile
+        //       text: 'Check out this tickets data! 📊',  // Optional text
+        //     );
+        // }else {
+
+          final directory = await getTemporaryDirectory();
+          final filePath = '${directory.path}/Unpaid_Packages.xlsx';
+          final file = File(filePath);
+          await file.writeAsBytes(excel.encode()!);
+
+          // Open the file
+          await OpenFilex.open(filePath);
+        
+      }
+    } catch (e) {
+      print('Error exporting to Excel: $e');
+      // Handle error (show a snackbar or dialog)
+    }
+  }
+
+  Future<void> exportPaidPackages(List<dynamic> consignments) async {
+    if(consignments.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No packages found')),
+      );
+      return;
+    }
+
+    consignments = consignments.where((c) {
+      return c['payment_status'] == true;
+    }).toList();
+
+    // Create a new Excel document
+    final excel = Excel.createExcel();
+    final Sheet sheet = excel.sheets['Sheet1']!;
+
+    // Add header row
+    sheet.appendRow([
+      'Package Name',
+      'Sender Name',
+      'Sender Phone',
+      'From',
+      'To',
+      'Receiver Name',
+      'Receiver Phone',
+      'Package Value',
+      'Paid Amount',
+      'Payment Status',
+      'Is Parcel',
+      'Items',
+      'Issued By',
+      'Issuer Phone'
+    ]);
+
+    // Add consignment data
+    for (final consignment in consignments) {
+
+      // Convert consignment items to a readable string
+      final items = (consignment['consignment_items'] as List)
+          .map((item) =>
+              "${item['name']} (x${item['quantity']}) - ${item['value']}")
+          .join(", ");
+
+      sheet.appendRow([
+        consignment['package_name'],
+        consignment['sender_name'],
+        consignment['sender_phone_number'],
+        consignment['from'],
+        consignment['to'],
+        consignment['receiver_name'],
+        consignment['receiver_phone_number'],
+        consignment['package_value'],
+        consignment['paid_amount'],
+        consignment['payment_status'] ? 'Paid' : 'Unpaid',
+        consignment['is_parcel'] ? 'Yes' : 'No',
+        items,
+        consignment['issued_by'],
+        consignment['issuer_phone_number'],
+      ]);
+    }
+
+
+    // Save the file
+    try {
+      if(kIsWeb) { 
+        // Trigger download in browser
+        excel.save(fileName: 'Unpaid_Packages.xlsx');
+      } else {
+        // if(share) {
+        //     // 2. Save to a temporary file (mobile only)
+        //     final dir = await getTemporaryDirectory();
+        //     final file = File('${dir.path}/Paid_Packages.xlsx');
+        //     await file.writeAsBytes(excel.encode()!);
+
+        //     // 3. Share the file
+        //     await Share.shareXFiles(
+        //       [XFile(file.path)],  // Wrap in XFile
+        //       text: 'Check out this tickets data! 📊',  // Optional text
+        //     );
+        // }else {
+
+          final directory = await getTemporaryDirectory();
+          final filePath = '${directory.path}/Paid_Packages.xlsx';
+          final file = File(filePath);
+          await file.writeAsBytes(excel.encode()!);
+
+          // Open the file
+          await OpenFilex.open(filePath);
+        
+      }
+    } catch (e) {
+      print('Error exporting to Excel: $e');
+      // Handle error (show a snackbar or dialog)
+    }
+  }
+
+
+  Future<void> exportAllPackages(List<dynamic> consignments) async {
+    if(consignments.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No packages found')),
+      );
+      return;
+    }
+
+    // Create a new Excel document
+    final excel = Excel.createExcel();
+    final Sheet sheet = excel.sheets['Sheet1']!;
+
+    // Add header row
+    sheet.appendRow([
+      'Package Name',
+      'Sender Name',
+      'Sender Phone',
+      'From',
+      'To',
+      'Receiver Name',
+      'Receiver Phone',
+      'Package Value',
+      'Paid Amount',
+      'Payment Status',
+      'Is Parcel',
+      'Items',
+      'Issued By',
+      'Issuer Phone'
+    ]);
+
+    // Add consignment data
+    for (final consignment in consignments) {
+
+      // Convert consignment items to a readable string
+      final items = (consignment['consignment_items'] as List)
+          .map((item) =>
+              "${item['name']} (x${item['quantity']}) - ${item['value']}")
+          .join(", ");
+
+      sheet.appendRow([
+        consignment['package_name'],
+        consignment['sender_name'],
+        consignment['sender_phone_number'],
+        consignment['from'],
+        consignment['to'],
+        consignment['receiver_name'],
+        consignment['receiver_phone_number'],
+        consignment['package_value'],
+        consignment['paid_amount'],
+        consignment['payment_status'] ? 'Paid' : 'Unpaid',
+        consignment['is_parcel'] ? 'Yes' : 'No',
+        items,
+        consignment['issued_by'],
+        consignment['issuer_phone_number'],
+      ]);
+    }
+
+
+    // Save the file
+    try {
+      if(kIsWeb) { 
+        // Trigger download in browser
+        excel.save(fileName: 'Unpaid_Packages.xlsx');
+      } else {
+        // if(share) {
+        //     // 2. Save to a temporary file (mobile only)
+        //     final dir = await getTemporaryDirectory();
+        //     final file = File('${dir.path}/Unpaid_Packages.xlsx');
+        //     await file.writeAsBytes(excel.encode()!);
+
+        //     // 3. Share the file
+        //     await Share.shareXFiles(
+        //       [XFile(file.path)],  // Wrap in XFile
+        //       text: 'Check out this tickets data! 📊',  // Optional text
+        //     );
+        // }else {
+
+          final directory = await getTemporaryDirectory();
+          final filePath = '${directory.path}/Unpaid_Packages.xlsx';
+          final file = File(filePath);
+          await file.writeAsBytes(excel.encode()!);
+
+          // Open the file
+          await OpenFilex.open(filePath);
+        
+      }
+    } catch (e) {
+      print('Error exporting to Excel: $e');
+      // Handle error (show a snackbar or dialog)
+    }
+  }
 
   Widget _buildBody() {
     if (_isLoading) {
@@ -439,13 +782,18 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
       );
     }
 
-    final filteredConsignments = _consignments.where((c) {
+    var filteredConsignments = _consignments.where((c) {
       if (_typeFilter == 'all') return true;
       return _typeFilter == 'parcel'
           ? c['is_parcel'] == true
           : c['is_parcel'] == false;
     }).toList();
-        
+
+    filteredConsignments = filteredConsignments.where((c) {
+      if (_paymentFilter == 'all') return true;
+      return _paymentFilter == 'unpaid' ? c['payment_status'] == false : c['payment_status'] == true;
+    }).toList();
+
     return Column(
       children: [
         // FILTER BUTTONS
@@ -693,6 +1041,67 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     );
   }
 
+  Future<void> _refreshBluetoothPrinters() async {
+    await bluetooth.disconnect();
+    bool? isConnected = await bluetooth.isConnected;
+
+    // Already connected
+    if (isConnected ?? false) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Printer already connected'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      return;
+    }
+
+    // Get paired devices
+    List<BluetoothDevice> devices = await bluetooth.getBondedDevices();
+
+    if (devices.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No paired Bluetooth printer found.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Show printer selection dialog
+    await _selectPrinterDialog(devices);
+
+    if (selectedPrinter == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No printer selected.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    try {
+      await bluetooth.connect(selectedPrinter!);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Printer connected successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      debugPrint('Failed to connect to printer: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to connect to printer.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   Future<void> _printBluetoothReceipt(dynamic consignment) async {
 
     bool? isConnected = await bluetooth.isConnected;
@@ -750,51 +1159,45 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     final items = consignment['consignment_items'] ?? [];
 
     bluetooth.printNewLine();
-    bluetooth.printCustom(widget.companyName, 2, 1);
-    bluetooth.printNewLine();
+    bluetooth.printCustom("********************************", 1, 1);
+    bluetooth.printCustom(widget.companyName, 1, 1);
+    bluetooth.printCustom("********************************", 1, 1);
     bluetooth.printCustom(consignment['is_parcel'] ? "PARCEL RECEIPT" : "CONSIGNMENT RECEIPT", 1, 1);
-    bluetooth.printNewLine();
-
     bluetooth.printCustom("Package No: ${consignment['id']}", 1, 1);
+    bluetooth.printLeftRight("Package Name", consignment['package_name'] ?? '', 1);
 
-    bluetooth.printLeftRight("Package Name", consignment['package_name'] ?? '', 0);
-
+    final packageValue = (consignment['package_value'] ?? 0).toInt();
     bluetooth.printLeftRight(
       "Package Value",
-      "TZS ${NumberFormat('#,##0').format((consignment['package_value'] ?? 0).toInt())}",
-      0,
+      packageValue == 0
+          ? "N/A"
+          : "TZS ${NumberFormat('#,##0').format(packageValue)}",
+      1,
     );
 
-    bluetooth.printLeftRight("Payment Status", consignment['payment_status'] ? 'Paid' : 'Not Paid', 0);
+    bluetooth.printLeftRight("Payment Status", consignment['payment_status'] ? 'Paid' : 'Not Paid', 1);
 
     if(consignment['payment_status']) {
       bluetooth.printLeftRight(
         "Paid Amount",
         "TZS ${NumberFormat('#,##0').format((consignment['paid_amount'] ?? 0).toInt())}",
-        0,
+        1,
       );
     }
 
-    bluetooth.printNewLine();
     bluetooth.printCustom("Route", 1, 0);
+    bluetooth.printLeftRight("From", consignment['from'] ?? '', 1);
+    bluetooth.printLeftRight("To", consignment['to'] ?? '', 1);
 
-    bluetooth.printLeftRight("From", consignment['from'] ?? '', 0);
-    bluetooth.printLeftRight("To", consignment['to'] ?? '', 0);
-
-    bluetooth.printNewLine();
     bluetooth.printCustom("Sender", 1, 0);
+    bluetooth.printLeftRight("Name", consignment['sender_name'] ?? '', 1);
+    bluetooth.printLeftRight("Phone", consignment['sender_phone_number'] ?? '', 1);
 
-    bluetooth.printLeftRight("Name", consignment['sender_name'] ?? '', 0);
-    bluetooth.printLeftRight("Phone", consignment['sender_phone_number'] ?? '', 0);
-
-    bluetooth.printNewLine();
     bluetooth.printCustom("Receiver", 1, 0); 
+    bluetooth.printLeftRight("Name", consignment['receiver_name'] ?? '', 1);
+    bluetooth.printLeftRight("Phone", consignment['receiver_phone_number'] ?? '', 1);
 
-    bluetooth.printLeftRight("Name", consignment['receiver_name'] ?? '', 0);
-    bluetooth.printLeftRight("Phone", consignment['receiver_phone_number'] ?? '', 0);
-
-    if (items.length > 1) {
-      bluetooth.printNewLine();
+    if ((items.length > 1) && (items.length <= 10)) {
       bluetooth.printCustom("Items", 1, 0);
 
       int index = 1;
@@ -811,9 +1214,8 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
     bluetooth.printNewLine();
     bluetooth.printCustom("Issued By", 1, 0);
-
-    bluetooth.printLeftRight("Name", consignment['issued_by'] ?? '', 0);
-    bluetooth.printLeftRight("Phone", consignment['issuer_phone_number'] ?? '', 0);
+    bluetooth.printLeftRight("Name", consignment['issued_by'] ?? '', 1);
+    bluetooth.printLeftRight("Phone", consignment['issuer_phone_number'] ?? '', 1);
 
     String data = SimpleCodec.encode(jsonEncode({
       "cid": consignment['id'],
@@ -832,6 +1234,104 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     bluetooth.printNewLine();
     bluetooth.printCustom("Powered by Tiketi Mkononi", 1, 1);
     bluetooth.printCustom("https://tiketimkononi.telabs.co.tz", 1, 1);
+    bluetooth.printCustom("********************************", 1, 1);
+    bluetooth.printNewLine();
+    bluetooth.printNewLine();
+    bluetooth.paperCut();
+  }
+
+  Future<void> _printBluetoothReceipt2(dynamic consignment) async {
+
+    bool? isConnected = await bluetooth.isConnected;
+
+    if (!(isConnected ?? false)) {
+      debugPrint(' Not Connected to bluetooth device, connecting...');
+      List<BluetoothDevice> devices = await bluetooth.getBondedDevices();
+
+      if (devices.isNotEmpty) {
+        await _selectPrinterDialog(devices);
+
+        if (selectedPrinter == null) {
+          print("No printer found");
+          return;
+        }
+
+        try {
+          await bluetooth.connect(selectedPrinter!);
+          isConnected = true;
+        } catch (e) {
+          isConnected = false;
+          debugPrint('Failed to connect to printer: $e');
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to connect to printer'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return; // stop printing
+        }
+      } else {
+        // No paired printer found
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No paired Bluetooth printer found.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return; // stop printing
+      }
+    }
+
+    if (!(isConnected ?? false)) {
+      // Printer still not connected
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Printer is not connected.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final items = consignment['consignment_items'] ?? [];
+
+    bluetooth.printNewLine();
+    bluetooth.printCustom("********************************", 1, 1);
+    bluetooth.printCustom(widget.companyName, 2, 1);
+    bluetooth.printCustom("********************************", 1, 1);
+    bluetooth.printCustom(consignment['is_parcel'] ? "PARCEL CODE" : "CONSIGNMENT CODE", 2, 1);
+    bluetooth.printCustom("Pkg No: ${consignment['id']}", 2, 1);
+
+    if(consignment['is_parcel']) {
+      bluetooth.printCustom("${consignment['package_name']}", 2, 1);
+    } else {
+      if (items.length > 1) {
+        bluetooth.printCustom("${consignment['package_name']}(${items.length})", 2, 1);
+      } else {
+        bluetooth.printCustom("${consignment['package_name']}", 2, 1);
+      }
+    }
+
+    bluetooth.printCustom("${consignment['receiver_name']}", 2, 1);
+    bluetooth.printCustom("${consignment['receiver_phone_number']}", 2, 1);
+
+    String data = SimpleCodec.encode(jsonEncode({
+      "cid": consignment['id'],
+      "oid": consignment['office_id'],
+    }));
+
+    // QR CODE
+    bluetooth.printQRcode(
+      data,
+      250,
+      250,
+      1,
+    );
+
+    bluetooth.printCustom("Powered by Tiketi Mkononi", 1, 1);
+    bluetooth.printCustom("https://tiketimkononi.telabs.co.tz", 1, 1);
+    bluetooth.printCustom("********************************", 1, 1);
     bluetooth.printNewLine();
     bluetooth.printNewLine();
     bluetooth.paperCut();
@@ -1124,8 +1624,12 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
-                Icon(Icons.info_outline, color: Colors.teal.shade700),
-                const SizedBox(width: 8),
+                Icon(
+                  Icons.info_outline, 
+                  color: Colors.teal.shade700
+                ),
+
+                const SizedBox(width: 4),
 
                 Expanded(
                   child: Text(
@@ -1138,16 +1642,40 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                   ),
                 ),
 
-                IconButton(
-                  icon: const Icon(Icons.share),
-                  color: Colors.blue,
-                  onPressed: () => _shareConsignment(consignment),
+                SizedBox(
+                  width: 32,
+                  child: IconButton(
+                    icon: const Icon(Icons.share),
+                    color: Colors.blue,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => _shareConsignment(consignment),
+                  ),
                 ),
 
-                IconButton(
-                  icon: const Icon(Icons.print),
-                  color: Colors.teal,
-                  onPressed: () => _printBluetoothReceipt(consignment),
+                SizedBox(
+                  width: 32,
+                  child: IconButton(
+                    icon: const Icon(Icons.print),
+                    color: Colors.teal,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => _printBluetoothReceipt(consignment),
+                  ),
+                ),
+
+                SizedBox(
+                  width: 32,
+                  child: IconButton(
+                    icon: const Icon(Icons.print),
+                    color: Colors.red,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => _printBluetoothReceipt2(consignment),
+                  ),
                 ),
               ],
             )

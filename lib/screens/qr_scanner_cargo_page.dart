@@ -109,14 +109,7 @@ class _QRScannerCargoPageState extends State<QRScannerCargoPage> {
       });
 
       try {
-        // Include event ID if provided
-
-        int office_id = jsonDecode(SimpleCodec.decode(barcode.rawValue!))['oid'];
-       
-        if (widget.officeId != office_id) {
-          _showCustomDialog(context, "Wrong Office!");
-          return;
-        }
+        // Include event ID if provided       
 
         String url = useDNS ? '${backend_url}api/receive_consignment/${widget.userId}/${widget.officeId}' : '${backend_url_with_fallback_ip}receive_consignment/${widget.userId}/${widget.officeId}';
 
