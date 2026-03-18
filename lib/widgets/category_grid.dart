@@ -104,7 +104,7 @@ class CategoryGrid extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => OfficesPage(userId: userId, companyId: companyId, companyName: companyName, role: role),
+                      builder: (context) => OfficesPage(userId: userId, companyId: companyId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, role: role),
                     ),
                   );
 

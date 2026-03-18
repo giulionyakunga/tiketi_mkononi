@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -8,11 +9,13 @@ import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:blue_thermal_printer/blue_thermal_printer.dart';
+import 'package:tiketi_mkononi/screens/add_consignment_page.dart';
 import 'package:tiketi_mkononi/services/SimpleCodec.dart';
 import 'package:excel/excel.dart' hide Border;  // Hide Excel's Border
 
@@ -22,10 +25,12 @@ class ConsignmentsPage extends StatefulWidget {
   final int officeId;
   final String officeName;
   final String companyName;
+  final String userName;
+  final String userPhoneNumber;
   final int companyId;
   final String role;
 
-  const ConsignmentsPage({super.key, required this.userId, required this.officeId, required this.officeName, required this.companyId, required this.companyName, required this.role});
+  const ConsignmentsPage({super.key, required this.userId, required this.officeId, required this.officeName, required this.companyId, required this.companyName, required this.userName, required this.userPhoneNumber, required this.role});
 
   @override
   State<ConsignmentsPage> createState() => _ConsignmentsPageState();
@@ -40,6 +45,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
   bool _showDetails = false;
   DateTime _selectedDate = DateTime.now();
   BluetoothDevice? selectedPrinter;
+  Printer? selectedCablePrinter;
   String _appbarLabel = 'Consignment';
   String _typeFilter = 'all'; // all | parcel | consignment
   String _paymentFilter = 'all'; // all | parcel | consignment
@@ -55,6 +61,11 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
     requestPermissions();    
     _fetchConsignments();
+
+    if (Platform.isWindows) {
+      _loadSelectedPrinter();
+    }
+
   }
 
   Future<void> requestPermissions() async {
@@ -93,16 +104,16 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
           consignmentsList = responseData['data'] as List;
         }
 
-        double totalPaid = 0;
+        double totalPaidAmount = 0;
 
         for (var consignment in consignmentsList) {
           if (consignment['payment_status'] == true) {
-            totalPaid += (consignment['paid_amount'] ?? 0).toDouble();
+            totalPaidAmount += (consignment['paid_amount'] ?? 0).toDouble();
           }
         }
 
         setState(() {
-          totalCollection = totalPaid;
+          totalCollection = totalPaidAmount;
           _consignments = consignmentsList;
         });
         
@@ -212,6 +223,9 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                   _showDetails = false;
                   _selectedConsignment = null;
                   _refreshBluetoothPrinters();
+                  if (Platform.isWindows) {
+                    _refreshCablePrinters();
+                  }
                 });
               },
             ),
@@ -262,24 +276,18 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
           ],
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton(
         backgroundColor: Colors.teal,
         onPressed: () {
-          // Navigate to add consignment page
-          // Navigator.push(
-          //   context,
-          //   MaterialPageRoute(
-          //     builder: (context) => AddConsignmentPage(
-          //       userId: widget.userId,
-          //       companyId: widget.companyId,
-          //     ),
-          //   ),
-          // );
-        },
-        icon: const Icon(Icons.money, color: Colors.white),
-        label: Text(
-          'TSH${NumberFormat('#,##0').format(totalCollection.toInt())}',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AddConsignmentPage(userId: widget.userId, companyId: widget.companyId, companyName: widget.companyName, officeId: widget.officeId, userName: widget.userName, userPhoneNumber: widget.userPhoneNumber),
+          ));
+        }, // future: add office
+        child: const Icon(
+          Icons.add,
+          color: Colors.white
         ),
       ),
     );
@@ -696,7 +704,13 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     }
   }
 
+  bool _isLargeScreen(BuildContext context) {
+    return MediaQuery.of(context).size.width > 768;
+  }
+
   Widget _buildBody() {
+        final isLargeScreen = _isLargeScreen(context);
+
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -794,11 +808,174 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
       return _paymentFilter == 'unpaid' ? c['payment_status'] == false : c['payment_status'] == true;
     }).toList();
 
+
+
+    double totalPaidAmount = 0;
+
+    for (var consignment in filteredConsignments) {
+      if (consignment['payment_status'] == true) {
+        totalPaidAmount += (consignment['paid_amount'] ?? 0).toDouble();
+      }
+    }
+
+    setState(() {
+      totalCollection = totalPaidAmount;
+    });
+
+
+
+
     return Column(
       children: [
         // FILTER BUTTONS
         _buildTypeFilter(),
 
+        // Main Amount/Count
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.teal[50],
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: Colors.teal.withOpacity(0.2),
+              width: 1,
+            ),
+          ),
+          child: Column(
+            children: [
+              Text(
+                'TSH ${NumberFormat('#,##0').format(totalCollection)}',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.teal[700],
+                  fontSize: 28,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Total Revenue',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.teal[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        isLargeScreen ? Expanded(
+          child: Row(
+            children: [
+              /// LEFT PANEL — CONSIGNMENT LIST
+              Container(
+                width: 420,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  border: Border(
+                    right: BorderSide(color: Colors.grey.shade300),
+                  ),
+                ),
+                child: ListView.builder(
+                  itemCount: filteredConsignments.length,
+                  itemBuilder: (context, index) {
+                    final consignment = filteredConsignments[index];
+                    final isSelected = _selectedConsignment == consignment;
+
+                    return Card(
+                      elevation: isSelected ? 6 : 1,
+                      margin: const EdgeInsets.only(bottom: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        side: isSelected
+                            ? BorderSide(color: Colors.teal.shade400, width: 2)
+                            : BorderSide.none,
+                      ),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: () {
+                          setState(() {
+                            _selectedConsignment = consignment;
+                          });
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(14),
+                          child: Row(
+                            children: [
+
+                              /// PACKAGE ICON
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.teal.shade50,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(
+                                  _getPackageTypeIcon(consignment['is_parcel']),
+                                  color: Colors.teal,
+                                ),
+                              ),
+
+                              const SizedBox(width: 12),
+
+                              /// PACKAGE INFO
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      consignment['package_name'] ??
+                                          'Unnamed Package',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      "${consignment['from']} → ${consignment['to']}",
+                                      style: TextStyle(
+                                        color: Colors.grey.shade600,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              Icon(
+                                Icons.chevron_right,
+                                color: Colors.grey.shade400,
+                              )
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+
+              /// RIGHT PANEL — DETAILS
+              Expanded(
+                child: _selectedConsignment == null
+                    ? Center(
+                        child: Text(
+                          "Select a consignment to view details",
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      )
+                    : Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: _buildConsignmentDetails(_selectedConsignment),
+                      ),
+              ),
+            ],
+          ),
+        ) :
         Expanded(
           child: ListView.builder(
               padding: const EdgeInsets.all(16),
@@ -1102,6 +1279,19 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     }
   }
 
+  
+  Future<void> _refreshCablePrinters() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.remove("selected_printer_url");
+    await prefs.remove("selected_printer_name");
+
+    setState(() {
+      selectedCablePrinter = null;
+    });
+
+    await _selectCablePrinterDialog(); // fallback
+  }
+
   Future<void> _printBluetoothReceipt(dynamic consignment) async {
 
     bool? isConnected = await bluetooth.isConnected;
@@ -1337,6 +1527,292 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     bluetooth.paperCut();
   }
 
+
+  Future<void> _printCableReceipt(dynamic consignment) async {
+    final pdf = pw.Document();
+
+    final logoData = await rootBundle.load('assets/telabs_logo.png');
+    final logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
+
+    final fontData =
+        await rootBundle.load('assets/fonts/poppins/Poppins-Regular.ttf');
+    final customFont = pw.Font.ttf(fontData);
+
+    const pageWidth = 226.0;
+
+    final items = consignment['consignment_items'] ?? [];
+
+    String data = SimpleCodec.encode(jsonEncode({
+      "cid": consignment['id'],
+      "oid": consignment['office_id'],
+    }));
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: const PdfPageFormat(pageWidth, double.infinity),
+        build: (context) {
+          return pw.Padding(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+
+                /// LOGO
+                // pw.Center(
+                //   child: pw.Image(logoImage, width: 70),
+                // ),
+
+                pw.SizedBox(height: 6),
+
+                /// COMPANY NAME
+                // pw.Center(
+                //   child: pw.Text(
+                //     widget.companyName,
+                //     style: pw.TextStyle(
+                //       font: customFont,
+                //       fontSize: 10,
+                //       fontWeight: pw.FontWeight.bold,
+                //     ),
+                //   ),
+                // ),
+
+                pw.Text(
+                  widget.companyName,
+                  style: pw.TextStyle(font: customFont, fontSize: 10),
+                ),
+
+                // pw.Center(
+                //   child: pw.Text(
+                //     consignment['is_parcel']
+                //         ? "PARCEL RECEIPT"
+                //         : "CONSIGNMENT RECEIPT",
+                //     style: pw.TextStyle(
+                //       font: customFont,
+                //       fontSize: 9,
+                //       fontWeight: pw.FontWeight.bold,
+                //     ),
+                //   ),
+                // ),
+
+                pw.Text(
+                  consignment['is_parcel']
+                  ? "PARCEL RECEIPT"
+                  : "CONSIGNMENT RECEIPT",
+                  style: pw.TextStyle(font: customFont, fontSize: 10),
+                ),
+
+                pw.SizedBox(height: 6),
+
+                pw.Text(
+                  "********************************",
+                  style: pw.TextStyle(font: customFont),
+                ),
+
+                /// PACKAGE INFO
+                pw.Text(
+                  "Package No: ${consignment['id']}",
+                  style: pw.TextStyle(font: customFont, fontSize: 9),
+                ),
+
+                pw.Text(
+                  "Package Name: ${consignment['package_name'] ?? ''}",
+                  style: pw.TextStyle(font: customFont, fontSize: 9),
+                ),
+
+                pw.Text(
+                  "Package Value: TZS ${consignment['package_value']}",
+                  style: pw.TextStyle(font: customFont, fontSize: 9),
+                ),
+
+                pw.Text(
+                  "Payment Status: ${consignment['payment_status'] ? "Paid" : "Not Paid"}",
+                  style: pw.TextStyle(font: customFont, fontSize: 9),
+                ),
+
+                if (consignment['payment_status'])
+                  pw.Text(
+                    "Paid Amount: TZS ${consignment['paid_amount']}",
+                    style: pw.TextStyle(font: customFont, fontSize: 9),
+                  ),
+
+                pw.SizedBox(height: 6),
+
+                pw.Text(
+                  "--------------------------------",
+                  style: pw.TextStyle(font: customFont),
+                ),
+
+                /// ROUTE
+                pw.Text(
+                  "Route",
+                  style: pw.TextStyle(
+                    font: customFont,
+                    fontWeight: pw.FontWeight.bold,
+                    fontSize: 9
+                  ),
+                ),
+
+                pw.Text(
+                  "From: ${consignment['from'] ?? ''}",
+                  style: pw.TextStyle(font: customFont, fontSize: 9),
+                ),
+
+                pw.Text(
+                  "To: ${consignment['to'] ?? ''}",
+                  style: pw.TextStyle(font: customFont, fontSize: 9),
+                ),
+
+                pw.SizedBox(height: 6),
+
+                /// SENDER
+                pw.Text(
+                  "Sender",
+                  style: pw.TextStyle(
+                    font: customFont,
+                    fontWeight: pw.FontWeight.bold,
+                    fontSize: 9
+                  ),
+                ),
+
+                pw.Text(
+                  "Name: ${consignment['sender_name'] ?? ''}",
+                  style: pw.TextStyle(font: customFont, fontSize: 9),
+                ),
+
+                pw.Text(
+                  "Phone: ${consignment['sender_phone_number'] ?? ''}",
+                  style: pw.TextStyle(font: customFont, fontSize: 9),
+                ),
+
+                pw.SizedBox(height: 6),
+
+                /// RECEIVER
+                pw.Text(
+                  "Receiver",
+                  style: pw.TextStyle(
+                    font: customFont,
+                    fontWeight: pw.FontWeight.bold,
+                    fontSize: 9
+                  ),
+                ),
+
+                pw.Text(
+                  "Name: ${consignment['receiver_name'] ?? ''}",
+                  style: pw.TextStyle(font: customFont, fontSize: 9),
+                ),
+
+                pw.Text(
+                  "Phone: ${consignment['receiver_phone_number'] ?? ''}",
+                  style: pw.TextStyle(font: customFont, fontSize: 9),
+                ),
+
+                /// ITEMS
+                if ((items.length > 1) && (items.length <= 10)) ...[
+                  pw.SizedBox(height: 6),
+
+                  pw.Text(
+                    "Items",
+                    style: pw.TextStyle(
+                      font: customFont,
+                      fontWeight: pw.FontWeight.bold,
+                      fontSize: 9
+                    ),
+                  ),
+
+                  pw.SizedBox(height: 4),
+
+                  for (int i = 0; i < items.length; i++)
+                    pw.Text(
+                      "${i + 1}. ${items[i]['name']} (x${items[i]['quantity']})  "
+                      "TZS ${NumberFormat('#,##0').format(((items[i]['value'] ?? 0) * items[i]['quantity']).toInt())}",
+                      style: pw.TextStyle(font: customFont, fontSize: 9),
+                    ),
+                ],
+
+                pw.SizedBox(height: 6),
+
+                pw.Text(
+                  "--------------------------------",
+                  style: pw.TextStyle(font: customFont, fontSize: 9),
+                ),
+
+                /// ISSUED BY
+                pw.Text(
+                  "Issued By",
+                  style: pw.TextStyle(
+                    font: customFont,
+                    fontWeight: pw.FontWeight.bold,
+                    fontSize: 9
+                  ),
+                ),
+
+                pw.Text(
+                  "Name: ${consignment['issued_by'] ?? ''}",
+                  style: pw.TextStyle(font: customFont, fontSize: 9),
+                ),
+
+                pw.Text(
+                  "Phone: ${consignment['issuer_phone_number'] ?? ''}",
+                  style: pw.TextStyle(font: customFont, fontSize: 9),
+                ),
+
+                pw.SizedBox(height: 14),
+
+                /// QR
+                pw.Center(
+                  child: pw.BarcodeWidget(
+                    barcode: pw.Barcode.qrCode(),
+                    data: data,
+                    width: 110,
+                    height: 110,
+                  ),
+                ),
+
+                pw.SizedBox(height: 10),
+
+                /// FOOTER
+                pw.Center(
+                  child: pw.Text(
+                    "Thank you",
+                    style: pw.TextStyle(font: customFont, fontSize: 9),
+                  ),
+                ),
+
+                pw.Center(
+                  child: pw.Text(
+                    "Powered by Tiketi Mkononi",
+                    style: pw.TextStyle(font: customFont, fontSize: 10),
+                  ),
+                ),
+
+                pw.Center(
+                  child: pw.Text(
+                    "https://tiketimkononi.telabs.co.tz",
+                    style: pw.TextStyle(font: customFont, fontSize: 9),
+                  ),
+                ),
+
+                pw.Text(
+                  "********************************",
+                  style: pw.TextStyle(font: customFont),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+
+    if (selectedCablePrinter != null) {
+      await Printing.directPrintPdf(
+        printer: selectedCablePrinter!,
+        onLayout: (PdfPageFormat format) async => pdf.save(),
+      );
+    } else {
+      await _selectCablePrinterDialog();
+    }
+  }
+
   Future<void> _selectPrinterDialog(List<BluetoothDevice> devices) async {
     if (devices.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1384,9 +1860,89 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     );
   }
 
+  
+  Future<void> _selectCablePrinterDialog() async {
+    final printers = await Printing.listPrinters();
+
+    if (printers.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No printers found.')),
+      );
+      return;
+    }
+
+    Printer? selected;
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final isSmallScreen = constraints.maxWidth < 400;
+            final dialogWidth = isSmallScreen ? constraints.maxWidth * 0.9 : 400.0;
+
+            return AlertDialog(
+              contentPadding: EdgeInsets.all(20),
+              title: Text("Select a printer"),
+              content: SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: dialogWidth),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: printers
+                        .map(
+                          (printer) => ListTile(
+                            title: Text(printer.name),
+                            subtitle: Text(printer.url),
+                            onTap: () {
+                              selected = printer;
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (selected != null) {
+      // Save selected printer
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setString('selectedPrinterUrl', selected!.url);
+      _saveSelectedCablePrinter(selected!);
+      selectedCablePrinter = selected;
+    }
+  }
+
   Future<void> _saveSelectedPrinter(String printerName) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setString('selected_printer_name', printerName);
+  }
+
+  Future<void> _loadSelectedPrinter() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? url = prefs.getString('selected_printer_url');
+    String? name = prefs.getString('selected_printer_name');
+
+    if (url != null && name != null) {
+      setState(() {
+        selectedCablePrinter = Printer(url: url, name: name);
+      });
+    }
+  }
+
+  Future<void> _saveSelectedCablePrinter(Printer printer) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('selected_printer_url', printer.url);
+    await prefs.setString('selected_printer_name', printer.name);
+    setState(() {
+      selectedCablePrinter = printer;
+    });
   }
 
   Future<void> _shareConsignment(dynamic consignment) async {
@@ -1662,7 +2218,12 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     visualDensity: VisualDensity.compact,
-                    onPressed: () => _printBluetoothReceipt(consignment),
+                    onPressed: () { 
+                      _printBluetoothReceipt(consignment);
+                      if (Platform.isWindows) {
+                        _printCableReceipt(consignment);
+                      }
+                    },
                   ),
                 ),
 
@@ -1753,6 +2314,166 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildConsignmentDetails(Map consignment) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline, 
+                    color: Colors.teal.shade700
+                  ),
+
+                  const SizedBox(width: 4),
+
+                  Expanded(
+                    child: Text(
+                      consignment['is_parcel'] ? 'Parcel Details' : 'Consignment Details',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.teal.shade700,
+                      ),
+                    ),
+                  ),
+
+                  SizedBox(
+                    width: 32,
+                    child: IconButton(
+                      icon: const Icon(Icons.share),
+                      color: Colors.blue,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => _shareConsignment(consignment),
+                    ),
+                  ),
+
+                  SizedBox(
+                    width: 32,
+                    child: IconButton(
+                      icon: const Icon(Icons.print),
+                      color: Colors.teal,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () { 
+                        _printBluetoothReceipt(consignment);
+                        if (Platform.isWindows) {
+                          _printCableReceipt(consignment);
+                        }
+                      },
+                    ),
+                  ),
+
+                  SizedBox(
+                    width: 32,
+                    child: IconButton(
+                      icon: const Icon(Icons.print),
+                      color: Colors.red,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => _printBluetoothReceipt2(consignment),
+                    ),
+                  ),
+                ],
+              )
+            ),
+
+            const Divider(),
+
+            /// TITLE
+            Text(
+              consignment['package_name'] ?? "Package",
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            /// ROUTE
+            Row(
+              children: [
+                Icon(Icons.location_on, color: Colors.grey.shade600),
+                const SizedBox(width: 6),
+                Expanded(child: Text(consignment['from'] ?? "")),
+                const SizedBox(width: 10),
+                const Icon(Icons.arrow_forward),
+                const SizedBox(width: 10),
+                Icon(Icons.location_on, color: Colors.grey.shade600),
+                const SizedBox(width: 6),
+                Expanded(child: Text(consignment['to'] ?? "")),
+              ],
+            ),
+
+            const Divider(height: 32),
+
+            /// SENDER / RECEIVER
+            Row(
+              children: [
+                Expanded(
+                  child: _buildPersonInfo(
+                    icon: Icons.person_outline,
+                    label: "Sender",
+                    name: consignment['sender_name'],
+                    phone: consignment['sender_phone_number'],
+                  ),
+                ),
+                Expanded(
+                  child: _buildPersonInfo(
+                    icon: Icons.person,
+                    label: "Receiver",
+                    name: consignment['receiver_name'],
+                    phone: consignment['receiver_phone_number'],
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 16),
+
+            /// SCROLLABLE AREA
+            Expanded(
+              child: ListView(
+                children: [
+
+                  if (consignment['consignment_items'] != null &&
+                      (consignment['consignment_items'] as List).isNotEmpty)
+                    _buildItemsSection(consignment['consignment_items']),
+
+                  const SizedBox(height: 16),
+
+                  _buildDetailSection(
+                    title: 'Issued By',
+                    icon: Icons.assignment_ind,
+                    children: [
+                      _buildDetailRow('Name', consignment['issued_by']),
+                      _buildDetailRow('Phone', consignment['issuer_phone_number']),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

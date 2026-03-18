@@ -657,7 +657,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ) :
         CategoryGrid2(
           events: filteredEvents,
-          userId: userId,
+          userId: userId, role: role, companyId: companyId, officeId: officeId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber
           // isWideScreen: isWideScreen,
         ),
       ],

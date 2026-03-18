@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:tiketi_mkononi/models/event.dart';
+import 'package:tiketi_mkononi/screens/add_consignment_page.dart';
+import 'package:tiketi_mkononi/screens/apply_to_be_cargo_transporter_page.dart';
 import 'package:tiketi_mkononi/screens/category_events_page.dart';
+import 'package:tiketi_mkononi/screens/offices_page.dart';
 
 class Category {
   final String name;
@@ -13,8 +16,53 @@ class Category {
 class CategoryGrid2 extends StatelessWidget {
   final List<Event> events;
   final int userId;
+  final String role;
+  final int companyId;
+  final int officeId;
+  final String companyName;
+  final String userName;
+  final String userPhoneNumber;
 
-  const CategoryGrid2({super.key, required this.events, required this.userId});
+  const CategoryGrid2({super.key, required this.events, required this.userId, required this.role, required this.companyId,  required this.officeId,  required this.companyName,  required this.userName, required this.userPhoneNumber});
+
+
+    void _showCargoDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Access Restricted'),
+        content: const Text(
+          'This feature is available only to registered Tiketi Mkononi cargo transporters. '
+          'If you would like to offer cargo transportation services, please submit an application to become an approved transporter.'
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      ApplyToBeCargoTransporterPage(userId: userId),
+                ),
+              );
+            },
+            child: const Text(
+              'Apply Now',
+              style: TextStyle(color: Colors.green),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -109,15 +157,37 @@ class CategoryGrid2 extends StatelessWidget {
               child: InkWell(
                 borderRadius: BorderRadius.circular(12),
                 onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => CategoryEventsPage(
-                        category: category.name,
-                        userId: userId,
+                  if(categories[index].name == 'Cargo'){
+                    if(role == 'cargo_office_attendant'){
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => AddConsignmentPage(userId: userId, companyId: companyId, companyName:companyName, officeId: officeId, userName: userName, userPhoneNumber: userPhoneNumber),
+                        ),
+                      );
+                    } else if(role == 'cargo_transporter'){
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => OfficesPage(userId: userId, companyId: companyId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, role: role),
+                        ),
+                      );
+
+                    } else {
+                      _showCargoDialog(context);
+                    }
+
+                  } else {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => CategoryEventsPage(
+                          category: category.name,
+                          userId: userId,
+                        ),
                       ),
-                    ),
-                  );
+                    );
+                  }
                 },
                 splashColor: category.color.withOpacity(0.2),
                 highlightColor: category.color.withOpacity(0.1),

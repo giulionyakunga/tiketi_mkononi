@@ -11,9 +11,11 @@ class OfficesPage extends StatefulWidget {
   final int userId;
   final int companyId;
   final String companyName;
+  final String userName;
+  final String userPhoneNumber;
   final String role;
 
-  const OfficesPage({super.key, required this.userId, required this.companyId, required this.companyName, required this.role});
+  const OfficesPage({super.key, required this.userId, required this.companyId, required this.companyName, required this.userName, required this.userPhoneNumber, required this.role});
 
   @override
   State<OfficesPage> createState() => _OfficesPageState();
@@ -83,7 +85,7 @@ class _OfficesPageState extends State<OfficesPage> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => ConsignmentsPage(userId: widget.userId, officeId: 0, officeName: '', companyId: widget.companyId, companyName: widget.companyName, role: widget.role),
+                  builder: (context) => ConsignmentsPage(userId: widget.userId, officeId: 0, officeName: '', companyId: widget.companyId, companyName: widget.companyName, userName: widget.userName, userPhoneNumber: widget.userPhoneNumber, role: widget.role),
                 ),
               );
             },
@@ -96,12 +98,14 @@ class _OfficesPageState extends State<OfficesPage> {
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: Colors.teal,
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => AddOfficePage(userId: widget.userId, companyId: widget.companyId),
+        onPressed: () async {
+          await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AddOfficePage(userId: widget.userId, companyId: widget.companyId),
           ));
+          
+          _fetchOffices();
         }, // future: add office
         child: const Icon(
           Icons.add,
@@ -229,7 +233,9 @@ class _OfficesPageState extends State<OfficesPage> {
                     officeName: office['name'],
                     companyId: office['company_id'],
                     companyName: widget.companyName,
-                    role: widget.role,
+                    role: widget.role, 
+                    userName: widget.userName, 
+                    userPhoneNumber: widget.userPhoneNumber,
                   ),
                 ),
               );

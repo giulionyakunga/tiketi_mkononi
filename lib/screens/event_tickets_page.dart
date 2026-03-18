@@ -128,6 +128,9 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
   }
 
   Future<void> exportTicketsToExcel(List<Ticket> ticketsList, {bool share = false}) async {
+    final bool isActive = widget.event.status.toUpperCase() == "ACTIVE";
+    final bool isWedding = widget.event.category.toUpperCase() == "WEDDING";
+
     if(ticketsList.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('No tickets found')),
@@ -144,7 +147,7 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
       'Name',
       'Phone Number',
       'Ticket Type',
-      'Attendance'
+      isActive ? 'Confirmation' : 'Attendance' 
     ]);
 
     // Add ticket data
@@ -153,7 +156,7 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
         ticket.userName,
         ticket.userPhoneNumber,
         ticket.ticketType,
-        (ticket.scanStatus == 1) ? "Attended": "Missed",
+        isActive ? (ticket.confirmStatus == 1) ? "Confirmed": "Not Confirmed" : (ticket.scanStatus == 1) ? "Attended": "Missed",
       ]);
     }
 
@@ -165,7 +168,6 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
     final attendedTickets = countAttendedTickets();
     final scannedTicketsCount = ticketsList.where((ticket) => ticket.scanStatus == 1).length;
     final missedTicketsCount = numberOfTickets - scannedTicketsCount;
-
 
     // Add an empty row to visually separate data and summary
     sheet.appendRow([' ']);
@@ -182,12 +184,13 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
     try {
       if(kIsWeb) {
         // Trigger download in browser
-        excel.save(fileName: 'Tickets_Export_${DateTime.now().millisecondsSinceEpoch}.xlsx');
+
+        excel.save(fileName: isWedding ? 'Cards_Export.xlsx' : 'Tickets_Export.xlsx');
       } else {
         if(share) {
             // 2. Save to a temporary file (mobile only)
             final dir = await getTemporaryDirectory();
-            final file = File('${dir.path}/Tickets_Export_${DateTime.now().millisecondsSinceEpoch}.xlsx');
+            final file = File(isWedding ? '${dir.path}/Cards_Export.xlsx' : '${dir.path}/Tickets_Export.xlsx');
             await file.writeAsBytes(excel.encode()!);
 
             // 3. Share the file
@@ -197,7 +200,7 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
             );
         }else {
           final directory = await getTemporaryDirectory();
-          final filePath = '${directory.path}/Tickets_Export_${DateTime.now().millisecondsSinceEpoch}.xlsx';
+          final filePath = isWedding ? '${directory.path}/Cards_Export.xlsx' : '${directory.path}/Tickets_Export.xlsx';
           final file = File(filePath);
           await file.writeAsBytes(excel.encode()!);
 

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 import 'package:tiketi_mkononi/env.dart';
@@ -14,6 +15,9 @@ import 'package:tiketi_mkononi/screens/qr_scanner_cargo_page.dart';
 import 'package:tiketi_mkononi/services/SimpleCodec.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:pdf/pdf.dart';
 
 class ConsignmentItem {
   String name;
@@ -63,6 +67,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
   final BlueThermalPrinter bluetooth = BlueThermalPrinter.instance;
   BluetoothDevice? selectedDevice;
   BluetoothDevice? selectedPrinter;
+  Printer? selectedCablePrinter;
   int _selectedNumberofReceiptsToPrint = 1;
 
   List<ConsignmentItem> _consignmentItems = [];
@@ -72,6 +77,8 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
   final List<String> paymentMethods = ['MIXX BY YAS', 'M-PESA', 'AIRTEL MONEY', 'HALOPESA', 'AZAMPESA'];
 
   int receiptsBalance = 0;
+  int packageId = 0;
+  List<dynamic> receiptPackages = [];
 
   @override
   void initState() {
@@ -79,6 +86,10 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     _initializeServices();
     _addConsignmentItem();
     _refreshBluetoothPrinters();
+    if (Platform.isWindows) {
+      _refreshCablePrinters();
+      _loadSelectedPrinter();
+    }
     _loadNumberOfReceipts();
   }
 
@@ -219,6 +230,53 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       _handleSocketException(e);
     } catch (e) {
       debugPrint('Error getting server metrics: $e');
+    } finally {
+      debugPrint('Process finished');
+    }
+  }
+
+  Future<void> getReceiptPackages({bool useDNS = true}) async {
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/receipt_packages') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}receipt_packages'); // Use IP
+        
+    try {
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        debugPrint("response.body : ${response.body}");
+
+        final responseData = jsonDecode(response.body); // This is a List<dynamic>
+
+        if(responseData.length > 0) {
+          setState(() {
+            receiptPackages = responseData;
+          });
+        } 
+      }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await getCompanyOffices(useDNS: false); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
+          return;
+        }
+      }
+
+      _handleSocketException(e);
+    } catch (e) {
+      debugPrint('Error getting offices: $e');
     } finally {
       debugPrint('Process finished');
     }
@@ -374,6 +432,11 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
         _saveReceiptsBalance(responseData['number_of_sms']);
 
         if ((message.trim() == "Consignment added successfully!") || (message.trim() == "Parcel added successfully!"))  {
+          packageId = responseData['id'];
+          setState(() {
+            packageId = responseData['id'];
+          });
+
           _packageNameController.clear();
           _senderNameController.clear();
           _senderPhoneNumberController.clear();
@@ -397,12 +460,20 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
           if(_selectedNumberofReceiptsToPrint == 2) {
             _printBluetoothReceipt(requestBody);
             _printBluetoothReceipt2(requestBody);
+
+            if (Platform.isWindows) {
+              _printCableReceipt(requestBody);
+            }
           } else {
             _printBluetoothReceipt(requestBody);
+            if (Platform.isWindows) {
+              _printCableReceipt(requestBody);
+            }
           }
         }
 
-        if (message.trim() == "Kifurushi chako kimeisha!") { 
+        if (message.trim() == "Kifurushi chako kimeisha!") {
+          await getReceiptPackages();
           _payDialog();
         }
 
@@ -449,8 +520,8 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
   }
 
   Future<void> _payDialog() async {
-    String? selectedPackage;
-    String? selectedCustomers;
+    int? selectedPackage;
+    int? selectedReceiptPackages;
     int? selectedAmount;
     String? selectedPaymentMethod;
 
@@ -462,7 +533,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
               title: const Text(
                 "Chagua kifurushi",
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -472,30 +543,25 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
 
+                    const Divider(height: 4),
+                    
                     /// Packages
-                    ...[
-                      {"customers": "10", "amount": 1250},
-                      {"customers": "25", "amount": 2500},
-                      {"customers": "50", "amount": 5000},
-                      {"customers": "100", "amount": 10000},
-                      {"customers": "200", "amount": 20000},
-                      {"customers": "300", "amount": 30000},
-                      {"customers": "400", "amount": 40000},
-                    ].map((pkg) {
+                    ...receiptPackages
+                    .map((pkg) {
                       return RadioListTile(
                         dense: true,  
                         visualDensity: const VisualDensity(vertical: -4),
                         title: Text(
-                          "Wateja ${pkg["customers"]} - TSH ${pkg["amount"]}",
+                          "Receipts ${pkg["number_of_receipts"]} - TSH ${pkg["price"]}",
                           style: const TextStyle(fontSize: 12),
                         ),
-                        value: pkg["customers"],
+                        value: pkg["number_of_receipts"],
                         groupValue: selectedPackage,
                         onChanged: (value) {
                           setState(() {
-                            selectedPackage = value.toString();
-                            selectedCustomers = value.toString();
-                            selectedAmount = pkg["amount"] as int;
+                            selectedPackage = value;
+                            selectedReceiptPackages = value;
+                            selectedAmount = pkg["price"] as int;
                           });
                         },
                       );
@@ -506,7 +572,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                     const Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        "Payment Method",
+                        "Njia ya Malipo",
                         style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                       ),
                     ),
@@ -553,7 +619,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                         onPressed: () async {
                           await _sendPaymentRequest(
                             phoneController.text.trim(),
-                            selectedCustomers,
+                            selectedReceiptPackages,
                             selectedAmount,
                           );
                         },
@@ -572,7 +638,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
   Future<void> _sendPaymentRequest(
     String phone,
-    String? customers,
+    int? receipts,
     int? amount,
     {bool useDNS = true}
   ) async {
@@ -608,14 +674,14 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
         },
         body: jsonEncode({
           "phone_number": phone,
-          "customers": customers,
+          "receipts": receipts,
           "amount": amount,
           'selected_payment_method': selectedPaymentMethod2,
         }),
       );
 
       debugPrint('phone_number: $phone');
-      debugPrint('customers: $customers');
+      debugPrint('receipts: $receipts');
       debugPrint('amount: $amount');
 
       if (response.statusCode == 200) {
@@ -649,7 +715,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await _sendPaymentRequest(phone, customers, amount, useDNS: false); // Recursive retry
+          await _sendPaymentRequest(phone, receipts, amount, useDNS: false); // Recursive retry
 
           final prefs = await SharedPreferences.getInstance();
           await prefs.setBool('use_dns', false);
@@ -1013,7 +1079,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => ConsignmentsPage(userId: userId, officeId: 0, officeName: '', companyId: 0, role: role, companyName: widget.companyName,),
+                  builder: (context) => ConsignmentsPage(userId: userId, officeId: 0, officeName: '', companyId: 0, role: role, companyName: widget.companyName, userName: widget.userName, userPhoneNumber: widget.userPhoneNumber,),
                 ),
               );
             },
@@ -1055,9 +1121,13 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                 }
               } else if (value == 'refresh_printers') {
                 _refreshBluetoothPrinters();
+                if (Platform.isWindows) {
+                  _refreshCablePrinters();
+                }
               } else if (value == 'number_of_receipts_to_print') {
                 await _selectNumberofReceiptsToPrintDialog();
               } else if (value == 'topup_receipt') {
+                await getReceiptPackages();
                 _payDialog();
               } else if (value == 'exit') {
                 Navigator.pop(context);
@@ -1114,7 +1184,208 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
               horizontal: isLargeScreen ? 32 : 16,
               vertical: 16,
             ),
-            child: Form(
+            child: isLargeScreen ? Center(
+              child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: 500, // limit width
+              ),
+              child:
+                Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (isLargeScreen) ...[
+                        const Text(
+                          'Add New Consignment',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      _buildPackageTypeToggle(),
+                      _buildPaymentStatusToggle(),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _packageNameController,
+                        maxLength: 100,
+                        decoration: _buildInputDecoration('Package Name', prefixIcon: Icons.person),
+                        style: const TextStyle(fontSize: 16),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) return 'Please enter package name';
+                          if (value.length > 100) return 'Package name must be 100 characters or less';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _senderNameController,
+                        maxLength: 100,
+                        decoration: _buildInputDecoration('Sender Name', prefixIcon: Icons.person),
+                        style: const TextStyle(fontSize: 16),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) return 'Please enter sender name';
+                          if (value.length > 100) return 'Sender name must be 100 characters or less';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _senderPhoneNumberController,
+                        maxLength: 15,
+                        keyboardType: TextInputType.number,
+                        decoration: _buildInputDecoration('Sender Phone Number', prefixIcon: Icons.phone),
+                        style: const TextStyle(fontSize: 16),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) return 'Please enter sender phone number';
+                          if (value.length > 15) return 'Sender phone number must be 15 characters or less';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _fromController,
+                        maxLength: 100,
+                        enabled: false,
+                        decoration: _buildInputDecoration('From', prefixIcon: Icons.business),
+                        style: const TextStyle(fontSize: 16),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) return 'Please enter origin';
+                          if (value.length > 100) return 'Origin name must be 100 characters or less';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<String>(
+                        value: _toController.text.isNotEmpty ? _toController.text : null, // preselect if any
+                        decoration: _buildInputDecoration('Destination', prefixIcon: Icons.business),
+                        style: const TextStyle(fontSize: 16),
+                        items: officeNames.map((office) {
+                          return DropdownMenuItem<String>(
+                            value: office,
+                            child: Text(
+                              office,
+                              style: TextStyle(color: Colors.black),
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            _toController.text = value; // update controller so form works
+                          }
+                        },
+                        validator: (value) {
+                          if (value == null || value.isEmpty) return 'Please select a destination';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _receiverNameController,
+                        maxLength: 100,
+                        decoration: _buildInputDecoration('Receiver Name', prefixIcon: Icons.person),
+                        style: const TextStyle(fontSize: 16),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) return 'Please enter receiver name';
+                          if (value.length > 100) return 'Receiver name must be 100 characters or less';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _receiverPhoneNumberController,
+                        maxLength: 15,
+                        keyboardType: TextInputType.number,
+                        decoration: _buildInputDecoration('Receiver Phone Number', prefixIcon: Icons.phone),
+                        style: const TextStyle(fontSize: 16),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) return 'Please enter receiver phone number';
+                          if (value.length > 15) return 'Receiver phone number must be 15 characters or less';
+                          return null;
+                        },
+                      ),
+      
+                      if (!_isParcel) ...[
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Consignment Items',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        ..._consignmentItems.asMap().entries.map((entry) {
+                          return _buildConsignmentItemField(entry.key, isLargeScreen);
+                        }),
+                        const SizedBox(height: 8),
+                        Center(
+                          child: TextButton.icon(
+                            onPressed: _addConsignmentItem,
+                            icon: const Icon(Icons.add),
+                            label: const Text('Add Items'),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _packageValueController,
+                        maxLength: 8,
+                        keyboardType: TextInputType.number,
+                        decoration: _buildInputDecoration('Package Value', prefixText: 'TSH '),
+                        style: const TextStyle(fontSize: 16),
+                        validator: _isParcel ? (value) {
+                          if (value == null || value.isEmpty) return 'Please enter package value';
+                          if (value.length > 8) return 'Package value must be 8 characters or less';
+                          return null;
+                        } : (value) {
+                          if (value == null || value.isEmpty) {
+                            _packageValueController.text = '0';
+                            return null;
+                          };
+                          if (value.length > 8) return 'Package value must be 8 characters or less';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _paidAmountController,
+                        maxLength: 8,
+                        enabled: _isParcel,
+                        decoration: _buildInputDecoration('Paid Amount', prefixText: 'TSH '),
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(fontSize: 16),
+                        validator: _isParcel ? (value) {
+                          if (value == null || value.isEmpty) return 'Please enter Paid Amount';
+                          if (value.length > 8) return 'Paid amount must be 8 characters or less';
+                          return null;
+                        } : null,
+                      ),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: isLargeScreen ? 400 : double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : _submitConsignment,
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            backgroundColor: Colors.teal[800],
+                          ),
+                          child: _isLoading 
+                              ? const CircularProgressIndicator()
+                              : Text(
+                                  _isParcel ? 'Add Parcel' : 'Add Consignment',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ) :
+            Form(
               key: _formKey,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1377,7 +1648,6 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
    
   }
 
-
   Future<void> _printBluetoothReceipt(dynamic consignment) async {
 
     bool? isConnected = await bluetooth.isConnected;
@@ -1439,7 +1709,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     bluetooth.printCustom(widget.companyName, 1, 1);
     bluetooth.printCustom("********************************", 1, 1);
     bluetooth.printCustom(consignment['is_parcel'] ? "PARCEL RECEIPT" : "CONSIGNMENT RECEIPT", 1, 1);
-    bluetooth.printCustom("Package No: ${consignment['id']}", 1, 1);
+    bluetooth.printCustom("Package No: ${packageId}", 1, 1);
     bluetooth.printLeftRight("Package Name", consignment['package_name'] ?? '', 1);
 
     // final packageValue = (consignment['package_value'] ?? 0).toInt();
@@ -1500,7 +1770,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     bluetooth.printLeftRight("Phone", consignment['issuer_phone_number'] ?? '', 1);
 
     String data = SimpleCodec.encode(jsonEncode({
-      "cid": consignment['id'],
+      "cid": packageId,
       "oid": consignment['office_id'],
     }));
 
@@ -1599,7 +1869,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     bluetooth.printCustom("${consignment['receiver_phone_number']}", 2, 1);
 
     String data = SimpleCodec.encode(jsonEncode({
-      "cid": consignment['id'],
+      "cid": packageId,
       "oid": consignment['office_id'],
     }));
 
@@ -1617,6 +1887,286 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     bluetooth.printNewLine();
     bluetooth.printNewLine();
     bluetooth.paperCut();
+  }
+
+  Future<void> _printCableReceipt(dynamic consignment) async {
+    final pdf = pw.Document();
+
+    final logoData = await rootBundle.load('assets/telabs_logo.png');
+    final logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
+
+    final fontData =
+        await rootBundle.load('assets/fonts/poppins/Poppins-Regular.ttf');
+    final customFont = pw.Font.ttf(fontData);
+
+    const pageWidth = 226.0;
+
+    final items = consignment['consignment_items'] ?? [];
+
+    String data = SimpleCodec.encode(jsonEncode({
+      "cid": packageId,
+      "oid": consignment['office_id'],
+    }));
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: const PdfPageFormat(pageWidth, double.infinity),
+        build: (context) {
+          return pw.Padding(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 8),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+
+                /// LOGO
+                // pw.Center(
+                //   child: pw.Image(logoImage, width: 70),
+                // ),
+
+                pw.SizedBox(height: 6),
+
+                /// COMPANY NAME
+                pw.Center(
+                  child: pw.Text(
+                    widget.companyName,
+                    style: pw.TextStyle(
+                      font: customFont,
+                      fontSize: 12,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                ),
+
+                pw.Center(
+                  child: pw.Text(
+                    consignment['is_parcel']
+                        ? "PARCEL RECEIPT"
+                        : "CONSIGNMENT RECEIPT",
+                    style: pw.TextStyle(
+                      font: customFont,
+                      fontSize: 11,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                ),
+
+                pw.SizedBox(height: 6),
+
+                pw.Text(
+                  "********************************",
+                  style: pw.TextStyle(font: customFont),
+                ),
+
+                /// PACKAGE INFO
+                pw.Text(
+                  "Package No: ${packageId}",
+                  style: pw.TextStyle(font: customFont),
+                ),
+
+                pw.Text(
+                  "Package Name: ${consignment['package_name'] ?? ''}",
+                  style: pw.TextStyle(font: customFont),
+                ),
+
+                pw.Text(
+                  "Package Value: TZS ${consignment['package_value']}",
+                  style: pw.TextStyle(font: customFont),
+                ),
+
+                pw.Text(
+                  "Payment Status: ${consignment['payment_status'] ? "Paid" : "Not Paid"}",
+                  style: pw.TextStyle(font: customFont),
+                ),
+
+                if (consignment['payment_status'])
+                  pw.Text(
+                    "Paid Amount: TZS ${consignment['paid_amount']}",
+                    style: pw.TextStyle(font: customFont),
+                  ),
+
+                pw.SizedBox(height: 6),
+
+                pw.Text(
+                  "--------------------------------",
+                  style: pw.TextStyle(font: customFont),
+                ),
+
+                /// ROUTE
+                pw.Text(
+                  "Route",
+                  style: pw.TextStyle(
+                    font: customFont,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+
+                pw.Text(
+                  "From: ${consignment['from'] ?? ''}",
+                  style: pw.TextStyle(font: customFont),
+                ),
+
+                pw.Text(
+                  "To: ${consignment['to'] ?? ''}",
+                  style: pw.TextStyle(font: customFont),
+                ),
+
+                pw.SizedBox(height: 6),
+
+                /// SENDER
+                pw.Text(
+                  "Sender",
+                  style: pw.TextStyle(
+                    font: customFont,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+
+                pw.Text(
+                  "Name: ${consignment['sender_name'] ?? ''}",
+                  style: pw.TextStyle(font: customFont),
+                ),
+
+                pw.Text(
+                  "Phone: ${consignment['sender_phone_number'] ?? ''}",
+                  style: pw.TextStyle(font: customFont),
+                ),
+
+                pw.SizedBox(height: 6),
+
+                /// RECEIVER
+                pw.Text(
+                  "Receiver",
+                  style: pw.TextStyle(
+                    font: customFont,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+
+                pw.Text(
+                  "Name: ${consignment['receiver_name'] ?? ''}",
+                  style: pw.TextStyle(font: customFont),
+                ),
+
+                pw.Text(
+                  "Phone: ${consignment['receiver_phone_number'] ?? ''}",
+                  style: pw.TextStyle(font: customFont),
+                ),
+
+                /// ITEMS
+                if ((items.length > 1) && (items.length <= 10)) ...[
+                  pw.SizedBox(height: 6),
+
+                  pw.Text(
+                    "Items",
+                    style: pw.TextStyle(
+                      font: customFont,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+
+                  pw.SizedBox(height: 4),
+
+                  for (int i = 0; i < items.length; i++)
+                    pw.Text(
+                      "${i + 1}. ${items[i]['name']} (x${items[i]['quantity']})  "
+                      "TZS ${NumberFormat('#,##0').format(((items[i]['value'] ?? 0) * items[i]['quantity']).toInt())}",
+                      style: pw.TextStyle(font: customFont),
+                    ),
+                ],
+
+                pw.SizedBox(height: 6),
+
+                pw.Text(
+                  "--------------------------------",
+                  style: pw.TextStyle(font: customFont),
+                ),
+
+                /// ISSUED BY
+                pw.Text(
+                  "Issued By",
+                  style: pw.TextStyle(
+                    font: customFont,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+
+                pw.Text(
+                  "Name: ${consignment['issued_by'] ?? ''}",
+                  style: pw.TextStyle(font: customFont),
+                ),
+
+                pw.Text(
+                  "Phone: ${consignment['issuer_phone_number'] ?? ''}",
+                  style: pw.TextStyle(font: customFont),
+                ),
+
+                pw.SizedBox(height: 14),
+
+                /// QR
+                pw.Center(
+                  child: pw.BarcodeWidget(
+                    barcode: pw.Barcode.qrCode(),
+                    data: data,
+                    width: 110,
+                    height: 110,
+                  ),
+                ),
+
+                pw.SizedBox(height: 10),
+
+                /// FOOTER
+                pw.Center(
+                  child: pw.Text(
+                    "Thank you",
+                    style: pw.TextStyle(font: customFont),
+                  ),
+                ),
+
+                pw.Center(
+                  child: pw.Text(
+                    "Powered by Tiketi Mkononi",
+                    style: pw.TextStyle(font: customFont, fontSize: 10),
+                  ),
+                ),
+
+                pw.Center(
+                  child: pw.Text(
+                    "https://tiketimkononi.telabs.co.tz",
+                    style: pw.TextStyle(font: customFont, fontSize: 9),
+                  ),
+                ),
+
+                pw.Text(
+                  "********************************",
+                  style: pw.TextStyle(font: customFont),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+
+    if (selectedCablePrinter != null) {
+      await Printing.directPrintPdf(
+        printer: selectedCablePrinter!,
+        onLayout: (PdfPageFormat format) async => pdf.save(),
+      );
+    } else {
+      await _selectCablePrinterDialog();
+    }
+  }
+
+  Future<void> _refreshCablePrinters() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.remove("selected_printer_url");
+    await prefs.remove("selected_printer_name");
+
+    setState(() {
+      selectedCablePrinter = null;
+    });
+
+    await _selectCablePrinterDialog(); // fallback
   }
 
   Future<void> _saveNumberOfReceipts(int value) async {
@@ -1739,10 +2289,87 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     );
   }
 
+  Future<void> _selectCablePrinterDialog() async {
+    final printers = await Printing.listPrinters();
+
+    if (printers.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No printers found.')),
+      );
+      return;
+    }
+
+    Printer? selected;
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final isSmallScreen = constraints.maxWidth < 400;
+            final dialogWidth = isSmallScreen ? constraints.maxWidth * 0.9 : 400.0;
+
+            return AlertDialog(
+              contentPadding: EdgeInsets.all(20),
+              title: Text("Select a printer"),
+              content: SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: dialogWidth),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: printers
+                        .map(
+                          (printer) => ListTile(
+                            title: Text(printer.name),
+                            subtitle: Text(printer.url),
+                            onTap: () {
+                              selected = printer;
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (selected != null) {
+      // Save selected printer
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setString('selectedPrinterUrl', selected!.url);
+      _saveSelectedCablePrinter(selected!);
+      selectedCablePrinter = selected;
+    }
+  }
+
   Future<void> _saveSelectedPrinter(String printerName) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setString('selected_printer_name', printerName);
   }
 
+  Future<void> _loadSelectedPrinter() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? url = prefs.getString('selected_printer_url');
+    String? name = prefs.getString('selected_printer_name');
 
+    if (url != null && name != null) {
+      setState(() {
+        selectedCablePrinter = Printer(url: url, name: name);
+      });
+    }
+  }
+
+  Future<void> _saveSelectedCablePrinter(Printer printer) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('selected_printer_url', printer.url);
+    await prefs.setString('selected_printer_name', printer.name);
+    setState(() {
+      selectedCablePrinter = printer;
+    });
+  }
 }

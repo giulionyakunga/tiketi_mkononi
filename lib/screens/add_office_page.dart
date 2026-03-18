@@ -92,6 +92,32 @@ class _AddOfficePageState extends State<AddOfficePage> {
     );
   }
 
+  InputDecoration _buildInputDecoration(String label, {String? prefixText, IconData? prefixIcon}) {
+    return InputDecoration(
+      labelText: label,
+      prefixText: prefixText,
+      prefixIcon: (prefixIcon != null) ? Icon(
+        prefixIcon,
+        color: Colors.grey[600],
+      ) : null,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(color: Colors.grey[400]!),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(color: Colors.grey[400]!),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(color: Colors.teal[800]!, width: 2),
+      ),
+      filled: true,
+      fillColor: Colors.grey[200],
+      contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isLargeScreen = MediaQuery.of(context).size.width > 600;
@@ -131,12 +157,7 @@ class _AddOfficePageState extends State<AddOfficePage> {
                       const SizedBox(height: 24),
                       TextFormField(
                         controller: _officeNameController,
-                        decoration: const InputDecoration(
-                          labelText: 'Office Name',
-                          hintText: 'e.g. Mwanza Main Office',
-                          prefixIcon: Icon(Icons.apartment),
-                          border: OutlineInputBorder(),
-                        ),
+                        decoration: _buildInputDecoration('Office Name', prefixIcon: Icons.apartment),
                         validator: (value) => value == null || value.trim().isEmpty
                             ? 'Office name is required'
                             : null,
@@ -144,12 +165,7 @@ class _AddOfficePageState extends State<AddOfficePage> {
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _officeLocationController,
-                        decoration: const InputDecoration(
-                          labelText: 'Office Location',
-                          hintText: 'e.g. Mwanza',
-                          prefixIcon: Icon(Icons.apartment),
-                          border: OutlineInputBorder(),
-                        ),
+                        decoration: _buildInputDecoration('Office Location', prefixIcon: Icons.apartment),
                         validator: (value) => value == null || value.trim().isEmpty
                             ? 'Office location is required'
                             : null,
