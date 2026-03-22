@@ -38,8 +38,9 @@ class AddConsignmentPage extends StatefulWidget {
   final String companyName;
   final String userName;
   final String userPhoneNumber;
+  final bool isReplacableScreen;
 
-  const AddConsignmentPage({super.key, required this.userId, required this.companyId, required this.companyName, required this.officeId, required this.userName, required this.userPhoneNumber});
+  const AddConsignmentPage({super.key, required this.userId, required this.companyId, required this.companyName, required this.officeId, required this.userName, required this.userPhoneNumber, required this.isReplacableScreen});
 
   @override
   State<AddConsignmentPage> createState() => _AddConsignmentPageState();
@@ -1081,12 +1082,22 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
           IconButton(
             icon: const Icon(Icons.local_shipping),
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ConsignmentsPage(userId: userId, officeId: 0, officeName: '', companyId: 0, role: role, companyName: widget.companyName, userName: widget.userName, userPhoneNumber: widget.userPhoneNumber,),
-                ),
-              );
+              
+              if(widget.isReplacableScreen) {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ConsignmentsPage(userId: userId, officeId: 0, officeName: '', companyId: 0, role: role, companyName: widget.companyName, userName: widget.userName, userPhoneNumber: widget.userPhoneNumber,),
+                  ),
+                );
+              } else {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ConsignmentsPage(userId: userId, officeId: 0, officeName: '', companyId: 0, role: role, companyName: widget.companyName, userName: widget.userName, userPhoneNumber: widget.userPhoneNumber,),
+                  ),
+                );
+              }
             },
           ),
           IconButton(

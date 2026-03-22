@@ -657,7 +657,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
           await Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => AddConsignmentPage(userId: userId, companyId: companyId, companyName:companyName, officeId: officeId, userName: userName, userPhoneNumber: userPhoneNumber),
+              builder: (context) => AddConsignmentPage(userId: userId, companyId: companyId, companyName:companyName, officeId: officeId, userName: userName, userPhoneNumber: userPhoneNumber, isReplacableScreen: false),
             ),
           );
         },

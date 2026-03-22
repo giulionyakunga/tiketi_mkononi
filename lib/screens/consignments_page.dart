@@ -50,7 +50,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
   String _typeFilter = 'all'; // all | parcel | consignment
   String _paymentFilter = 'all'; // all | parcel | consignment
   
-  final BlueThermalPrinter bluetooth = BlueThermalPrinter.instance;
+  BlueThermalPrinter bluetooth = BlueThermalPrinter.instance;
   BluetoothDevice? selectedDevice;
 
   @override
@@ -220,7 +220,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                 setState(() {
                   _showDetails = false;
                   _selectedConsignment = null;
-                  _refreshBluetoothPrinters();
+                  _hardRefreshBluetoothPrinters();
                   if (Platform.isWindows) {
                     _refreshCablePrinters();
                   }
@@ -280,8 +280,8 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
-              builder: (context) => AddConsignmentPage(userId: widget.userId, companyId: widget.companyId, companyName: widget.companyName, officeId: widget.officeId, userName: widget.userName, userPhoneNumber: widget.userPhoneNumber),
-          ));
+              builder: (context) => AddConsignmentPage(userId: widget.userId, companyId: widget.companyId, companyName: widget.companyName, officeId: widget.officeId, userName: widget.userName, userPhoneNumber: widget.userPhoneNumber, isReplacableScreen: true,),
+            ));
         }, // future: add office
         child: const Icon(
           Icons.add,
@@ -1211,68 +1211,82 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     );
   }
 
-  Future<void> _refreshBluetoothPrinters() async {
-    await bluetooth.disconnect();
+  Future<void> _hardRefreshBluetoothPrinters() async {
+
     bool? isConnected = await bluetooth.isConnected;
 
-    // Already connected
-    if (isConnected ?? false) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Printer already connected'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      return;
+    if (isConnected == true) {
+      await bluetooth.disconnect();
+      isConnected = false;
     }
 
-    // Get paired devices
-    List<BluetoothDevice> devices = await bluetooth.getBondedDevices();
+    bluetooth = BlueThermalPrinter.instance;
+    selectedDevice = null;
+    selectedPrinter = null;
+    selectedCablePrinter = null;
 
-    if (devices.isEmpty) {
+
+    if (!(isConnected ?? false)) {
+      debugPrint(' Not Connected to bluetooth device, connecting...');
+      List<BluetoothDevice> devices = await bluetooth.getBondedDevices();
+
+      if (devices.isNotEmpty) {
+        await _selectPrinterDialog(devices);
+
+        if (selectedPrinter == null) {
+          print("No printer found");
+          return;
+        }
+
+        try {
+          await bluetooth.connect(selectedPrinter!);
+          isConnected = true;
+        } catch (e) {
+          isConnected = false;
+          debugPrint('Failed to connect to printer: $e');
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to connect to printer'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return; // stop printing
+        }
+      } else {
+        // No paired printer found
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No paired Bluetooth printer found.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return; // stop printing
+      }
+    }
+
+    if (!(isConnected ?? false)) {
+      // Printer still not connected
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('No paired Bluetooth printer found.'),
+          content: Text('Printer is not connected.'),
           backgroundColor: Colors.red,
         ),
       );
       return;
     }
 
-    // Show printer selection dialog
-    await _selectPrinterDialog(devices);
-
-    if (selectedPrinter == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No printer selected.'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    try {
-      await bluetooth.connect(selectedPrinter!);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Printer connected successfully!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      debugPrint('Failed to connect to printer: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to connect to printer.'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
+    bluetooth.printNewLine();
+    bluetooth.printCustom("********************************", 1, 1);
+    bluetooth.printCustom("*${widget.companyName}*", 2, 1);
+    bluetooth.printCustom("********************************", 1, 1);
+    bluetooth.printNewLine();
+    bluetooth.printNewLine();
+    bluetooth.paperCut();
+   
   }
 
-  
+
   Future<void> _refreshCablePrinters() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.remove("selected_printer_url");
