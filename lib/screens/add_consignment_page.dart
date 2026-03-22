@@ -64,7 +64,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
   bool _isParcel = true;
   late final StorageService _storageService;
 
-  final BlueThermalPrinter bluetooth = BlueThermalPrinter.instance;
+  BlueThermalPrinter bluetooth = BlueThermalPrinter.instance;
   BluetoothDevice? selectedDevice;
   BluetoothDevice? selectedPrinter;
   Printer? selectedCablePrinter;
@@ -130,7 +130,6 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
         final responseData = jsonDecode(response.body); // This is a List<dynamic>
 
-        String officeName2 = "";
         List<String> officeNames2 = [];
 
         // Loop through each office
@@ -142,14 +141,15 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
           // If this office's id matches widget.officeId, set officeName
           if (office['id'] == widget.officeId) {
-            officeName2 = office['name'];
+            setState(() {
+              _fromController.text = office['name'];
+            });
           }
         }
 
-        if(responseData.length > 0) {
+        if(officeNames2.length > 0) {
           setState(() {
             officeNames = officeNames2;
-            _fromController.text = officeName2;
           });
         }        
       }
@@ -1069,7 +1069,12 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isParcel ? 'Add Parcel' : 'Add Consignment'),       
+        title: Text(
+          _isParcel ? 'Add Parcel' : 'Add Consignment',
+          style: TextStyle(
+            fontSize: 15,
+          ),
+        ),       
         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
         actions: [
@@ -1120,7 +1125,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                   _printBluetoothReceipt2(_addedConsignment);
                 }
               } else if (value == 'refresh_printers') {
-                _refreshBluetoothPrinters();
+                _hardRefreshBluetoothPrinters();
                 if (Platform.isWindows) {
                   _refreshCablePrinters();
                 }
@@ -1245,6 +1250,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                         },
                       ),
                       const SizedBox(height: 16),
+                      (widget.officeId > 0) ?
                       TextFormField(
                         controller: _fromController,
                         maxLength: 100,
@@ -1256,7 +1262,37 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                           if (value.length > 100) return 'Origin name must be 100 characters or less';
                           return null;
                         },
+                      ) :
+                      DropdownButtonFormField<String>(
+                        value: _fromController.text.isNotEmpty ? _fromController.text : null, // preselect if any
+                        decoration: _buildInputDecoration('From', prefixIcon: Icons.business),
+                        style: const TextStyle(fontSize: 16),
+                        items: officeNames.map((office) {
+                          return DropdownMenuItem<String>(
+                            value: office,
+                            child: Text(
+                              office,
+                              style: TextStyle(color: Colors.black),
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            _fromController.text = value; // update controller so form works
+                          }
+                        },
+                        validator: (value) {
+                          if (value == null || value.isEmpty) return 'Please select a destination';
+                          return null;
+                        },
                       ),
+                      
+                      
+                      
+        
+
+
+
                       const SizedBox(height: 16),
                       DropdownButtonFormField<String>(
                         value: _toController.text.isNotEmpty ? _toController.text : null, // preselect if any
@@ -1440,6 +1476,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                     },
                   ),
                   const SizedBox(height: 16),
+                  (widget.officeId > 0) ?
                   TextFormField(
                     controller: _fromController,
                     maxLength: 100,
@@ -1449,6 +1486,29 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                     validator: (value) {
                       if (value == null || value.isEmpty) return 'Please enter origin';
                       if (value.length > 100) return 'Origin name must be 100 characters or less';
+                      return null;
+                    },
+                  ) :
+                  DropdownButtonFormField<String>(
+                    value: _fromController.text.isNotEmpty ? _fromController.text : null, // preselect if any
+                    decoration: _buildInputDecoration('From', prefixIcon: Icons.business),
+                    style: const TextStyle(fontSize: 16),
+                    items: officeNames.map((office) {
+                      return DropdownMenuItem<String>(
+                        value: office,
+                        child: Text(
+                          office,
+                          style: TextStyle(color: Colors.black),
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        _fromController.text = value; // update controller so form works
+                      }
+                    },
+                    validator: (value) {
+                      if (value == null || value.isEmpty) return 'Please select a destination';
                       return null;
                     },
                   ),
@@ -1587,6 +1647,78 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
   Future<void> _refreshBluetoothPrinters() async {
 
     bool? isConnected = await bluetooth.isConnected;
+
+    if (!(isConnected ?? false)) {
+      debugPrint(' Not Connected to bluetooth device, connecting...');
+      List<BluetoothDevice> devices = await bluetooth.getBondedDevices();
+
+      if (devices.isNotEmpty) {
+        await _selectPrinterDialog(devices);
+
+        if (selectedPrinter == null) {
+          print("No printer found");
+          return;
+        }
+
+        try {
+          await bluetooth.connect(selectedPrinter!);
+          isConnected = true;
+        } catch (e) {
+          isConnected = false;
+          debugPrint('Failed to connect to printer: $e');
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to connect to printer'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return; // stop printing
+        }
+      } else {
+        // No paired printer found
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No paired Bluetooth printer found.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return; // stop printing
+      }
+    }
+
+    if (!(isConnected ?? false)) {
+      // Printer still not connected
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Printer is not connected.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    bluetooth.printNewLine();
+    bluetooth.printCustom(" ", 2, 1);
+    bluetooth.printNewLine();
+    bluetooth.paperCut();
+   
+  }
+
+  Future<void> _hardRefreshBluetoothPrinters() async {
+
+    bool? isConnected = await bluetooth.isConnected;
+
+    if (isConnected == true) {
+      await bluetooth.disconnect();
+      isConnected = false;
+    }
+
+    bluetooth = BlueThermalPrinter.instance;
+    selectedDevice = null;
+    selectedPrinter = null;
+    selectedCablePrinter = null;
+
 
     if (!(isConnected ?? false)) {
       debugPrint(' Not Connected to bluetooth device, connecting...');

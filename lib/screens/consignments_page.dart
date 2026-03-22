@@ -107,9 +107,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
         double totalPaidAmount = 0;
 
         for (var consignment in consignmentsList) {
-          if (consignment['payment_status'] == true) {
-            totalPaidAmount += (consignment['paid_amount'] ?? 0).toDouble();
-          }
+          totalPaidAmount += (consignment['paid_amount'] ?? 0).toDouble();
         }
 
         setState(() {
@@ -279,7 +277,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
       floatingActionButton: FloatingActionButton(
         backgroundColor: Colors.teal,
         onPressed: () {
-          Navigator.push(
+          Navigator.pushReplacement(
             context,
             MaterialPageRoute(
               builder: (context) => AddConsignmentPage(userId: widget.userId, companyId: widget.companyId, companyName: widget.companyName, officeId: widget.officeId, userName: widget.userName, userPhoneNumber: widget.userPhoneNumber),
@@ -813,17 +811,12 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     double totalPaidAmount = 0;
 
     for (var consignment in filteredConsignments) {
-      if (consignment['payment_status'] == true) {
-        totalPaidAmount += (consignment['paid_amount'] ?? 0).toDouble();
-      }
+      totalPaidAmount += (consignment['paid_amount'] ?? 0).toDouble();
     }
 
     setState(() {
       totalCollection = totalPaidAmount;
     });
-
-
-
 
     return Column(
       children: [

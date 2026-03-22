@@ -1396,7 +1396,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
     if (hour == null ||
         minute == null ||
         hour < 0 ||
-        hour > 23 ||
+        hour > 23 || 
         minute < 0 ||
         minute > 59) {
       return "Invalid time format";
@@ -1417,8 +1417,15 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
   Future<void> _shareCard() async {
     _updateTicketWhatsappSentStatus(widget.ticket.id, widget.event!.id);
 
-    // String text = "Habari ${widget.ticket.userName},\nUmealikwa kwenye sherehe ya ${widget.ticket.eventName}, Itakayofanyika tarehe ${widget.ticket.date}, katika ukumbi wa ${widget.ticket.venue}, kuanzia saa ${widget.ticket.time} ${getTimeOfDay(widget.ticket.time)}. Hii ni kadi yako. Fika nayo siku ya Tukio. Namba ya kadi yako ni: ${widget.ticket.ticketCode} (${widget.ticket.ticketType}).\nBofya kiungo hiki kuthibitisha uwepo wako -> https://tiketimkononi.telabs.co.tz/confirm/attendance/${widget.ticket.eventId}/${widget.ticket.ticketCode}\nKiungo cha mahali -> ${widget.ticket.locationLink}\nKwa msaada piga namba ${widget.event!.organizerPhoneNumber}.\n#TiketiMkononi, #SimuYakoTiketiYako";
-    String text = "Habari ${widget.ticket.userName},\nUmealikwa kwenye sherehe ya ${widget.ticket.eventName}, Itakayofanyika tarehe ${widget.ticket.date}, Nyumbani Kwao ${widget.ticket.venue}, kuanzia saa ${widget.ticket.time} ${getTimeOfDay(widget.ticket.time)}. Hii ni kadi yako. Fika nayo siku ya Tukio. Namba ya kadi yako ni: ${widget.ticket.ticketCode} (${widget.ticket.ticketType}).\nBofya kiungo hiki kuthibitisha uwepo wako -> https://tiketimkononi.telabs.co.tz/confirm/attendance/${widget.ticket.eventId}/${widget.ticket.ticketCode}\nKiungo cha mahali -> ${widget.ticket.locationLink}\nKwa msaada piga namba ${widget.event!.organizerPhoneNumber}.\n#TiketiMkononi, #SimuYakoTiketiYako";
+    String text = ""; 
+    String extraInfoText = (widget.ticket.extraInfo.trim().isNotEmpty) ? ' ${widget.ticket.extraInfo}' : '';
+
+    if (widget.ticket.venue.toLowerCase().contains('nyumbani') ) {
+      text = "Habari ${widget.ticket.userName},\nUmealikwa kwenye sherehe ya ${widget.ticket.eventName}, Itakayofanyika tarehe ${widget.ticket.date}, Nyumbani Kwao ${widget.ticket.venue}, kuanzia saa ${widget.ticket.time} ${getTimeOfDay(widget.ticket.time)}. Hii ni kadi yako. Fika nayo siku ya Tukio. Namba ya kadi yako ni: ${widget.ticket.ticketCode} (${widget.ticket.ticketType})${extraInfoText}.\nBofya kiungo hiki kuthibitisha uwepo wako -> https://tiketimkononi.telabs.co.tz/confirm/attendance/${widget.ticket.eventId}/${widget.ticket.ticketCode}\nKiungo cha mahali -> ${widget.ticket.locationLink}\nKwa msaada piga namba ${widget.event!.organizerPhoneNumber}.\n#TiketiMkononi, #SimuYakoTiketiYako";
+    } else {
+      text = "Habari ${widget.ticket.userName},\nUmealikwa kwenye sherehe ya ${widget.ticket.eventName}, Itakayofanyika tarehe ${widget.ticket.date}, katika ukumbi wa ${widget.ticket.venue}, kuanzia saa ${widget.ticket.time} ${getTimeOfDay(widget.ticket.time)}. Hii ni kadi yako. Fika nayo siku ya Tukio. Namba ya kadi yako ni: ${widget.ticket.ticketCode} (${widget.ticket.ticketType})${extraInfoText}.\nBofya kiungo hiki kuthibitisha uwepo wako -> https://tiketimkononi.telabs.co.tz/confirm/attendance/${widget.ticket.eventId}/${widget.ticket.ticketCode}\nKiungo cha mahali -> ${widget.ticket.locationLink}\nKwa msaada piga namba ${widget.event!.organizerPhoneNumber}.\n#TiketiMkononi, #SimuYakoTiketiYako";
+    }
+
     // await Clipboard.setData(ClipboardData(text: text));
     await Clipboard.setData(ClipboardData(text: contactName));
     
@@ -1444,8 +1451,15 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
               
       setState(() => _isLoading = true);
 
-      // String text = "Habari ${widget.ticket.userName},\nUmealikwa kwenye sherehe ya ${widget.ticket.eventName}, Itakayofanyika tarehe ${widget.ticket.date}, katika ukumbi wa ${widget.ticket.venue}, kuanzia saa ${widget.ticket.time} ${getTimeOfDay(widget.ticket.time)}. Hii ni kadi yako. Fika nayo siku ya Tukio. Namba ya kadi yako ni: ${widget.ticket.ticketCode} (${widget.ticket.ticketType}).\nBofya kiungo hiki kuthibitisha uwepo wako -> https://tiketimkononi.telabs.co.tz/confirm/attendance/${widget.ticket.eventId}/${widget.ticket.ticketCode}\nKiungo cha mahali -> ${widget.ticket.locationLink}\nKwa msaada piga namba ${widget.event!.organizerPhoneNumber}.\n#TiketiMkononi, #SimuYakoTiketiYako";
-      String text = "Habari ${widget.ticket.userName},\nUmealikwa kwenye sherehe ya ${widget.ticket.eventName}, Itakayofanyika tarehe ${widget.ticket.date}, Nyumbani Kwao ${widget.ticket.venue}, kuanzia saa ${widget.ticket.time} ${getTimeOfDay(widget.ticket.time)}. Hii ni kadi yako. Fika nayo siku ya Tukio. Namba ya kadi yako ni: ${widget.ticket.ticketCode} (${widget.ticket.ticketType}).\nBofya kiungo hiki kuthibitisha uwepo wako -> https://tiketimkononi.telabs.co.tz/confirm/attendance/${widget.ticket.eventId}/${widget.ticket.ticketCode}\nKiungo cha mahali -> ${widget.ticket.locationLink}\nKwa msaada piga namba ${widget.event!.organizerPhoneNumber}.\n#TiketiMkononi, #SimuYakoTiketiYako";
+      String text = "";
+      String extraInfoText = (widget.ticket.extraInfo.trim().isNotEmpty) ? ' ${widget.ticket.extraInfo}' : '';
+
+      if (widget.ticket.venue.toLowerCase().contains('nyumbani') ) {
+        text = "Habari ${widget.ticket.userName},\nUmealikwa kwenye sherehe ya ${widget.ticket.eventName}, Itakayofanyika tarehe ${widget.ticket.date}, Nyumbani Kwao ${widget.ticket.venue}, kuanzia saa ${widget.ticket.time} ${getTimeOfDay(widget.ticket.time)}. Hii ni kadi yako. Fika nayo siku ya Tukio. Namba ya kadi yako ni: ${widget.ticket.ticketCode} (${widget.ticket.ticketType})${extraInfoText}.\nBofya kiungo hiki kuthibitisha uwepo wako -> https://tiketimkononi.telabs.co.tz/confirm/attendance/${widget.ticket.eventId}/${widget.ticket.ticketCode}\nKiungo cha mahali -> ${widget.ticket.locationLink}\nKwa msaada piga namba ${widget.event!.organizerPhoneNumber}.\n#TiketiMkononi, #SimuYakoTiketiYako";
+      } else {
+        text = "Habari ${widget.ticket.userName},\nUmealikwa kwenye sherehe ya ${widget.ticket.eventName}, Itakayofanyika tarehe ${widget.ticket.date}, katika ukumbi wa ${widget.ticket.venue}, kuanzia saa ${widget.ticket.time} ${getTimeOfDay(widget.ticket.time)}. Hii ni kadi yako. Fika nayo siku ya Tukio. Namba ya kadi yako ni: ${widget.ticket.ticketCode} (${widget.ticket.ticketType})${extraInfoText}.\nBofya kiungo hiki kuthibitisha uwepo wako -> https://tiketimkononi.telabs.co.tz/confirm/attendance/${widget.ticket.eventId}/${widget.ticket.ticketCode}\nKiungo cha mahali -> ${widget.ticket.locationLink}\nKwa msaada piga namba ${widget.event!.organizerPhoneNumber}.\n#TiketiMkononi, #SimuYakoTiketiYako";
+      }
+
 
       final Uri uri = useDNS ? Uri.parse('${backend_url}api/send_card') // Original URL 
       : Uri.parse('${backend_url_with_fallback_ip}send_card'); // Use IP
@@ -1572,9 +1586,14 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
     await Clipboard.setData(ClipboardData(text: widget.ticket.userPhoneNumber));
 
     String text = "";
+    String extraInfoText = (widget.ticket.extraInfo.trim().isNotEmpty) ? ' ${widget.ticket.extraInfo}' : '';
+
     if(widget.event!.category.toUpperCase() == "WEDDING"){
-      // text = "Habari ${widget.ticket.userName},\nUmealikwa kwenye sherehe ya ${widget.ticket.eventName}, Itakayofanyika tarehe ${widget.ticket.date}, katika ukumbi wa ${widget.ticket.venue}, kuanzia saa ${widget.ticket.time} ${getTimeOfDay(widget.ticket.time)}. Namba ya kadi yako ni: ${widget.ticket.ticketCode} (${widget.ticket.ticketType}). Hii ni kadi yako, fika nayo siku ya tukio..\nBofya kiungo hiki kuthibitisha uwepo wako -> https://tiketimkononi.telabs.co.tz/confirm/attendance/${widget.ticket.eventId}/${widget.ticket.ticketCode}\nKiungo cha mahali -> ${widget.ticket.locationLink}\nKwa msaada piga namba ${widget.event!.organizerPhoneNumber}.\n#TiketiMkononi";
-      text = "Habari ${widget.ticket.userName},\nUmealikwa kwenye sherehe ya ${widget.ticket.eventName}, Itakayofanyika tarehe ${widget.ticket.date}, Nyumbani Kwao ${widget.ticket.venue}, kuanzia saa ${widget.ticket.time} ${getTimeOfDay(widget.ticket.time)}. Namba ya kadi yako ni: ${widget.ticket.ticketCode} (${widget.ticket.ticketType}). Hii ni kadi yako, fika nayo siku ya tukio..\nBofya kiungo hiki kuthibitisha uwepo wako -> https://tiketimkononi.telabs.co.tz/confirm/attendance/${widget.ticket.eventId}/${widget.ticket.ticketCode}\nKiungo cha mahali -> ${widget.ticket.locationLink}\nKwa msaada piga namba ${widget.event!.organizerPhoneNumber}.\n#TiketiMkononi";
+      if (widget.ticket.venue.toLowerCase().contains('nyumbani') ) {
+        text = "Habari ${widget.ticket.userName},\nUmealikwa kwenye sherehe ya ${widget.ticket.eventName}, Itakayofanyika tarehe ${widget.ticket.date}, Nyumbani Kwao ${widget.ticket.venue}, kuanzia saa ${widget.ticket.time} ${getTimeOfDay(widget.ticket.time)}. Namba ya kadi yako ni: ${widget.ticket.ticketCode} (${widget.ticket.ticketType})${extraInfoText}. Hii ni kadi yako, fika nayo siku ya tukio..\nBofya kiungo hiki kuthibitisha uwepo wako -> https://tiketimkononi.telabs.co.tz/confirm/attendance/${widget.ticket.eventId}/${widget.ticket.ticketCode}\nKiungo cha mahali -> ${widget.ticket.locationLink}\nKwa msaada piga namba ${widget.event!.organizerPhoneNumber}.\n#TiketiMkononi";
+      } else {
+        text = "Habari ${widget.ticket.userName},\nUmealikwa kwenye sherehe ya ${widget.ticket.eventName}, Itakayofanyika tarehe ${widget.ticket.date}, katika ukumbi wa ${widget.ticket.venue}, kuanzia saa ${widget.ticket.time} ${getTimeOfDay(widget.ticket.time)}. Namba ya kadi yako ni: ${widget.ticket.ticketCode} (${widget.ticket.ticketType})${extraInfoText}. Hii ni kadi yako, fika nayo siku ya tukio..\nBofya kiungo hiki kuthibitisha uwepo wako -> https://tiketimkononi.telabs.co.tz/confirm/attendance/${widget.ticket.eventId}/${widget.ticket.ticketCode}\nKiungo cha mahali -> ${widget.ticket.locationLink}\nKwa msaada piga namba ${widget.event!.organizerPhoneNumber}.\n#TiketiMkononi";
+      }
     } else {
       text = "Habari ${widget.ticket.userName},\n"
       "${widget.ticket.ticketCode} (${widget.ticket.ticketType}) ni namba ya tiketi yako ya "
@@ -2190,10 +2209,111 @@ class ImageQrService {
         image, 
         ticket.userName, 
         font: font, 
-        x: textOffsetDx, 
+        x: textOffsetDx,
         y: textOffsetDy, 
         color: color
       );
+
+      if(ticket.extraInfo.isNotEmpty) {
+        // ================== Extra_Info STAMP ==================
+        final stampFont = img.arial14;
+
+        // Stamp text - REMOVED the extra spaces
+        final int spacesToAdd = (12 - (ticket.extraInfo.length)).clamp(0, 12);
+        final String stampText = ' ' * spacesToAdd + (ticket.extraInfo);;
+
+        // Calculate text dimensions
+        int charWidth = stampFont.size == 14
+            ? 9
+            : stampFont.size == 24
+                ? 15
+                : 30;
+        int textWidth2 = stampText.length * charWidth;
+        int textHeight2 = stampFont.lineHeight;
+
+        // Calculate ABSOLUTE MINIMUM radius - text will touch or slightly overlap circle
+        int padding2 = 0; // ZERO padding
+
+        // For width: radius needs to be at least half the text width
+        // Use exact half without ceiling first, then apply minimal adjustment
+        double exactWidthRadius = textWidth2 / 2;
+        int circleMinRadius = exactWidthRadius.ceil(); // Keep ceil to ensure text fits width-wise
+
+        // For height: Use an even smaller percentage of lineHeight (50%) for tightest fit
+        // Most arial14 characters (like 'A', 'B', 'E') actually use about 50% of lineHeight
+        int circleMinRadiusHeight = ((textHeight2 * 0.2) / 2).ceil(); // Reduced from 0.6 to 0.5
+
+        // Use the larger of width-based or height-based radius
+        int radius = circleMinRadius > circleMinRadiusHeight ? circleMinRadius : circleMinRadiusHeight;
+
+        // Optional: Force an even smaller radius by taking the minimum instead of maximum
+        // Uncomment the line below to force smallest possible radius (may cut off text)
+        // radius = circleMinRadius < circleMinRadiusHeight ? circleMinRadius : circleMinRadiusHeight;
+
+        // Stamp position on main image
+        final int centerX = textOffsetDx + 22 * charWidth + 200; // X position of circle center
+        final int centerY = textOffsetDy - 80; // Y position of circle center
+
+        // Red "stamp" color with slight transparency
+        final stampColor = img.ColorRgba8(0, 0, 0, 0);
+
+        // Draw filled circle directly on main image
+        for (int y = centerY - radius; y <= centerY + radius; y++) {
+          for (int x = centerX - radius; x <= centerX + radius; x++) {
+            // Check if within image bounds
+            if (x >= 0 && x < image.width && y >= 0 && y < image.height) {
+              final dx = x - centerX;
+              final dy = y - centerY;
+              // Calculate squared distance and compare with squared radius
+              if (dx * dx + dy * dy <= radius * radius) {
+                image.setPixel(x, y, stampColor); 
+              }
+            }
+          }
+        }
+
+        // PERFECT CENTERING for arial14 font
+        final int textX = centerX - (textWidth2 ~/ 2);
+
+        // Fine-tuned vertical centering for minimum radius
+        // Adjusted to 0 for even tighter fit with 50% height calculation
+        final int textY = centerY - (textHeight2 ~/ 2) + 0; // Changed from +1 to 0 for tighter fit
+
+        // Draw text directly on main image
+        img.drawString(
+          image,
+          stampText,
+          font: stampFont,
+          x: textX,
+          y: textY,
+          color: img.ColorRgba8(255, 255, 255, 255), // White text for contrast
+        );
+
+        // Debug: Draw dots to check centering
+        image.setPixel(centerX, centerY, img.ColorRgba8(0, 255, 0, 255)); // Green dot at circle center
+        image.setPixel(textX, textY, img.ColorRgba8(0, 0, 255, 255)); // Blue dot at text anchor
+
+        // Draw a prominent circle outline at the edge
+        int outlineThickness = 2; // Slightly thinner outline to see edge better
+
+        for (int y = centerY - radius - outlineThickness; y <= centerY + radius + outlineThickness; y++) {
+          for (int x = centerX - radius - outlineThickness; x <= centerX + radius + outlineThickness; x++) {
+            if (x >= 0 && x < image.width && y >= 0 && y < image.height) {
+              final dx = x - centerX;
+              final dy = y - centerY;
+              final distance = sqrt(dx*dx + dy*dy);
+              
+              // Draw a thick outline at the exact circle edge
+              if (distance >= radius - outlineThickness && distance <= radius + outlineThickness) {
+                image.setPixel(x, y, img.ColorRgba8(50, 255, 0, 255)); // Bright yellow outline
+              }
+            }
+          }
+        }
+
+        // ================== END Extra_Info STAMP ==================
+
+      }
 
       /// 7️⃣ Save result
       final tempDir = await getTemporaryDirectory();
@@ -2215,6 +2335,7 @@ class ImageQrService {
       rethrow;
     }
   }
+
 }
 
 class ImageLoader {

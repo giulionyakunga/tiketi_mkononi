@@ -195,29 +195,29 @@ class _AddOfficeAttendantPageState extends State<AddOfficeAttendantPage> {
       );
 
       if (response.statusCode == 200) {
-        setState(() {
-          _isOfficeAttendant = value;
-        });
-
         if(response.body == "Office attendant added successfully!") {
+          setState(() {
+            _isOfficeAttendant = value;
+          });
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('${_userData!['first_name']} is now an attendant for this office'),
               backgroundColor: Colors.green,
             ),
           );
-        }else if(response.body == "Office attendant removed successfully!") {
+        } else if(response.body == "Office attendant removed successfully!") {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('${_userData!['first_name']} is no longer an attendant for this office'),
               backgroundColor: Colors.green,
             ),
           );
-        }else if(response.body == "Action not allowed!") {
+        } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Action not allowed!'),
-              backgroundColor: Colors.red,
+              content: Text(response.body),
+              backgroundColor: Colors.black,
             ),
           );
         }        

@@ -25,6 +25,7 @@ class Ticket {
   final DateTime scannedAt;
   final bool smsSent;
   final bool whatsappSent;
+  final String extraInfo;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -55,6 +56,7 @@ class Ticket {
     required this.scannedAt,
     required this.smsSent,
     required this.whatsappSent,
+    required this.extraInfo,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -88,6 +90,7 @@ class Ticket {
       scannedAt: _parseDate(json['scannedAt']),
       smsSent: json['sms_sent'] ?? false,
       whatsappSent: json['whatsapp_sent'] ?? false,
+      extraInfo: json['extra_info'] ?? '',
       createdAt: _parseDate(json['createdAt']),
       updatedAt: _parseDate(json['updatedAt']),
     );
