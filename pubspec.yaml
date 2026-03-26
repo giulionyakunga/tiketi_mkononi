@@ -72,9 +72,9 @@ dependencies:
   csv: ^6.0.0
   barcode: ^2.2.6
   flutter_svg: ^2.2.3
-  # permission_handler: ^10.4.0  # For requesting permission
-  blue_thermal_printer: ^1.2.3
+  print_bluetooth_thermal: ^1.1.6
   flutter_colorpicker: ^1.0.3
+  esc_pos_utils_plus: ^2.0.4
 
 dev_dependencies:
   flutter_test:
