@@ -2,20 +2,23 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
-import 'package:tiketi_mkononi/screens/add_office_attendant_page.dart';
 import 'package:tiketi_mkononi/screens/add_office_page.dart';
 import 'package:tiketi_mkononi/screens/consignments_page.dart';
+import 'package:tiketi_mkononi/screens/edit_company_page.dart';
+import 'package:tiketi_mkononi/screens/edit_office_page.dart';
+import 'package:tiketi_mkononi/services/storage_service.dart';
 
 class OfficesPage extends StatefulWidget {
   final int userId;
   final int companyId;
-  final String companyName;
+  String companyName;
   final String userName;
   final String userPhoneNumber;
   final String role;
 
-  const OfficesPage({super.key, required this.userId, required this.companyId, required this.companyName, required this.userName, required this.userPhoneNumber, required this.role});
+  OfficesPage({super.key, required this.userId, required this.companyId, required this.companyName, required this.userName, required this.userPhoneNumber, required this.role});
 
   @override
   State<OfficesPage> createState() => _OfficesPageState();
@@ -25,11 +28,18 @@ class _OfficesPageState extends State<OfficesPage> {
   bool _isLoading = true;
   String? _error;
   List<dynamic> _offices = [];
+  late final StorageService _storageService;
 
   @override
   void initState() {
     super.initState();
     _fetchOffices();
+     _initializeServices();
+  }
+
+  Future<void> _initializeServices() async {
+    final prefs = await SharedPreferences.getInstance();
+    _storageService = StorageService(prefs);
   }
 
   Future<void> _fetchOffices({bool useDNS = true}) async {
@@ -70,6 +80,34 @@ class _OfficesPageState extends State<OfficesPage> {
     }
   }
 
+  PopupMenuItem<String> _buildMenuItem({
+    required IconData icon,
+    required String text,
+    required String value,
+  }) {
+    return PopupMenuItem<String>(
+      value: value,
+      height: 44,
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 20,
+            color: Colors.grey.shade800,
+          ),
+          const SizedBox(width: 12),
+          Text(
+            text,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -90,6 +128,52 @@ class _OfficesPageState extends State<OfficesPage> {
               );
             },
           ),
+
+          PopupMenuButton<String>(
+            padding: EdgeInsets.zero,
+            tooltip: 'More Options',
+            elevation: 8,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            icon: Icon(
+              Icons.more_vert,
+              color: Colors.white,
+              size: 22,
+            ),
+            onSelected: (value) async {
+              if (value == 'company_name') {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => EditCompanyPage(userId: widget.userId, companyId: widget.companyId, companyName: widget.companyName),
+                  ),
+                );
+
+                var profile = _storageService.getUserProfile();
+                widget.companyName = profile!.companyName;
+
+              } else if (value == 'exit') {
+                Navigator.pop(context);
+              }
+            },
+            itemBuilder: (context) => [
+    
+              if(widget.role == "cargo_transporter")
+              _buildMenuItem(
+                icon: Icons.location_city,
+                text: widget.companyName,
+                value: 'company_name',
+              ),
+              if(widget.role == "cargo_transporter")
+              const PopupMenuDivider(),
+              _buildMenuItem(
+                icon: Icons.exit_to_app,
+                text: 'Exit',
+                value: 'exit',
+              ),
+            ],
+          ),
         ],
       ),
       body: RefreshIndicator(
@@ -103,7 +187,8 @@ class _OfficesPageState extends State<OfficesPage> {
           context,
           MaterialPageRoute(
             builder: (context) => AddOfficePage(userId: widget.userId, companyId: widget.companyId),
-          ));
+          )
+          );
           
           _fetchOffices();
         }, // future: add office
@@ -186,11 +271,6 @@ class _OfficesPageState extends State<OfficesPage> {
               children: [
                 const SizedBox(height: 4),
                 Text(office['location'] ?? 'Unknown location'),
-                const SizedBox(height: 4),
-                Text(
-                  'Phone: ${office['phone'] ?? 'N/A'}',
-                  style: TextStyle(color: Colors.grey[700]),
-                ),
               ],
             ),
 
@@ -205,18 +285,20 @@ class _OfficesPageState extends State<OfficesPage> {
                     color: Colors.teal
                   ),
                   tooltip: 'Edit office',
-                  onPressed: () {
-                    // EDIT ACTION HERE
-                    Navigator.push(
+                  onPressed: () async {
+                    await Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => AddOfficeAttendantPage(
+                        builder: (context) => EditOfficePage(
                           userId: widget.userId,
                           officeId: office['id'],
-                          companyId: office['company_id'],
+                          companyId: office['company_id'], 
+                          officeName: office['name'], 
+                          officeLocation: office['location'],
                         ),
                       ),
                     );
+                    _fetchOffices();
                   },
                 ),
               ],

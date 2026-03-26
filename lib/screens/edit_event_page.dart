@@ -47,8 +47,7 @@ class EditEventPage extends StatefulWidget {
   final Event event;
   final int userId;
   final  Map<String, dynamic> ticketTypesTicketsCount;
-  final Function refreshMethod;
-
+  final Function refreshMethod; 
 
   const EditEventPage({
     super.key,

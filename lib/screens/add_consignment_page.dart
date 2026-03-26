@@ -49,6 +49,7 @@ class AddConsignmentPage extends StatefulWidget {
 class _AddConsignmentPageState extends State<AddConsignmentPage> {
   int userId = 0;
   String role = "";
+  String officeName = '';
   List<String> officeNames = [];
   final _formKey = GlobalKey<FormState>();
   final _senderNameController = TextEditingController();
@@ -71,6 +72,8 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
   Printer? selectedCablePrinter;
   int _selectedNumberofReceiptsToPrint = 1;
 
+  String receiptFooter = "Karibu Sana";
+
   List<ConsignmentItem> _consignmentItems = [];
   Map<String, dynamic>? _addedConsignment;
   
@@ -80,6 +83,8 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
   int receiptsBalance = 0;
   int packageId = 0;
   List<dynamic> receiptPackages = [];
+
+  int _consignmentItemsVersion = 0;
 
   @override
   void initState() {
@@ -143,6 +148,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
           // If this office's id matches widget.officeId, set officeName
           if (office['id'] == widget.officeId) {
             setState(() {
+              officeName = office['name'];
               _fromController.text = office['name'];
             });
           }
@@ -293,14 +299,16 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       _consignmentItems.add(ConsignmentItem(
         name: '',
         value: 0,
-        quantity: 0,
+        quantity: 1,
       ));
+      _consignmentItemsVersion++; // Increment version
     });
   }
 
   void _removeConsignmentItem(int index) {
     setState(() {
       _consignmentItems.removeAt(index);
+      _consignmentItemsVersion++; // Increment version
     });
   }
 
@@ -315,10 +323,17 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     int totalNumberOfConsignmentItems = 0;
     for (var i = 0; i < _consignmentItems.length; i++) {
       final consignmentItem = _consignmentItems[i];
+
+      if (consignmentItem.name.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please enter item name')), 
+        );
+        return false;
+      }
       
       if (consignmentItem.value <= 0) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Item value must be greater than 0')),
+          const SnackBar(content: Text('Item price must be greater than 0')),
         );
         return false;
       }
@@ -389,6 +404,13 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       return;
     }
 
+    if (_fromController.text.trim().toLowerCase() == _toController.text.trim().toLowerCase()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Origin and destination cannot be the same location.')),
+      );
+      return;
+    }
+
     final Map<String, dynamic> requestBody = {
       'user_id': userId,
       'company_id': widget.companyId,
@@ -426,16 +448,21 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       );
 
       if (response.statusCode == 200) {
-
         final responseData = jsonDecode(response.body);
         String message = responseData['message'];
-        receiptsBalance = responseData['number_of_sms'];
-        _saveReceiptsBalance(responseData['number_of_sms']);
-
+        
         if ((message.trim() == "Consignment added successfully!") || (message.trim() == "Parcel added successfully!"))  {
+          receiptsBalance = responseData['number_of_sms'];
+          _saveReceiptsBalance(responseData['number_of_sms']);
+
+          debugPrint('message : $message');
+
+          debugPrint('responseData : $responseData');
           packageId = responseData['id'];
+          debugPrint('responseData2 : $responseData');
           setState(() {
             packageId = responseData['id'];
+            receiptFooter = responseData['receipt_footer'];
           });
 
           _packageNameController.clear();
@@ -447,12 +474,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
           _packageValueController.clear();
           _paidAmountController.clear();
           _consignmentItems.clear();
-          if(!_isParcel) {
-            _consignmentItems.clear();
-            _addConsignmentItem();
-          } else {
-            _consignmentItems.clear();
-          }
+          _addConsignmentItem();
 
           setState(() {
             _addedConsignment = requestBody;
@@ -471,16 +493,18 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
               _printCableReceipt(requestBody);
             }
           }
+
+          _showSuccessDialog();
         }
 
         if (message.trim() == "Kifurushi chako kimeisha!") {
           await getReceiptPackages();
           _payDialog();
-        }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message.trim())),
-        );
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(message.trim())),
+          );
+        }
       } else if (response.statusCode == 302) {
         _handleHTTPRedirect();
       } else {
@@ -742,6 +766,32 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     );
   }
 
+  void _showSuccessDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green),
+            SizedBox(width: 8),
+            Text('Success'),
+          ],
+        ),
+        content: const Text('Package added successfully.'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pop(context, true);
+            },
+            child: const Text('OK'),
+          )
+        ],
+      ),
+    );
+  }
+
   void _handleSocketException(SocketException e) {
     if (e.osError?.errorCode == 7 || e.osError?.errorCode == 101 || e.osError?.errorCode == 111) {
       showDialog(
@@ -812,7 +862,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
           children: [
             Expanded(
               flex: 2,
-              child: _buildConsignmentItemDropdown(index),
+              child: _buildConsignmentItemNameInputField(index),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -831,7 +881,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
   Widget _buildMobileConsignmentItemFields(int index) {
     return Column(
       children: [
-        _buildConsignmentItemDropdown(index),
+        _buildConsignmentItemNameInputField(index),
         const SizedBox(height: 8),
         Row(
           children: [
@@ -848,8 +898,9 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     );
   }
 
-  Widget _buildConsignmentItemDropdown(int index) {
+  Widget _buildConsignmentItemNameInputField(int index) {
     return TextFormField(
+      key: ValueKey('name_${_consignmentItemsVersion}_$index'), // Unique key that changes when list is cleared
       initialValue: _consignmentItems[index].name,
       decoration: _buildInputDecoration('Item Name'),
       style: const TextStyle(fontSize: 14),
@@ -869,7 +920,8 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
   Widget _buildPriceField(int index) {
     return TextFormField(
-      // initialValue: _consignmentItems[index].value.toString(),
+      key: ValueKey('price_${_consignmentItemsVersion}_$index'), // Unique key
+      initialValue: _consignmentItems[index].value.toString(),
       decoration: _buildInputDecoration('Price', prefixText: 'TSH '),
       keyboardType: TextInputType.number,
       style: const TextStyle(fontSize: 14),
@@ -883,6 +935,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
   Widget _buildQuantityField(int index) {
     return TextFormField(
+      key: ValueKey('quantity_${_consignmentItemsVersion}_$index'), // Unique key
       initialValue: _consignmentItems[index].quantity.toString(),
       decoration: _buildInputDecoration('Quantity'),
       keyboardType: TextInputType.number,
@@ -981,6 +1034,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
               value: _isParcel,
               onChanged: (value) => setState(() {
                 _isParcel = value;
+                receiptFooter = value ? "Karibu Sana" : "Thank You";
               }),
               activeColor: Colors.teal[800],
             ),
@@ -1087,14 +1141,14 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                 Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => ConsignmentsPage(userId: userId, officeId: 0, officeName: '', companyId: 0, role: role, companyName: widget.companyName, userName: widget.userName, userPhoneNumber: widget.userPhoneNumber,),
+                    builder: (context) => ConsignmentsPage(userId: userId, officeId: widget.officeId, officeName: officeName, companyId: widget.companyId, role: role, companyName: widget.companyName, userName: widget.userName, userPhoneNumber: widget.userPhoneNumber,),
                   ),
-                );
+                ); 
               } else {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => ConsignmentsPage(userId: userId, officeId: 0, officeName: '', companyId: 0, role: role, companyName: widget.companyName, userName: widget.userName, userPhoneNumber: widget.userPhoneNumber,),
+                    builder: (context) => ConsignmentsPage(userId: userId, officeId: widget.officeId, officeName: officeName, companyId: widget.companyId, role: role, companyName: widget.companyName, userName: widget.userName, userPhoneNumber: widget.userPhoneNumber,),
                   ),
                 );
               }
@@ -1149,11 +1203,11 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                 Navigator.pop(context);
               }
             },
-            itemBuilder: (context) => [
+            itemBuilder: (context) => [              
               _buildMenuItem(
-                icon: Icons.print,
-                text: 'Reprint Receipt',
-                value: 'reprint_receipt',
+                icon: Icons.business_sharp,
+                text: widget.companyName,
+                value: '--',
               ),
               _buildMenuItem(
                 icon: Icons.print,
@@ -1293,17 +1347,10 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                           }
                         },
                         validator: (value) {
-                          if (value == null || value.isEmpty) return 'Please select a destination';
+                          if (value == null || value.isEmpty) return 'Please select a origin';
                           return null;
                         },
                       ),
-                      
-                      
-                      
-        
-
-
-
                       const SizedBox(height: 16),
                       DropdownButtonFormField<String>(
                         value: _toController.text.isNotEmpty ? _toController.text : null, // preselect if any
@@ -1519,32 +1566,68 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                       }
                     },
                     validator: (value) {
-                      if (value == null || value.isEmpty) return 'Please select a destination';
+                      if (value == null || value.isEmpty) return 'Please select a origin';
                       return null;
                     },
                   ),
                   const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    value: _toController.text.isNotEmpty ? _toController.text : null, // preselect if any
-                    decoration: _buildInputDecoration('Destination', prefixIcon: Icons.business),
-                    style: const TextStyle(fontSize: 16),
-                    items: officeNames.map((office) {
-                      return DropdownMenuItem<String>(
-                        value: office,
-                        child: Text(
-                          office,
-                          style: TextStyle(color: Colors.black),
-                        ),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        _toController.text = value; // update controller so form works
+
+                  // DropdownButtonFormField<String>(
+                  //   value: _toController.text.isNotEmpty ? _toController.text : null, // preselect if any
+                  //   decoration: _buildInputDecoration('Destination', prefixIcon: Icons.business),
+                  //   style: const TextStyle(fontSize: 16),
+                  //   items: officeNames.map((office) {
+                  //     return DropdownMenuItem<String>(
+                  //       value: office,
+                  //       child: Text(
+                  //         office,
+                  //         style: TextStyle(color: Colors.black),
+                  //       ),
+                  //     );
+                  //   }).toList(),
+                  //   onChanged: (value) {
+                  //     if (value != null) {
+                  //       _toController.text = value; // update controller so form works
+                  //     }
+                  //   },
+                  //   validator: (value) {
+                  //     if (value == null || value.isEmpty) return 'Please select a destination';
+                  //     return null;
+                  //   },
+                  // ),
+                  Autocomplete<String>(
+                    initialValue: TextEditingValue(text: _toController.text),
+                    optionsBuilder: (TextEditingValue textEditingValue) {
+                      if (textEditingValue.text.isEmpty) {
+                        return officeNames;
                       }
+                      return officeNames.where((office) =>
+                          office.toLowerCase().contains(textEditingValue.text.toLowerCase()));
                     },
-                    validator: (value) {
-                      if (value == null || value.isEmpty) return 'Please select a destination';
-                      return null;
+                    onSelected: (String selection) {
+                      _toController.text = selection;
+                    },
+                    fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
+                      // sync controller
+                      controller.text = _toController.text;
+
+                      return TextFormField(
+                        controller: controller,
+                        focusNode: focusNode,
+                        decoration: _buildInputDecoration(
+                          'Destination',
+                          prefixIcon: Icons.business,
+                        ),
+                        onChanged: (value) {
+                          _toController.text = value; // allows custom input
+                        },
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter or select a destination';
+                          }
+                          return null;
+                        },
+                      );
                     },
                   ),
                   const SizedBox(height: 16),
@@ -1925,10 +2008,11 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       1,
     );
 
-    bluetooth.printCustom("Thank you", 1, 1);
+    bluetooth.printCustom(receiptFooter, 1, 1);
     bluetooth.printNewLine();
     bluetooth.printCustom("Powered by Tiketi Mkononi", 1, 1);
-    bluetooth.printCustom("https://tiketimkononi.telabs.co.tz", 1, 1);
+    bluetooth.printCustom("Email:tiketimkononi@telabs.co.tz", 1, 1);
+    bluetooth.printCustom("Phone: +255 672 120 941", 1, 1);
     bluetooth.printCustom("********************************", 1, 1);
     bluetooth.printNewLine();
     bluetooth.printNewLine();
@@ -1996,7 +2080,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     bluetooth.printCustom(widget.companyName, 2, 1);
     bluetooth.printCustom("********************************", 1, 1);
     bluetooth.printCustom(consignment['is_parcel'] ? "PARCEL CODE" : "CONSIGNMENT CODE", 2, 1);
-    bluetooth.printCustom("Pkg No: ${consignment['id']}", 2, 1);
+    bluetooth.printCustom("Pkg No: ${packageId}", 2, 1);
 
     if(consignment['is_parcel']) {
       bluetooth.printCustom("${consignment['package_name']}", 2, 1);
@@ -2025,7 +2109,8 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     );
 
     bluetooth.printCustom("Powered by Tiketi Mkononi", 1, 1);
-    bluetooth.printCustom("https://tiketimkononi.telabs.co.tz", 1, 1);
+    bluetooth.printCustom("Email:tiketimkononi@telabs.co.tz", 1, 1);
+    bluetooth.printCustom("Phone: +255 672 120 941", 1, 1);
     bluetooth.printCustom("********************************", 1, 1);
     bluetooth.printNewLine();
     bluetooth.printNewLine();
@@ -2260,10 +2345,12 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                 /// FOOTER
                 pw.Center(
                   child: pw.Text(
-                    "Thank you",
+                    receiptFooter,
                     style: pw.TextStyle(font: customFont),
                   ),
                 ),
+
+                pw.SizedBox(height: 10),
 
                 pw.Center(
                   child: pw.Text(
@@ -2274,7 +2361,14 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
                 pw.Center(
                   child: pw.Text(
-                    "https://tiketimkononi.telabs.co.tz",
+                    "Email:tiketimkononi@telabs.co.tz",
+                    style: pw.TextStyle(font: customFont, fontSize: 9),
+                  ),
+                ),
+
+                pw.Center(
+                  child: pw.Text(
+                    "Phone: +255 672 120 941",
                     style: pw.TextStyle(font: customFont, fontSize: 9),
                   ),
                 ),

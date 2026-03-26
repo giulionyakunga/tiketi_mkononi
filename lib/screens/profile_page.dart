@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
+import 'package:tiketi_mkononi/screens/ad/post_ad_page.dart';
 import 'package:tiketi_mkononi/screens/app_info_updates_page.dart';
 import 'package:tiketi_mkononi/screens/apply_to_be_cargo_transporter_page.dart';
 import 'package:tiketi_mkononi/screens/apply_to_be_organizer_page.dart';
@@ -105,13 +106,13 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
           officeId = responseData['office_id'] ?? 0;
           shopId = responseData['shop_id'] ?? 0;
           role = responseData['role'];
-          companyName = responseData['company_name'];
+          companyName = responseData['company_name'] ?? '';
           userName = responseData['first_name'];
           userPhoneNumber = '${responseData['phone_number']}';
         });
         var profile = _storageService.getUserProfile();
         profile!.role =  responseData['role'];
-        profile.companyName =  responseData['company_name'];
+        profile.companyName =  responseData['company_name']  ?? '';
         await _storageService.saveUserProfile(profile);
       }
     } on SocketException catch (e) {
@@ -903,6 +904,23 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
               context,
               MaterialPageRoute(
                 builder: (context) => SystemUsersPage(userId: userId, token: token),
+              ),
+            );
+          },
+        ),
+
+        if(role == "admin")
+        _buildActionTile(
+          context,
+          icon: Icons.remove_red_eye,
+          iconColor:Colors.orange[800]!,
+          title: 'Post Ad',
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => PostAdPage(),
               ),
             );
           },

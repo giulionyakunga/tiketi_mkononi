@@ -170,6 +170,7 @@ class _ApplyToBeCargoTransporterPageState
             // Company Name
             TextField(
               controller: _companyNameController,
+              maxLength: 20,
               decoration: InputDecoration(
                 labelText: 'Cargo Company Name',
                 hintText: 'e.g. ABC Cargo & Logistics',

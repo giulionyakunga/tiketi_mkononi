@@ -793,7 +793,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             size: 16,
           ),
           label: Text(
-            'Explore Events',
+            'Explore Features',
             style: TextStyle(
               fontSize: isLargeScreen ? 16 : 12,
               color: Colors.orange[800],

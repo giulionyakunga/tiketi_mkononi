@@ -17,7 +17,8 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:blue_thermal_printer/blue_thermal_printer.dart';
 import 'package:tiketi_mkononi/screens/add_consignment_page.dart';
 import 'package:tiketi_mkononi/services/SimpleCodec.dart';
-import 'package:excel/excel.dart' hide Border;  // Hide Excel's Border
+import 'package:excel/excel.dart' hide Border;
+import 'package:url_launcher/url_launcher.dart';  // Hide Excel's Border
 
 
 class ConsignmentsPage extends StatefulWidget {
@@ -46,12 +47,16 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
   DateTime _selectedDate = DateTime.now();
   BluetoothDevice? selectedPrinter;
   Printer? selectedCablePrinter;
-  String _appbarLabel = 'Consignment';
+  String _appbarLabel = 'Consignments';
   String _typeFilter = 'all'; // all | parcel | consignment
   String _paymentFilter = 'all'; // all | parcel | consignment
   
   BlueThermalPrinter bluetooth = BlueThermalPrinter.instance;
   BluetoothDevice? selectedDevice;
+
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+  bool _isSearchBarVisible = false;
 
   @override
   void initState() {
@@ -68,6 +73,103 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  
+  Widget _buildSearchBar(bool isDarkMode, bool isLargeScreen) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Padding(
+      padding: EdgeInsets.symmetric( 
+        vertical: 8,
+        horizontal: isLargeScreen ? 200 : 16,
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          color: isDarkMode
+              ? colorScheme.surfaceContainerHighest.withOpacity(0.8)
+              : colorScheme.surface.withOpacity(0.9),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.1),
+              blurRadius: 12,
+              spreadRadius: 1,
+              offset: const Offset(0, 3),
+            ),
+          ],
+          border: Border.all(
+            color: isDarkMode
+                ? colorScheme.outline.withOpacity(0.3)
+                : colorScheme.outline.withOpacity(0.2),
+            width: 1,
+          ),
+        ),
+        child: TextField(
+          controller: _searchController,
+          decoration: InputDecoration(
+            hintText: 'Search package or sender name...',
+            hintStyle: TextStyle(
+              fontSize: isLargeScreen ? 16 : 14,
+              color: colorScheme.onSurface.withOpacity(0.6),
+            ),
+            border: InputBorder.none,
+            prefixIcon: Padding(
+              padding: const EdgeInsets.only(left: 12, right: 6),
+              child: Icon(
+                Icons.search_rounded,
+                size: isLargeScreen ? 24 : 20,
+                color: isDarkMode ? Colors.white70 : Colors.teal[800]
+              ),
+            ),
+            suffixIcon: _searchQuery.isNotEmpty
+                ? Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.close_rounded,
+                        size: isLargeScreen ? 24 : 20,
+                        color: colorScheme.onSurface.withOpacity(0.6),
+                      ),
+                      onPressed: () {
+                        _searchController.clear();
+                        _onSearchChanged();
+                        FocusScope.of(context).unfocus();
+                      },
+                    ),
+                  )
+                : null,
+            contentPadding: EdgeInsets.symmetric(
+              vertical: isLargeScreen ? 14 : 10,
+              horizontal: 16,
+            ),
+            isDense: true,
+          ),
+          style: TextStyle(
+            fontSize: isLargeScreen ? 16 : 14,
+            color: colorScheme.onSurface,
+          ),
+          cursorColor: colorScheme.primary,
+          cursorWidth: 1.5,
+          cursorHeight: isLargeScreen ? 20 : 18,
+          onChanged: (value) => _onSearchChanged(),
+        ),
+      ),
+    );
+  }
+
+
+  void _onSearchChanged() {
+    setState(() {
+      _searchQuery = _searchController.text;
+    });
+  }
+  
   Future<void> requestPermissions() async {
     await [
       Permission.bluetooth,
@@ -199,7 +301,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          (widget.officeId > 0) ? '${widget.officeName} $_appbarLabel' : 'All $_appbarLabel',
+          (widget.officeId > 0) ? '${widget.officeName} $_appbarLabel' : '$_appbarLabel',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600
@@ -229,19 +331,6 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
             ),
         ],
       ),
-      // body: RefreshIndicator(
-      //   onRefresh: _fetchConsignments,
-      //   color: Colors.teal,
-      //   child: Column(
-      //     children: [
-      //       Expanded(
-      //         child: _buildBody(),
-      //       ),
-      //       if (_showDetails && _selectedConsignment != null)
-      //         _buildDetailsPanel(),
-      //     ],
-      //   ),
-      // ),
 
       body: Stack(
         children: [
@@ -274,26 +363,67 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
           ],
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.teal,
-        onPressed: () {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => AddConsignmentPage(userId: widget.userId, companyId: widget.companyId, companyName: widget.companyName, officeId: widget.officeId, userName: widget.userName, userPhoneNumber: widget.userPhoneNumber, isReplacableScreen: true,),
-            ));
-        }, // future: add office
-        child: const Icon(
-          Icons.add,
-          color: Colors.white
-        ),
+
+      floatingActionButton: Column(
+  mainAxisSize: MainAxisSize.min,
+  crossAxisAlignment: CrossAxisAlignment.end,
+  children: [
+
+    // ➕ Add Button (Primary)
+    FloatingActionButton.extended(
+      heroTag: "addBtn",
+      backgroundColor: Colors.teal,
+      tooltip: "Add Consignment",
+      onPressed: () {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AddConsignmentPage(
+              userId: widget.userId,
+              companyId: widget.companyId,
+              companyName: widget.companyName,
+              officeId: widget.officeId,
+              userName: widget.userName,
+              userPhoneNumber: widget.userPhoneNumber,
+              isReplacableScreen: true,
+            ),
+          ),
+        );
+      },
+      icon: const Icon(Icons.add, color: Colors.white),
+      label: const Text(
+        "Add",
+        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
       ),
+    ),
+
+    const SizedBox(height: 12),
+
+    // 🔍 Search Button
+    FloatingActionButton(
+      heroTag: "searchBtn",
+      backgroundColor: Colors.grey.shade800,
+      mini: true,
+      tooltip: "Search",
+      onPressed: () {
+        setState(() {
+          _isSearchBarVisible = !_isSearchBarVisible;
+          _searchController.clear();
+          _onSearchChanged();
+        });
+      },
+      child: const Icon(Icons.search, color: Colors.white),
+    ),
+    
+  ],
+),
+      
     );
   }
 
   Widget _buildTypeFilter() {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+      margin: const EdgeInsets.fromLTRB(6, 12, 16, 6),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
@@ -305,15 +435,15 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
             ),
             const SizedBox(width: 8),
             _buildFilterChip(
-              label: "Parcel",
+              label: "Parcels",
               icon: Icons.inventory_2,
-              value: "parcel",
+              value: "parcels",
             ),
             const SizedBox(width: 8),
             _buildFilterChip(
-              label: "Consignment",
+              label: "Consignments",
               icon: Icons.local_shipping,
-              value: "consignment",
+              value: "consignments",
             ),
             const SizedBox(width: 8),
             _buildFilterChip(
@@ -360,11 +490,18 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
     return GestureDetector(
       onTap: () {
-        if((value == 'all') || (value == 'parcel') || (value == 'consignment')) {
+        if (value == 'all') {
           setState(() {
             _paymentFilter = 'all';
             _typeFilter = value;
-            _appbarLabel = '${value[0].toUpperCase() + value.substring(1)}s';
+            _appbarLabel = '${value[0].toUpperCase() + value.substring(1)}';
+          });
+        }
+        if((value == 'parcels') || (value == 'consignments')) {
+          setState(() {
+            _paymentFilter = 'all';
+            _typeFilter = value;
+            _appbarLabel = '${value[0].toUpperCase() + value.substring(1)}';
           });
         } else if (value == 'unpaid') {
           setState(() {
@@ -436,6 +573,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     // Add header row
     sheet.appendRow([
       'Package Name',
+      'Package Number',
       'Sender Name',
       'Sender Phone',
       'From',
@@ -462,6 +600,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
       sheet.appendRow([
         consignment['package_name'],
+        consignment['id'],
         consignment['sender_name'],
         consignment['sender_phone_number'],
         consignment['from'],
@@ -532,6 +671,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     // Add header row
     sheet.appendRow([
       'Package Name',
+      'Package Number',
       'Sender Name',
       'Sender Phone',
       'From',
@@ -558,6 +698,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
       sheet.appendRow([
         consignment['package_name'],
+        consignment['id'],
         consignment['sender_name'],
         consignment['sender_phone_number'],
         consignment['from'],
@@ -579,7 +720,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     try {
       if(kIsWeb) { 
         // Trigger download in browser
-        excel.save(fileName: 'Unpaid_Packages.xlsx');
+        excel.save(fileName: 'Paid_Packages.xlsx');
       } else {
         // if(share) {
         //     // 2. Save to a temporary file (mobile only)
@@ -625,6 +766,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     // Add header row
     sheet.appendRow([
       'Package Name',
+      'Package Number',
       'Sender Name',
       'Sender Phone',
       'From',
@@ -651,6 +793,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
       sheet.appendRow([
         consignment['package_name'],
+        consignment['id'],
         consignment['sender_name'],
         consignment['sender_phone_number'],
         consignment['from'],
@@ -672,12 +815,12 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     try {
       if(kIsWeb) { 
         // Trigger download in browser
-        excel.save(fileName: 'Unpaid_Packages.xlsx');
+        excel.save(fileName: 'All_Packages.xlsx');
       } else {
         // if(share) {
         //     // 2. Save to a temporary file (mobile only)
         //     final dir = await getTemporaryDirectory();
-        //     final file = File('${dir.path}/Unpaid_Packages.xlsx');
+        //     final file = File('${dir.path}/All_Packages.xlsx');
         //     await file.writeAsBytes(excel.encode()!);
 
         //     // 3. Share the file
@@ -688,7 +831,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
         // }else {
 
           final directory = await getTemporaryDirectory();
-          final filePath = '${directory.path}/Unpaid_Packages.xlsx';
+          final filePath = '${directory.path}/All_Packages.xlsx';
           final file = File(filePath);
           await file.writeAsBytes(excel.encode()!);
 
@@ -707,7 +850,9 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
   }
 
   Widget _buildBody() {
-        final isLargeScreen = _isLargeScreen(context);
+    final isLargeScreen = _isLargeScreen(context);
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
 
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -796,7 +941,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
     var filteredConsignments = _consignments.where((c) {
       if (_typeFilter == 'all') return true;
-      return _typeFilter == 'parcel'
+      return _typeFilter == 'parcels'
           ? c['is_parcel'] == true
           : c['is_parcel'] == false;
     }).toList();
@@ -807,6 +952,12 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     }).toList();
 
 
+    // Apply search filter
+    if (_searchQuery.isNotEmpty) {
+      filteredConsignments = filteredConsignments.where(
+        (consignment) => (consignment['package_name'].toLowerCase().contains(_searchQuery.toLowerCase()) || consignment['sender_name'].toLowerCase().contains(_searchQuery.toLowerCase()))
+      ).toList();
+    }
 
     double totalPaidAmount = 0;
 
@@ -820,6 +971,9 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
     return Column(
       children: [
+        // Search Bar
+        if (_isSearchBarVisible) _buildSearchBar(isDarkMode, isLargeScreen),
+
         // FILTER BUTTONS
         _buildTypeFilter(),
 
@@ -978,193 +1132,238 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                 final isSelected = _selectedConsignment == consignment;
           
 
+              final paidAmount = (consignment['paid_amount'] ?? 0).toInt();
+
+
               return Card(
-                elevation: isSelected ? 8 : 2,
-                margin: const EdgeInsets.only(bottom: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: isSelected
-                      ? BorderSide(color: Colors.teal.shade300, width: 2)
-                      : BorderSide.none,
+  elevation: isSelected ? 8 : 2,
+  margin: const EdgeInsets.only(bottom: 12),
+  shape: RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(16),
+    side: isSelected
+        ? BorderSide(color: Colors.teal.shade300, width: 2)
+        : BorderSide.none,
+  ),
+  child: InkWell(
+    onTap: () {
+      setState(() {
+        if (_selectedConsignment == consignment) {
+          _showDetails = !_showDetails;
+        } else {
+          _selectedConsignment = consignment;
+          _showDetails = true;
+        }
+      });
+    },
+    borderRadius: BorderRadius.circular(16),
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.teal.shade50,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: InkWell(
-                  onTap: () {
-                    setState(() {
-                      if (_selectedConsignment == consignment) {
-                        _showDetails = !_showDetails;
-                      } else {
-                        _selectedConsignment = consignment;
-                        _showDetails = true;
-                      }
-                    });
-                  },
-                  borderRadius: BorderRadius.circular(16),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.teal.shade50,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Icon(
-                                _getPackageTypeIcon(consignment['is_parcel']),
-                                color: Colors.teal,
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    consignment['package_name'] ?? 'Unnamed Package',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 4,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: _getPaymentStatusColor(
-                                                  consignment['payment_status'])
-                                              .withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(20),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              consignment['payment_status'] == true
-                                                  ? Icons.check_circle
-                                                  : Icons.pending,
-                                              size: 14,
-                                              color: _getPaymentStatusColor(
-                                                  consignment['payment_status']),
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              _getPaymentStatusText(
-                                                  consignment['payment_status']),
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w500,
-                                                color: _getPaymentStatusColor(
-                                                    consignment['payment_status']),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Icon(
-                              isSelected && _showDetails
-                                  ? Icons.keyboard_arrow_up
-                                  : Icons.keyboard_arrow_down,
-                              color: Colors.grey.shade400,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        // Route information
-                        Container(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.location_on,
-                                        size: 16, color: Colors.grey.shade600),
-                                    const SizedBox(width: 4),
-                                    Expanded(
-                                      child: Text(
-                                        consignment['from'] ?? 'Unknown',
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.w500),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8),
-                                child: Icon(Icons.arrow_forward,
-                                    size: 16, color: Colors.grey.shade400),
-                              ),
-                              Expanded(
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.location_on,
-                                        size: 16, color: Colors.grey.shade600),
-                                    const SizedBox(width: 4),
-                                    Expanded(
-                                      child: Text(
-                                        consignment['to'] ?? 'Unknown',
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.w500),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Divider(),
-                        // Sender & Receiver info
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildPersonInfo(
-                                icon: Icons.person_outline,
-                                label: 'Sender',
-                                name: consignment['sender_name'],
-                                phone: consignment['sender_phone_number'],
-                              ),
-                            ),
-                            Container(
-                              width: 1,
-                              height: 30,
-                              color: Colors.grey.shade300,
-                              margin: const EdgeInsets.symmetric(horizontal: 12),
-                            ),
-                            Expanded(
-                              child: _buildPersonInfo(
-                                icon: Icons.person,
-                                label: 'Receiver',
-                                name: consignment['receiver_name'],
-                                phone: consignment['receiver_phone_number'],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                child: Icon(
+                  _getPackageTypeIcon(consignment['is_parcel']),
+                  color: Colors.teal,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: 
+                    Text(
+                      consignment['package_name'] ?? 'Unnamed Package',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
+                 
+              ),
+              // Paid amount at top right
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.teal.shade100,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      "TZS ${NumberFormat('#,##0').format(paidAmount)}",
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.teal.shade800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                child: const SizedBox(width: 20),
+              ),
+              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: _getPaymentStatusColor(
+                          consignment['payment_status'])
+                      .withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      consignment['payment_status'] == true
+                          ? Icons.check_circle
+                          : Icons.pending,
+                      size: 14,
+                      color: _getPaymentStatusColor(
+                          consignment['payment_status']),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _getPaymentStatusText(
+                          consignment['payment_status']),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: _getPaymentStatusColor(
+                            consignment['payment_status']),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: _getPaymentStatusColor(
+                          consignment['payment_status'])
+                      .withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Package No: ${consignment['id']}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: _getPaymentStatusColor(
+                            consignment['payment_status']),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Route information
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      Icon(Icons.location_on,
+                          size: 16, color: Colors.grey.shade600),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          consignment['from'] ?? 'Unknown',
+                          style: const TextStyle(fontWeight: FontWeight.w500),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              );
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Icon(Icons.arrow_forward,
+                      size: 16, color: Colors.grey.shade400),
+                ),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Icon(Icons.location_on,
+                          size: 16, color: Colors.grey.shade600),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          consignment['to'] ?? 'Unknown',
+                          style: const TextStyle(fontWeight: FontWeight.w500),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(),
+          // Sender & Receiver info
+          Row(
+            children: [
+              Expanded(
+                child: _buildPersonInfo(
+                  icon: Icons.person_outline,
+                  label: 'Sender',
+                  name: consignment['sender_name'],
+                  phone: consignment['sender_phone_number'],
+                ),
+              ),
+              Container(
+                width: 1,
+                height: 30,
+                color: Colors.grey.shade300,
+                margin: const EdgeInsets.symmetric(horizontal: 12),
+              ),
+              Expanded(
+                child: _buildPersonInfo(
+                  icon: Icons.person,
+                  label: 'Receiver',
+                  name: consignment['receiver_name'],
+                  phone: consignment['receiver_phone_number'],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
+  ),
+);
             },
           )
         )
@@ -1430,7 +1629,8 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     bluetooth.printCustom("Thank you", 1, 1);
     bluetooth.printNewLine();
     bluetooth.printCustom("Powered by Tiketi Mkononi", 1, 1);
-    bluetooth.printCustom("https://tiketimkononi.telabs.co.tz", 1, 1);
+    bluetooth.printCustom("Email:tiketimkononi@telabs.co.tz", 1, 1);
+    bluetooth.printCustom("Phone: +255 672 120 941", 1, 1);
     bluetooth.printCustom("********************************", 1, 1);
     bluetooth.printNewLine();
     bluetooth.printNewLine();
@@ -1527,7 +1727,8 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     );
 
     bluetooth.printCustom("Powered by Tiketi Mkononi", 1, 1);
-    bluetooth.printCustom("https://tiketimkononi.telabs.co.tz", 1, 1);
+    bluetooth.printCustom("Email:tiketimkononi@telabs.co.tz", 1, 1);
+    bluetooth.printCustom("Phone: +255 672 120 941", 1, 1);
     bluetooth.printCustom("********************************", 1, 1);
     bluetooth.printNewLine();
     bluetooth.printNewLine();
@@ -1785,6 +1986,8 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                   ),
                 ),
 
+                pw.SizedBox(height: 10),
+
                 pw.Center(
                   child: pw.Text(
                     "Powered by Tiketi Mkononi",
@@ -1794,8 +1997,15 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
                 pw.Center(
                   child: pw.Text(
-                    "https://tiketimkononi.telabs.co.tz",
-                    style: pw.TextStyle(font: customFont, fontSize: 9),
+                    "Email:tiketimkononi@telabs.co.tz",
+                    style: pw.TextStyle(fontSize: 9),
+                  ),
+                ),
+
+                pw.Center(
+                  child: pw.Text(
+                    "Phone: +255 672 120 941",
+                    style: pw.TextStyle(fontSize: 9),
                   ),
                 ),
 
@@ -2089,7 +2299,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                 ),
               ),
 
-              pw.SizedBox(height: 6),
+              pw.SizedBox(height: 10),
 
               pw.Center(
                 child: pw.Text(
@@ -2102,8 +2312,15 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
               pw.Center(
                 child: pw.Text(
-                  'https://tiketimkononi.telabs.co.tz',
-                  style: pw.TextStyle(fontSize: 8),
+                  "Email:tiketimkononi@telabs.co.tz",
+                  style: pw.TextStyle(fontSize: 9),
+                ),
+              ),
+
+              pw.Center(
+                child: pw.Text(
+                  "Phone: +255 672 120 941",
+                  style: pw.TextStyle(fontSize: 9),
                 ),
               ),
 
@@ -2261,6 +2478,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                     title: 'Package Information',
                     icon: Icons.inventory,
                     children: [
+                      _buildDetailRow('Package No', '${consignment['id']}'),
                       _buildDetailRow('Package Name', consignment['package_name']),
                       _buildDetailRow('Package Value', 'TZS${NumberFormat('#,##0').format(  (consignment['package_value'] ?? 0).toInt())}'),
                       _buildDetailRow('Paid Amount', 'TZS${NumberFormat('#,##0').format(  (consignment['paid_amount'] ?? 0).toInt())}'),
@@ -2286,7 +2504,15 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                     icon: Icons.person_outline,
                     children: [
                       _buildDetailRow('Name', consignment['sender_name']),
-                      _buildDetailRow('Phone', consignment['sender_phone_number']),
+                      _buildDetailRow(
+                        'Phone', 
+                        consignment['sender_phone_number'], 
+                        clickable: true,
+                        onTap: () {
+                          _launchPhoneCall(consignment['sender_phone_number']);
+                        }
+                      ),
+                      
                     ],
                   ),
 
@@ -2297,7 +2523,14 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                     icon: Icons.person,
                     children: [
                       _buildDetailRow('Name', consignment['receiver_name']),
-                      _buildDetailRow('Phone', consignment['receiver_phone_number']),
+                      _buildDetailRow(
+                        'Phone', 
+                        consignment['receiver_phone_number'],
+                        clickable: true,
+                        onTap: () {
+                          _launchPhoneCall(consignment['receiver_phone_number']);
+                        }
+                      ),
                     ],
                   ),
 
@@ -2313,7 +2546,14 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                     icon: Icons.assignment_ind,
                     children: [
                       _buildDetailRow('Name', consignment['issued_by']),
-                      _buildDetailRow('Phone', consignment['issuer_phone_number']),
+                      _buildDetailRow(
+                        'Phone', 
+                        consignment['issuer_phone_number'],
+                        clickable: true,
+                        onTap: () {
+                          _launchPhoneCall(consignment['issuer_phone_number']);
+                        }
+                      ),
                     ],
                   ),
                 ],
@@ -2528,7 +2768,46 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     );
   }
 
-  Widget _buildDetailRow(String label, String? value) {
+  Future<void> _launchPhoneCall(String phoneNumber) async {
+    final Uri launchUri = Uri(
+      scheme: 'tel',
+      path: phoneNumber,
+    );
+    if (await canLaunchUrl(launchUri)) {
+      await launchUrl(launchUri);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not launch phone app')),
+      );
+    }
+  }
+
+  Widget _buildDetailRow(
+    String label,
+    String? value, {
+    bool clickable = false,
+    VoidCallback? onTap,
+  }) {
+    final displayValue = value ?? 'N/A';
+
+    Widget valueWidget = Text(
+      displayValue,
+      style: TextStyle(
+        fontWeight: FontWeight.w500,
+        fontSize: 14,
+        color: clickable ? Colors.blue : Colors.black,
+        decoration:
+            clickable ? TextDecoration.underline : TextDecoration.none,
+      ),
+    );
+
+    if (clickable && onTap != null) {
+      valueWidget = GestureDetector(
+        onTap: onTap,
+        child: valueWidget,
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -2544,15 +2823,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
               ),
             ),
           ),
-          Expanded(
-            child: Text(
-              value ?? 'N/A',
-              style: const TextStyle(
-                fontWeight: FontWeight.w500,
-                fontSize: 14,
-              ),
-            ),
-          ),
+          Expanded(child: valueWidget),
         ],
       ),
     );

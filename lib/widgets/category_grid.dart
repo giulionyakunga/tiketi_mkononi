@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:tiketi_mkononi/screens/add_consignment_page.dart';
 import 'package:tiketi_mkononi/screens/apply_to_be_cargo_transporter_page.dart';
+import 'package:tiketi_mkononi/screens/auth/login_screen.dart';
 import 'package:tiketi_mkononi/screens/category_events_page.dart';
 import 'package:tiketi_mkononi/screens/offices_page.dart';
 
@@ -20,8 +21,9 @@ class CategoryGrid extends StatelessWidget {
   final String companyName;
   final String userName;
   final String userPhoneNumber;
+  final Function refreshMethod;
 
-  const CategoryGrid({super.key, required this.userId, required this.role, required this.companyId,  required this.officeId,  required this.companyName,  required this.userName, required this.userPhoneNumber});
+  const CategoryGrid({super.key, required this.userId, required this.role, required this.companyId,  required this.officeId,  required this.companyName,  required this.userName, required this.userPhoneNumber, required this.refreshMethod});
   
   void _showCargoDialog(BuildContext context) {
     showDialog(
@@ -91,27 +93,36 @@ class CategoryGrid extends StatelessWidget {
           // elevation: 0, // removes shadow
           // color: Colors.transparent, // same as parent
           child: InkWell(
-            onTap: () {
+            onTap: () async {
               if(categories[index].name == 'Cargo'){
-                if(role == 'cargo_office_attendant'){
+                if(!(userId > 0)) {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => AddConsignmentPage(userId: userId, companyId: companyId, companyName:companyName, officeId: officeId, userName: userName, userPhoneNumber: userPhoneNumber, isReplacableScreen: false),
+                      builder: (context) => LoginScreen(),
                     ),
                   );
-                } else if(role == 'cargo_transporter'){
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => OfficesPage(userId: userId, companyId: companyId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, role: role),
-                    ),
-                  );
-
                 } else {
-                  _showCargoDialog(context);
-                }
+                  if(role == 'cargo_office_attendant'){
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => AddConsignmentPage(userId: userId, companyId: companyId, companyName:companyName, officeId: officeId, userName: userName, userPhoneNumber: userPhoneNumber, isReplacableScreen: false),
+                      ),
+                    );
+                  } else if(role == 'cargo_transporter'){
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => OfficesPage(userId: userId, companyId: companyId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, role: role),
+                      ),
+                    );
 
+                    refreshMethod();
+                  } else {
+                    _showCargoDialog(context);
+                  }
+                }
               } else {
                 Navigator.push(
                   context,

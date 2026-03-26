@@ -165,38 +165,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
   }
 
-    Future<void> _saveUserProfile(Map<String, dynamic> user) async {
-    try {
-      debugPrint('User id 2: ${user['id']}');
-
-      final profile = UserProfile(
-        id: user['id'],
-        companyId: user['company_id'],
-        officeId: user['office_id'], 
-        shopId: user['shop_id'],
-        companyName: user['company_name'] ?? '',
-        firstName: user['first_name'],
-        middleName: user['middle_name'],
-        lastName: user['last_name'],
-        email: user['email'],
-        phoneNumber: user['phone_number'],
-        password: '',
-        role: user['role'],
-        region: user['region'],
-        district: user['district'],
-        ward: user['ward'],
-        street: user['street'],
-        token: '',
-        imageUrl: '',
-         createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-      await _storageService.saveUserProfile(profile);
-    } catch (e) {
-      if (mounted) _showSnackBar('Failed to update profile');
-    }
-  }
-
   Future<void> _handleRegister({bool useDNS = true}) async {
     if (!_formKey.currentState!.validate()) {
       _scrollToFirstError();
@@ -235,9 +203,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             const SnackBar(content: Text("Account Created Successfully!")),
           );
 
-          await _saveUserProfile(responseData['data']['user']);
-
-          context.go('/home');
+          context.go('/login'); 
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(response.body)),
@@ -245,6 +211,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         }
       } else if (response.statusCode == 302) {
         _handleHTTPRedirect();
+      } else if (response.statusCode == 409) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(response.body)),
+        );
       } else {
         _showSnackBar('Request failed: ${response.statusCode}');
       }

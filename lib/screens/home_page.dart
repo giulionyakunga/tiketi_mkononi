@@ -80,6 +80,22 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
+  void _reloadUserProfile() {
+    final profile = _storageService.getUserProfile();
+    if (profile != null) {
+      setState(() {
+        userId = profile.id;
+        role = profile.role;
+        companyId = profile.companyId;
+        officeId = profile.officeId;
+        shopId = profile.shopId;
+        companyName = profile.companyName;
+        userName = profile.firstName;
+        userPhoneNumber = profile.phoneNumber;
+      });
+    }
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -120,13 +136,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           officeId = responseData['office_id'] ?? 0;
           shopId = responseData['shop_id'] ?? 0;
           role = responseData['role'];
-          companyName = responseData['company_name'];
+          companyName = responseData['company_name']  ?? '';
           userName = responseData['first_name'];
           userPhoneNumber = '${responseData['phone_number']}';
         });
         var profile = _storageService.getUserProfile();
         profile!.role =  responseData['role'];
-        profile.companyName =  responseData['company_name'];
+        profile.companyName =  responseData['company_name']  ?? '';
         await _storageService.saveUserProfile(profile);
       }
     } on SocketException catch (e) {
@@ -653,11 +669,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ),
         const SizedBox(height: 10),
         (!isWideScreen) ? CategoryGrid(
-          userId: userId, role: role, companyId: companyId, officeId: officeId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber
+          userId: userId, role: role, companyId: companyId, officeId: officeId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, refreshMethod: _reloadUserProfile,
         ) :
         CategoryGrid2(
           events: filteredEvents,
-          userId: userId, role: role, companyId: companyId, officeId: officeId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber
+          userId: userId, role: role, companyId: companyId, officeId: officeId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, refreshMethod: _reloadUserProfile,
           // isWideScreen: isWideScreen,
         ),
       ],
