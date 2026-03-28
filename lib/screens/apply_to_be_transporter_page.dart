@@ -5,18 +5,18 @@ import 'package:tiketi_mkononi/env.dart';
 import 'package:http/http.dart' as http;
 import 'package:tiketi_mkononi/screens/privacy_security_page.dart';
 
-class ApplyToBeCargoTransporterPage extends StatefulWidget {
+class ApplyToBeTransporterPage extends StatefulWidget {
   final int userId;
 
-  const ApplyToBeCargoTransporterPage({super.key, required this.userId});
+  const ApplyToBeTransporterPage({super.key, required this.userId});
 
   @override
-  State<ApplyToBeCargoTransporterPage> createState() =>
-      _ApplyToBeCargoTransporterPageState();
+  State<ApplyToBeTransporterPage> createState() =>
+      _ApplyToBeTransporterPageState();
 }
 
-class _ApplyToBeCargoTransporterPageState
-    extends State<ApplyToBeCargoTransporterPage> {
+class _ApplyToBeTransporterPageState
+    extends State<ApplyToBeTransporterPage> {
   late int userId;
   bool _isLoading = false;
   bool _applied = false;
@@ -48,7 +48,7 @@ class _ApplyToBeCargoTransporterPageState
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'user_id': userId,
-          'type': 'cargo_transporter',
+          'type': 'transporter',
           'company_name': _companyNameController.text.trim(),
         }),
       );
@@ -82,17 +82,16 @@ class _ApplyToBeCargoTransporterPageState
             SizedBox(width: 10),
             Text(
               'Application Submitted',
-              style: const TextStyle(
-                fontSize: 16,
-              )
+              style: TextStyle(fontSize: 16),
             ),
           ],
         ),
         content: const Text(
-          'Your cargo transporter application has been received.\n\n'
-          'Once approved, you will be able to register cargo, '
-          'send SMS notifications to senders and receivers, '
-          'and track parcels across offices using Tiketi Mkononi.',
+          'Your transporter application has been received.\n\n'
+          'Once approved, you will be able to sell bus tickets, '
+          'send digital tickets via SMS to your customers, '
+          'manage passenger bookings, and also handle cargo and parcel services '
+          'with tracking across your offices using Tiketi Mkononi.',
         ),
         actions: [
           TextButton(
@@ -120,7 +119,7 @@ class _ApplyToBeCargoTransporterPageState
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Become a Cargo Transporter'),
+        title: const Text('Become a Transporter'),
         backgroundColor: Colors.teal[800],
         foregroundColor: Colors.white,
       ),
@@ -142,11 +141,10 @@ class _ApplyToBeCargoTransporterPageState
               ),
               child: Column(
                 children: const [
-                  Icon(Icons.local_shipping,
-                      size: 72, color: Colors.white),
+                  Icon(Icons.directions_bus, size: 72, color: Colors.white),
                   SizedBox(height: 16),
                   Text(
-                    'Digitize Cargo & Parcel Tracking',
+                    'Sell Bus Tickets & Manage Transport Services',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white,
@@ -156,8 +154,8 @@ class _ApplyToBeCargoTransporterPageState
                   ),
                   SizedBox(height: 10),
                   Text(
-                    'Enable real-time cargo tracking and SMS notifications '
-                    'for senders and receivers across your offices.',
+                    'Enable customers to book bus tickets and receive digital tickets via SMS, '
+                    'while also managing cargo and parcel transportation services efficiently.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Colors.white70, fontSize: 16),
                   ),
@@ -172,8 +170,8 @@ class _ApplyToBeCargoTransporterPageState
               controller: _companyNameController,
               maxLength: 40,
               decoration: InputDecoration(
-                labelText: 'Cargo Company Name',
-                hintText: 'e.g. ABC Cargo & Logistics',
+                labelText: 'Transport Company Name',
+                hintText: 'e.g. ABC Transport Services',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -183,25 +181,30 @@ class _ApplyToBeCargoTransporterPageState
 
             const SizedBox(height: 28),
 
+           _feature(
+              Icons.confirmation_number,
+              'Sell Bus Tickets',
+              'Allow customers to book and pay for bus tickets easily through the platform.',
+            ),
             _feature(
-              Icons.notifications_active,
-              'Automatic SMS Notifications',
-              'Sender and receiver receive SMS when cargo is admitted and when it reaches destination.',
+              Icons.sms,
+              'Digital Tickets via SMS',
+              'Passengers receive ticket confirmations instantly via SMS after booking.',
+            ),
+            _feature(
+              Icons.local_shipping,
+              'Cargo & Parcel Services',
+              'Manage cargo registration, delivery, and tracking across your offices.',
             ),
             _feature(
               Icons.location_on,
-              'Office-to-Office Tracking',
-              'Track cargo movement between origin and destination offices.',
-            ),
-            _feature(
-              Icons.inventory_2,
-              'Cargo Registration',
-              'Digitally register parcels and reduce paperwork.',
+              'Real-Time Tracking',
+              'Track both passengers and cargo movement across routes and destinations.',
             ),
             _feature(
               Icons.security,
               'Transparency & Trust',
-              'Reduce disputes by keeping clear digital records.',
+              'Maintain clear digital records to reduce disputes and improve customer confidence.',
             ),
 
             const SizedBox(height: 32),
@@ -230,9 +233,7 @@ class _ApplyToBeCargoTransporterPageState
                           ),
                           const SizedBox(width: 10),
                           Text(
-                            _applied
-                                ? 'Application Submitted'
-                                : 'Apply as Cargo Transporter',
+                            _applied ? 'Application Submitted' : 'Apply as Transporter',
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,

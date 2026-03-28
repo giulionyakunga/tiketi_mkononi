@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:tiketi_mkononi/models/event.dart';
 import 'package:tiketi_mkononi/screens/add_consignment_page.dart';
 import 'package:tiketi_mkononi/screens/apply_to_be_cargo_transporter_page.dart';
+import 'package:tiketi_mkononi/screens/apply_to_be_transporter_page.dart';
 import 'package:tiketi_mkononi/screens/auth/login_screen.dart';
+import 'package:tiketi_mkononi/screens/bus_booking_page.dart';
 import 'package:tiketi_mkononi/screens/category_events_page.dart';
 import 'package:tiketi_mkononi/screens/offices_page.dart';
 
@@ -28,7 +30,7 @@ class CategoryGrid2 extends StatelessWidget {
   const CategoryGrid2({super.key, required this.events, required this.userId, required this.role, required this.companyId,  required this.officeId,  required this.companyName,  required this.userName, required this.userPhoneNumber, required this.refreshMethod});
 
 
-    void _showCargoDialog(BuildContext context) {
+  void _showCargoDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -66,6 +68,44 @@ class CategoryGrid2 extends StatelessWidget {
     );
   }
 
+  void _showBusesDialog2(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Access Restricted'),
+        content: const Text(
+          'This feature is available only to registered Tiketi Mkononi transporters. '
+          'If you would like to offer transportation services, please submit an application to become an approved transporter.'
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      ApplyToBeTransporterPage(userId: userId),
+                ),
+              );
+            },
+            child: const Text(
+              'Apply Now',
+              style: TextStyle(color: Colors.green),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -78,6 +118,11 @@ class CategoryGrid2 extends StatelessWidget {
         icon: Icons.music_note, 
         color: Colors.blue.shade700,
       ),
+      // Category(
+      //   name: 'Buses', 
+      //   icon: Icons.directions_bus, 
+      //   color: Colors.orange
+      // ),
       Category(
         name: 'Sports', 
         icon: Icons.sports_soccer, 
@@ -168,14 +213,14 @@ class CategoryGrid2 extends StatelessWidget {
                         ),
                       );
                     } else {
-                      if(role == 'cargo_office_attendant'){
+                      if((role == 'transporter_office_attendant') || (role == 'cargo_office_attendant')){
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) => AddConsignmentPage(userId: userId, companyId: companyId, companyName:companyName, officeId: officeId, userName: userName, userPhoneNumber: userPhoneNumber, isReplacableScreen: false),
                           ),
                         );
-                      } else if(role == 'cargo_transporter'){
+                      } else if((role == 'transporter') || (role == 'cargo_transporter')){
                         await Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -187,6 +232,35 @@ class CategoryGrid2 extends StatelessWidget {
 
                       } else {
                         _showCargoDialog(context);
+                      }
+                    }
+                  } else if(categories[index].name == 'Buses'){
+                    if(!(userId > 0)) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => LoginScreen(),
+                        ),
+                      );
+                    } else {
+                      if(role == 'transporter_office_attendant'){
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => BusBookingPage(userId: userId, companyId: companyId, companyName:companyName, officeId: officeId, userName: userName, userPhoneNumber: userPhoneNumber, isReplacableScreen: false),
+                          ),
+                        );
+                      } else if(role == 'transporter'){
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => OfficesPage(userId: userId, companyId: companyId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, role: role),
+                          ),
+                        );
+
+                        refreshMethod();
+                      } else {
+                        _showBusesDialog2(context);
                       }
                     }
                   } else {

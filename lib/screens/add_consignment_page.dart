@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 import 'package:tiketi_mkononi/env.dart';
@@ -92,12 +91,12 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     super.initState();
     _initializeServices();
     _addConsignmentItem();
-    _refreshBluetoothPrinters();
     if (Platform.isWindows) {
       _refreshCablePrinters();
       _loadSelectedPrinter();
     }
     _loadNumberOfReceipts();
+    loadAndMatchPrinter();
   }
 
   Future<void> _initializeServices() async {
@@ -1190,7 +1189,6 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                   _printBluetoothReceipt2(_addedConsignment);
                 }
               } else if (value == 'refresh_printers') {
-                // _refreshBluetoothPrinters();
                 _printBluetoothTestReceipt();
                 if (Platform.isWindows) {
                   _refreshCablePrinters();
@@ -1577,32 +1575,9 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                     },
                   ),
                   const SizedBox(height: 16),
-
-                  // DropdownButtonFormField<String>(
-                  //   value: _toController.text.isNotEmpty ? _toController.text : null, // preselect if any
-                  //   decoration: _buildInputDecoration('Destination', prefixIcon: Icons.business),
-                  //   style: const TextStyle(fontSize: 16),
-                  //   items: officeNames.map((office) {
-                  //     return DropdownMenuItem<String>(
-                  //       value: office,
-                  //       child: Text(
-                  //         office,
-                  //         style: TextStyle(color: Colors.black),
-                  //       ),
-                  //     );
-                  //   }).toList(),
-                  //   onChanged: (value) {
-                  //     if (value != null) {
-                  //       _toController.text = value; // update controller so form works
-                  //     }
-                  //   },
-                  //   validator: (value) {
-                  //     if (value == null || value.isEmpty) return 'Please select a destination';
-                  //     return null;
-                  //   },
-                  // ),
                   Autocomplete<String>(
                     initialValue: TextEditingValue(text: _toController.text),
+
                     optionsBuilder: (TextEditingValue textEditingValue) {
                       if (textEditingValue.text.isEmpty) {
                         return officeNames;
@@ -1610,11 +1585,12 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                       return officeNames.where((office) =>
                           office.toLowerCase().contains(textEditingValue.text.toLowerCase()));
                     },
+
                     onSelected: (String selection) {
                       _toController.text = selection;
                     },
+
                     fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
-                      // sync controller
                       controller.text = _toController.text;
 
                       return TextFormField(
@@ -1625,7 +1601,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                           prefixIcon: Icons.business,
                         ),
                         onChanged: (value) {
-                          _toController.text = value; // allows custom input
+                          _toController.text = value;
                         },
                         validator: (value) {
                           if (value == null || value.isEmpty) {
@@ -1635,7 +1611,35 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                         },
                       );
                     },
+
+                    // 👇 THIS CONTROLS HEIGHT
+                    optionsViewBuilder: (context, onSelected, options) {
+                      return Align(
+                        alignment: Alignment.topLeft,
+                        child: Material(
+                          elevation: 4,
+                          child: SizedBox(
+                            height: 300, // 👈 🔥 increase this (e.g. 400, 500)
+                            width: MediaQuery.of(context).size.width * 0.9,
+                            child: ListView.builder(
+                              padding: EdgeInsets.zero,
+                              itemCount: options.length,
+                              itemBuilder: (context, index) {
+                                final option = options.elementAt(index);
+
+                                return ListTile(
+                                  dense: true, // 👈 reduces item height
+                                  title: Text(option),
+                                  onTap: () => onSelected(option),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      );
+                    },
                   ),
+                  
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _receiverNameController,
@@ -1745,10 +1749,10 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
   }
 
   Future<void> _refreshBluetoothPrinters() async {
-    debugPrint("refreshing printers............ 0000");
+    debugPrint("Refreshing printers...");
     devices = await PrintBluetoothThermal.pairedBluetooths;
 
-    debugPrint("refreshing printers............");
+    debugPrint("Refreshing printers...");
 
     if (devices.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1774,7 +1778,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     await PrintBluetoothThermal.disconnect; // ensure clean state
 
     bool connected = await PrintBluetoothThermal.connect(
-      macPrinterAddress: selectedPrinter!.macAdress!,
+      macPrinterAddress: selectedPrinter!.macAdress,
     );
 
     if (!connected) {
@@ -1782,7 +1786,8 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
         const SnackBar(content: Text("Printer not connected")),
       );
       selectedPrinter = null;
-      return;
+      await _refreshBluetoothPrinters();
+      if (selectedPrinter == null) return;
     }
 
     final profile = await CapabilityProfile.load();
@@ -1825,7 +1830,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     await PrintBluetoothThermal.disconnect; // ensure clean state
 
     bool connected = await PrintBluetoothThermal.connect(
-      macPrinterAddress: selectedPrinter!.macAdress!,
+      macPrinterAddress: selectedPrinter!.macAdress,
     );
 
     if (!connected) {
@@ -1833,7 +1838,8 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
         const SnackBar(content: Text("Printer not connected")),
       );
       selectedPrinter = null;
-      return;
+      await _refreshBluetoothPrinters();
+      if (selectedPrinter == null) return;
     }
 
     final profile = await CapabilityProfile.load();
@@ -2030,7 +2036,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     await PrintBluetoothThermal.disconnect; // ensure clean state
 
     bool connected = await PrintBluetoothThermal.connect(
-      macPrinterAddress: selectedPrinter!.macAdress!,
+      macPrinterAddress: selectedPrinter!.macAdress,
     );
 
     if (!connected) {
@@ -2038,7 +2044,8 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
         const SnackBar(content: Text("Printer not connected")),
       );
       selectedPrinter = null;
-      return;
+      await _refreshBluetoothPrinters();
+      if (selectedPrinter == null) return;
     }
 
     final profile = await CapabilityProfile.load();
@@ -2154,8 +2161,8 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
   Future<void> _printCableReceipt(dynamic consignment) async {
     final pdf = pw.Document();
 
-    final logoData = await rootBundle.load('assets/telabs_logo.png');
-    final logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
+    // final logoData = await rootBundle.load('assets/telabs_logo.png');
+    // final logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
 
     final fontData =
         await rootBundle.load('assets/fonts/poppins/Poppins-Regular.ttf');
@@ -2528,10 +2535,11 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
               child: ListView(
                 children: devices.map((device) {
                   return ListTile(
-                    title: Text(device.name ?? "Unknown"),
-                    subtitle: Text(device.macAdress ?? ""),
+                    title: Text(device.name),
+                    subtitle: Text(device.macAdress),
                     onTap: () {
                       selectedPrinter = device;
+                      saveSelectedPrinter(device);
                       Navigator.pop(context);
                     },
                   );
@@ -2542,6 +2550,48 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
         );
       },
     );
+  }
+
+  Future<void> saveSelectedPrinter(BluetoothInfo printer) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.setString('printer_name', printer.name);
+    await prefs.setString('printer_mac', printer.macAdress);
+  }
+
+  Future<void> loadAndMatchPrinter() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    print("******************************************************************************");
+    final savedMac = prefs.getString('printer_mac');
+    if (savedMac == null || savedMac.isEmpty) {
+      debugPrint("No saved printer");
+      await _refreshBluetoothPrinters();
+      return;
+    }
+
+    debugPrint("Found saved printer");
+
+    List<BluetoothInfo> devices = await PrintBluetoothThermal.pairedBluetooths;
+
+    final matched = devices.where(
+      (d) => d.macAdress == savedMac,
+    ).toList();
+
+    if (matched.isNotEmpty) {
+      setState(() {
+        selectedPrinter = matched.first;
+      });
+
+      debugPrint("Printer restored: ${matched.first.name}");
+    } else {
+      debugPrint("Saved printer not found");
+      setState(() {
+        selectedPrinter = null;
+      });
+
+      await _refreshBluetoothPrinters();
+    }
   }
 
   Future<void> _selectCablePrinterDialog() async {
@@ -2600,11 +2650,6 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       _saveSelectedCablePrinter(selected!);
       selectedCablePrinter = selected;
     }
-  }
-
-  Future<void> _saveSelectedPrinter(String printerName) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setString('selected_printer_name', printerName);
   }
 
   Future<void> _loadSelectedPrinter() async {

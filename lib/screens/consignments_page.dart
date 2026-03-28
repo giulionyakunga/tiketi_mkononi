@@ -69,6 +69,8 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     if (Platform.isWindows) {
       _loadSelectedPrinter();
     }
+  
+    loadAndMatchPrinter();
 
   }
 
@@ -321,7 +323,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                 setState(() {
                   _showDetails = false;
                   _selectedConsignment = null;
-                  _refreshBluetoothPrinters();
+                  _printBluetoothTestReceipt();
                   if (Platform.isWindows) {
                     _refreshCablePrinters();
                   }
@@ -1410,14 +1412,23 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
   }
 
   List<BluetoothInfo> devices = [];
+
+  
   Future<void> _refreshBluetoothPrinters() async {
+    debugPrint("Refreshing printers...");
     devices = await PrintBluetoothThermal.pairedBluetooths;
+
+    debugPrint("Refreshing printers...");
 
     if (devices.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No paired Bluetooth printer found')),
       );
       return;
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Found ${devices.length} paired Bluetooth printer')),
+      );
     }
 
     await _selectPrinterDialog();
@@ -1436,7 +1447,58 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     await _selectCablePrinterDialog(); // fallback
   }
 
-  
+  Future<void> _printBluetoothTestReceipt() async {
+    if (selectedPrinter == null) {
+      await _refreshBluetoothPrinters();
+      if (selectedPrinter == null) return;
+    }
+
+    await PrintBluetoothThermal.disconnect; // ensure clean state
+
+    bool connected = await PrintBluetoothThermal.connect(
+      macPrinterAddress: selectedPrinter!.macAdress,
+    );
+
+    if (!connected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Printer not connected")),
+      );
+      selectedPrinter = null;
+      await _refreshBluetoothPrinters();
+      if (selectedPrinter == null) return;
+    }
+
+    final profile = await CapabilityProfile.load();
+    final generator = Generator(PaperSize.mm58, profile);
+
+    List<int> bytes = [];
+
+    bytes += generator.text("********************************",
+      styles: const PosStyles(
+        align: PosAlign.center,
+      )
+    );
+
+    bytes += generator.text(widget.companyName,
+      styles: const PosStyles(
+        align: PosAlign.center,
+        bold: true,
+        height: PosTextSize.size1,
+      )
+    );
+
+    bytes += generator.text("********************************",
+      styles: const PosStyles(
+        align: PosAlign.center,
+      )
+    );
+
+    bytes += generator.feed(1);
+    bytes += generator.cut();
+
+    await PrintBluetoothThermal.writeBytes(bytes);
+  }
+
   Future<void> _printBluetoothReceipt(dynamic consignment) async {
     if (selectedPrinter == null) {
       await _refreshBluetoothPrinters();
@@ -1446,7 +1508,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     await PrintBluetoothThermal.disconnect; // ensure clean state
 
     bool connected = await PrintBluetoothThermal.connect(
-      macPrinterAddress: selectedPrinter!.macAdress!,
+      macPrinterAddress: selectedPrinter!.macAdress,
     );
 
     if (!connected) {
@@ -1454,7 +1516,8 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
         const SnackBar(content: Text("Printer not connected")),
       );
       selectedPrinter = null;
-      return;
+      await _refreshBluetoothPrinters();
+      if (selectedPrinter == null) return;
     }
 
     final profile = await CapabilityProfile.load();
@@ -1575,7 +1638,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
               text: "TZS ${NumberFormat('#,##0').format(((item['value'] ?? 0)))}", width: 4, styles: const PosStyles(align: PosAlign.right)),
         ]);
       }
-      
+
       bytes += generator.text("--------------------------------",
         styles: const PosStyles(
           align: PosAlign.center,
@@ -1620,7 +1683,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     );
 
     bytes += generator.text(
-      "Karibu Sana",
+      'Karibu Sana',
       styles: const PosStyles(align: PosAlign.center)
     );
 
@@ -1651,7 +1714,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     await PrintBluetoothThermal.disconnect; // ensure clean state
 
     bool connected = await PrintBluetoothThermal.connect(
-      macPrinterAddress: selectedPrinter!.macAdress!,
+      macPrinterAddress: selectedPrinter!.macAdress,
     );
 
     if (!connected) {
@@ -1659,7 +1722,8 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
         const SnackBar(content: Text("Printer not connected")),
       );
       selectedPrinter = null;
-      return;
+      await _refreshBluetoothPrinters();
+      if (selectedPrinter == null) return;
     }
 
     final profile = await CapabilityProfile.load();
@@ -1771,12 +1835,12 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
     await PrintBluetoothThermal.writeBytes(bytes);
   }
-
+  
   Future<void> _printCableReceipt(dynamic consignment) async {
     final pdf = pw.Document();
 
-    final logoData = await rootBundle.load('assets/telabs_logo.png');
-    final logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
+    // final logoData = await rootBundle.load('assets/telabs_logo.png');
+    // final logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
 
     final fontData =
         await rootBundle.load('assets/fonts/poppins/Poppins-Regular.ttf');
@@ -2066,6 +2130,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     }
   }
 
+  
   Future<void> _selectPrinterDialog() async {
     await showDialog(
       context: context,
@@ -2081,10 +2146,11 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
               child: ListView(
                 children: devices.map((device) {
                   return ListTile(
-                    title: Text(device.name ?? "Unknown"),
-                    subtitle: Text(device.macAdress ?? ""),
+                    title: Text(device.name),
+                    subtitle: Text(device.macAdress),
                     onTap: () {
                       selectedPrinter = device;
+                      saveSelectedPrinter(device);
                       Navigator.pop(context);
                     },
                   );
@@ -2096,6 +2162,52 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
       },
     );
   }
+
+  Future<void> saveSelectedPrinter(BluetoothInfo printer) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.setString('printer_name', printer.name);
+    await prefs.setString('printer_mac', printer.macAdress);
+  }
+
+  
+  Future<void> loadAndMatchPrinter() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    print("******************************************************************************");
+    final savedMac = prefs.getString('printer_mac');
+    if (savedMac == null || savedMac.isEmpty) {
+      debugPrint("No saved printer");
+      await _refreshBluetoothPrinters();
+      return;
+    }
+
+    debugPrint("Found saved printer");
+
+    List<BluetoothInfo> devices = await PrintBluetoothThermal.pairedBluetooths;
+
+    final matched = devices.where(
+      (d) => d.macAdress == savedMac,
+    ).toList();
+
+    if (matched.isNotEmpty) {
+      setState(() {
+        selectedPrinter = matched.first;
+      });
+
+      debugPrint("Printer restored: ${matched.first.name}");
+    } else {
+      debugPrint("Saved printer not found");
+      setState(() {
+        selectedPrinter = null;
+      });
+
+      await _refreshBluetoothPrinters();
+    }
+  }
+
+
+
 
   Future<void> _selectCablePrinterDialog() async {
     final printers = await Printing.listPrinters();
@@ -2153,11 +2265,6 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
       _saveSelectedCablePrinter(selected!);
       selectedCablePrinter = selected;
     }
-  }
-
-  Future<void> _saveSelectedPrinter(String printerName) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setString('selected_printer_name', printerName);
   }
 
   Future<void> _loadSelectedPrinter() async {

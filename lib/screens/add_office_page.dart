@@ -151,7 +151,7 @@ class _AddOfficePageState extends State<AddOfficePage> {
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'Add a new office location for your cargo company.',
+                        'Add a new office location for your transport company.',
                         style: TextStyle(color: Colors.grey),
                       ),
                       const SizedBox(height: 24),

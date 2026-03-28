@@ -112,7 +112,7 @@ class _OfficesPageState extends State<OfficesPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Cargo Offices'),
+        title: const Text('My Offices'),
         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
         elevation: 3,
@@ -159,13 +159,13 @@ class _OfficesPageState extends State<OfficesPage> {
             },
             itemBuilder: (context) => [
     
-              if(widget.role == "cargo_transporter")
+              if((widget.role == "transporter") || (widget.role == "cargo_transporter"))
               _buildMenuItem(
                 icon: Icons.location_city,
                 text: widget.companyName,
                 value: 'company_name',
               ),
-              if(widget.role == "cargo_transporter")
+              if((widget.role == "transporter") || (widget.role == "cargo_transporter"))
               const PopupMenuDivider(),
               _buildMenuItem(
                 icon: Icons.exit_to_app,
@@ -242,7 +242,7 @@ class _OfficesPageState extends State<OfficesPage> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 8),
-            Text('Add offices to start managing cargo locations'),
+            Text('Add offices to start managing transport services'),
           ],
         ),
       );
