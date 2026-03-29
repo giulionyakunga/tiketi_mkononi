@@ -1,14 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tiketi_mkononi/providers/locale_provider.dart';
+import 'package:tiketi_mkononi/services/language_service.dart';
 
-class LanguageSettingsPage extends StatefulWidget {
+class LanguageSettingsPage extends ConsumerStatefulWidget {
   const LanguageSettingsPage({super.key});
 
   @override
-  State<LanguageSettingsPage> createState() => _LanguageSettingsPageState();
+  ConsumerState<LanguageSettingsPage> createState() => _LanguageSettingsPageState();
 }
 
-class _LanguageSettingsPageState extends State<LanguageSettingsPage> {
-  String _selectedLanguage = 'English';
+class _LanguageSettingsPageState extends ConsumerState<LanguageSettingsPage> {
+  
+  @override
+  void initState() {
+    super.initState();
+  }
+
 
   final List<Map<String, String>> _languages = [
     {'name': 'English', 'code': 'en'},
@@ -22,6 +30,9 @@ class _LanguageSettingsPageState extends State<LanguageSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final locale = ref.watch(localeProvider);
+    final selectedLanguage = locale.languageCode == 'sw' ? 'Kiswahili' : 'English';
+
     final bool isLargeScreen = _isLargeScreen(context);
 
     return Scaffold(
@@ -73,6 +84,7 @@ class _LanguageSettingsPageState extends State<LanguageSettingsPage> {
                       for (final language in _languages)
                         _buildLanguageTile(
                           context: context,
+                          selectedLanguage: selectedLanguage,
                           language: language,
                           isLargeScreen: isLargeScreen,
                         ),
@@ -91,6 +103,7 @@ class _LanguageSettingsPageState extends State<LanguageSettingsPage> {
 
   Widget _buildLanguageTile({
     required BuildContext context,
+    required String selectedLanguage,
     required Map<String, String> language,
     required bool isLargeScreen,
   }) {
@@ -108,11 +121,8 @@ class _LanguageSettingsPageState extends State<LanguageSettingsPage> {
       ),
       leading: Radio<String>(
         value: language['name']!,
-        groupValue: _selectedLanguage,
+        groupValue: selectedLanguage,
         onChanged: (value) {
-          setState(() {
-            _selectedLanguage = value.toString();
-          });
           _handleLanguageChange(context, language);
         },
         activeColor: Colors.orange[800],
@@ -137,45 +147,28 @@ class _LanguageSettingsPageState extends State<LanguageSettingsPage> {
   }
 
 
-  void _handleLanguageChange(BuildContext context, Map<String, String> language) {
-    if (language['name'] == "Kiswahili") {
-      setState(() {
-        _selectedLanguage = 'English';
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '😳 Kwa sasa programu hii inapatikana kwa Kingereza, Hivi karibuni itapatikana kwa ${language['name']} 🇹🇿 pia❗👍🏾',
-            style: const TextStyle(fontSize: 14),
-          ),
-          behavior: SnackBarBehavior.floating,
-          margin: EdgeInsets.symmetric(
-            horizontal: _isLargeScreen(context) ? 32 : 16,
-            vertical: 16,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+  Future<void> _handleLanguageChange(BuildContext context, Map<String, String> language) async {
+    await LanguageService.saveLocale(language['code']!);
+
+    ref.read(localeProvider.notifier).changeLocale(language['code']!);
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Language changed to ${language['name']}',
+          style: const TextStyle(fontSize: 14),
         ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Language changed to ${language['name']}',
-            style: const TextStyle(fontSize: 14),
-          ),
-          behavior: SnackBarBehavior.floating,
-          margin: EdgeInsets.symmetric(
-            horizontal: _isLargeScreen(context) ? 32 : 16,
-            vertical: 16,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+        behavior: SnackBarBehavior.floating,
+        margin: EdgeInsets.symmetric(
+          horizontal: _isLargeScreen(context) ? 32 : 16,
+          vertical: 16,
         ),
-      );
-    }
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+    
   }
 
   Widget _buildLanguageInfoSection() {

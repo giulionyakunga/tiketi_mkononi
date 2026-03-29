@@ -1,3 +1,5 @@
+// in this file extract all the hardcoded strings and put the into a json file for localization for both app_en.arb and app_sw.arb
+
 import 'dart:convert';
 import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
@@ -9,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:http/http.dart' as http;
+import 'package:tiketi_mkononi/l10n/app_localizations.dart';
 import 'package:tiketi_mkononi/screens/consignments_page.dart';
 import 'package:tiketi_mkononi/screens/platform_detector_stub.dart';
 import 'package:tiketi_mkononi/screens/qr_scanner_cargo_page.dart';
@@ -315,7 +318,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
   bool _validateConsignmentItems() {
     if (_consignmentItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please add at least one item')),
+        SnackBar(content: Text(AppLocalizations.of(context)!.pleaseAddAtLeastOneItem)),
       );
       return false;
     }
@@ -326,21 +329,21 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
       if (consignmentItem.name.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please enter item name')), 
+          SnackBar(content: Text(AppLocalizations.of(context)!.pleaseEnterItemName)), 
         );
         return false;
       }
       
       if (consignmentItem.value <= 0) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Item price must be greater than 0')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.itemPriceGreaterThanZero)),
         );
         return false;
       }
 
       if (consignmentItem.quantity <= 0) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Number of items must be greater than 0')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.itemQuantityGreaterThanZero)),
         );
         return false;
       }
@@ -349,7 +352,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
       if (consignmentItem.name.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Item names cannot be empty')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.itemNamesCannotBeEmpty)),
         );
         return false;
       }
@@ -771,14 +774,14 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       context: context,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Row(
+        title: Row(
           children: [
             Icon(Icons.check_circle, color: Colors.green),
             SizedBox(width: 8),
-            Text('Success'),
+            Text(AppLocalizations.of(context)!.success),
           ],
         ),
-        content: const Text('Package added successfully.'),
+        content: Text(AppLocalizations.of(context)!.packageAddedSuccessfully),
         actions: [
           TextButton(
             onPressed: () {
@@ -901,7 +904,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     return TextFormField(
       key: ValueKey('name_${_consignmentItemsVersion}_$index'), // Unique key that changes when list is cleared
       initialValue: _consignmentItems[index].name,
-      decoration: _buildInputDecoration('Item Name'),
+      decoration: _buildInputDecoration(AppLocalizations.of(context)!.itemName),
       style: const TextStyle(fontSize: 14),
       onChanged: (value) => setState(() => _consignmentItems[index].name = value),
     );
@@ -921,7 +924,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     return TextFormField(
       key: ValueKey('price_${_consignmentItemsVersion}_$index'), // Unique key
       initialValue: _consignmentItems[index].value.toString(),
-      decoration: _buildInputDecoration('Price', prefixText: 'TSH '),
+      decoration: _buildInputDecoration(AppLocalizations.of(context)!.price, prefixText: 'TSH '),
       keyboardType: TextInputType.number,
       style: const TextStyle(fontSize: 14),
       enabled: true,
@@ -936,7 +939,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     return TextFormField(
       key: ValueKey('quantity_${_consignmentItemsVersion}_$index'), // Unique key
       initialValue: _consignmentItems[index].quantity.toString(),
-      decoration: _buildInputDecoration('Quantity'),
+      decoration: _buildInputDecoration(AppLocalizations.of(context)!.quantity),
       keyboardType: TextInputType.number,
       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
       style: const TextStyle(fontSize: 14),
@@ -990,14 +993,14 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        const Text(
-          'Payment Status',
+        Text(
+          AppLocalizations.of(context)!.paymentStatus,
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         Row(
           children: [
             Text(
-              _isPaid ? 'Paid' : 'Not Paid',
+              _isPaid ?  AppLocalizations.of(context)!.paid :  AppLocalizations.of(context)!.notPaid,
               style: const TextStyle(fontSize: 14),
             ),
             const SizedBox(width: 8),
@@ -1018,14 +1021,14 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        const Text(
-          'Package Type',
+        Text(
+          AppLocalizations.of(context)!.packageType,
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         Row(
           children: [
             Text(
-              _isParcel ? 'Parcel' : 'Consignment',
+              _isParcel ? AppLocalizations.of(context)!.parcel : AppLocalizations.of(context)!.consignment,
               style: const TextStyle(fontSize: 14),
             ),
             const SizedBox(width: 8),
@@ -1124,7 +1127,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          _isParcel ? 'Add Parcel' : 'Add Consignment',
+          _isParcel ? AppLocalizations.of(context)!.addParcel : AppLocalizations.of(context)!.addConsignment,
           style: TextStyle(
             fontSize: 15,
           ),
@@ -1210,38 +1213,38 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
               ),
               _buildMenuItem(
                 icon: Icons.print,
-                text: 'Reprint Receipt',
+                text: AppLocalizations.of(context)!.reprintReceipt,
                 value: 'reprint_receipt',
               ),
               _buildMenuItem(
                 icon: Icons.print,
-                text: 'My Receipt',
+                text: AppLocalizations.of(context)!.myReceipt,
                 value: 'my_receipt',
               ),
               _buildMenuItem(
                 icon: Icons.refresh,
-                text: 'Refresh Printers',
+                text: AppLocalizations.of(context)!.refreshPrinters,
                 value: 'refresh_printers',
               ),
               _buildMenuItem(
                 icon: Icons.numbers,
-                text: 'Print ${_selectedNumberofReceiptsToPrint} Receipts',
+                text: AppLocalizations.of(context)!.printReceipts(_selectedNumberofReceiptsToPrint.toString()),
                 value: 'number_of_receipts_to_print',
               ),
               _buildMenuItem(
                 icon: Icons.account_balance_wallet,
-                text: 'Receipts Balance: ${receiptsBalance}',
+                text: AppLocalizations.of(context)!.receiptsBalance(_selectedNumberofReceiptsToPrint.toString()),
                 value: 'topup_receipt',
               ),
               _buildMenuItem(
                 icon: Icons.add_card,
-                text: 'Topup Receipt',
+                text: AppLocalizations.of(context)!.topupReceipt,
                 value: 'topup_receipt',
               ),
               const PopupMenuDivider(),
               _buildMenuItem(
                 icon: Icons.exit_to_app,
-                text: 'Exit',
+                text: AppLocalizations.of(context)!.exit,
                 value: 'exit',
               ),
             ],
@@ -1270,8 +1273,8 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (isLargeScreen) ...[
-                        const Text(
-                          'Add New Consignment',
+                        Text(
+                          AppLocalizations.of(context)!.addNewConsignment,
                           style: TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.bold,
@@ -1288,8 +1291,8 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                         decoration: _buildInputDecoration('Package Name', prefixIcon: Icons.person),
                         style: const TextStyle(fontSize: 16),
                         validator: (value) {
-                          if (value == null || value.isEmpty) return 'Please enter package name';
-                          if (value.length > 100) return 'Package name must be 100 characters or less';
+                          if (value == null || value.isEmpty) return  AppLocalizations.of(context)!.pleaseEnterPackageName;
+                          if (value.length > 100) return  AppLocalizations.of(context)!.packageName;
                           return null;
                         },
                       ),
@@ -1297,10 +1300,10 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                       TextFormField(
                         controller: _senderNameController,
                         maxLength: 100,
-                        decoration: _buildInputDecoration('Sender Name', prefixIcon: Icons.person),
+                        decoration: _buildInputDecoration( AppLocalizations.of(context)!.senderName, prefixIcon: Icons.person),
                         style: const TextStyle(fontSize: 16),
                         validator: (value) {
-                          if (value == null || value.isEmpty) return 'Please enter sender name';
+                          if (value == null || value.isEmpty) return  AppLocalizations.of(context)!.pleaseEnterSenderName;
                           if (value.length > 100) return 'Sender name must be 100 characters or less';
                           return null;
                         },
@@ -1310,10 +1313,10 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                         controller: _senderPhoneNumberController,
                         maxLength: 15,
                         keyboardType: TextInputType.number,
-                        decoration: _buildInputDecoration('Sender Phone Number', prefixIcon: Icons.phone),
+                        decoration: _buildInputDecoration( AppLocalizations.of(context)!.senderPhoneNumber, prefixIcon: Icons.phone),
                         style: const TextStyle(fontSize: 16),
                         validator: (value) {
-                          if (value == null || value.isEmpty) return 'Please enter sender phone number';
+                          if (value == null || value.isEmpty) return  AppLocalizations.of(context)!.pleaseEnterSenderPhone;
                           if (value.length > 15) return 'Sender phone number must be 15 characters or less';
                           return null;
                         },
@@ -1324,17 +1327,17 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                         controller: _fromController,
                         maxLength: 100,
                         enabled: false,
-                        decoration: _buildInputDecoration('From', prefixIcon: Icons.business),
+                        decoration: _buildInputDecoration(AppLocalizations.of(context)!.from, prefixIcon: Icons.business),
                         style: const TextStyle(fontSize: 16),
                         validator: (value) {
-                          if (value == null || value.isEmpty) return 'Please enter origin';
-                          if (value.length > 100) return 'Origin name must be 100 characters or less';
+                          if (value == null || value.isEmpty) return  AppLocalizations.of(context)!.pleaseEnterOrigin;
+                          if (value.length > 100) return AppLocalizations.of(context)!.originMaxLength;
                           return null;
                         },
                       ) :
                       DropdownButtonFormField<String>(
                         value: _fromController.text.isNotEmpty ? _fromController.text : null, // preselect if any
-                        decoration: _buildInputDecoration('From', prefixIcon: Icons.business),
+                        decoration: _buildInputDecoration(AppLocalizations.of(context)!.from, prefixIcon: Icons.business),
                         style: const TextStyle(fontSize: 16),
                         items: officeNames.map((office) {
                           return DropdownMenuItem<String>(
@@ -1358,7 +1361,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                       const SizedBox(height: 16),
                       DropdownButtonFormField<String>(
                         value: _toController.text.isNotEmpty ? _toController.text : null, // preselect if any
-                        decoration: _buildInputDecoration('Destination', prefixIcon: Icons.business),
+                        decoration: _buildInputDecoration(AppLocalizations.of(context)!.to, prefixIcon: Icons.business),
                         style: const TextStyle(fontSize: 16),
                         items: officeNames.map((office) {
                           return DropdownMenuItem<String>(
@@ -1375,7 +1378,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                           }
                         },
                         validator: (value) {
-                          if (value == null || value.isEmpty) return 'Please select a destination';
+                          if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseEnterDestination;
                           return null;
                         },
                       ),
@@ -1386,8 +1389,8 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                         decoration: _buildInputDecoration('Receiver Name', prefixIcon: Icons.person),
                         style: const TextStyle(fontSize: 16),
                         validator: (value) {
-                          if (value == null || value.isEmpty) return 'Please enter receiver name';
-                          if (value.length > 100) return 'Receiver name must be 100 characters or less';
+                          if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseEnterReceiverName;
+                          if (value.length > 100) return AppLocalizations.of(context)!.receiverNameMaxLength;
                           return null;
                         },
                       ),
@@ -1396,19 +1399,19 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                         controller: _receiverPhoneNumberController,
                         maxLength: 15,
                         keyboardType: TextInputType.number,
-                        decoration: _buildInputDecoration('Receiver Phone Number', prefixIcon: Icons.phone),
+                        decoration: _buildInputDecoration(AppLocalizations.of(context)!.receiverPhoneNumber, prefixIcon: Icons.phone),
                         style: const TextStyle(fontSize: 16),
                         validator: (value) {
-                          if (value == null || value.isEmpty) return 'Please enter receiver phone number';
-                          if (value.length > 15) return 'Receiver phone number must be 15 characters or less';
+                          if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseEnterReceiverPhone;
+                          if (value.length > 15) return AppLocalizations.of(context)!.receiverPhoneMaxLength;
                           return null;
                         },
                       ),
       
                       if (!_isParcel) ...[
                         const SizedBox(height: 16),
-                        const Text(
-                          'Consignment Items',
+                        Text(
+                          AppLocalizations.of(context)!.consignmentItems,
                           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 8),
@@ -1420,7 +1423,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                           child: TextButton.icon(
                             onPressed: _addConsignmentItem,
                             icon: const Icon(Icons.add),
-                            label: const Text('Add Items'),
+                            label: Text(AppLocalizations.of(context)!.addItems),
                           ),
                         ),
                       ],
@@ -1429,18 +1432,18 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                         controller: _packageValueController,
                         maxLength: 8,
                         keyboardType: TextInputType.number,
-                        decoration: _buildInputDecoration('Package Value', prefixText: 'TSH '),
+                        decoration: _buildInputDecoration(AppLocalizations.of(context)!.packageValue, prefixText: 'TSH '),
                         style: const TextStyle(fontSize: 16),
                         validator: _isParcel ? (value) {
-                          if (value == null || value.isEmpty) return 'Please enter package value';
-                          if (value.length > 8) return 'Package value must be 8 characters or less';
+                          if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseEnterPackageValue;
+                          if (value.length > 8) return AppLocalizations.of(context)!.packageValueMaxLength;
                           return null;
                         } : (value) {
                           if (value == null || value.isEmpty) {
                             _packageValueController.text = '0';
                             return null;
                           };
-                          if (value.length > 8) return 'Package value must be 8 characters or less';
+                          if (value.length > 8) return AppLocalizations.of(context)!.packageValueMaxLength;
                           return null;
                         },
                       ),
@@ -1449,12 +1452,12 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                         controller: _paidAmountController,
                         maxLength: 8,
                         enabled: _isParcel,
-                        decoration: _buildInputDecoration('Paid Amount', prefixText: 'TSH '),
+                        decoration: _buildInputDecoration(AppLocalizations.of(context)!.paidAmount, prefixText: 'TSH '),
                         keyboardType: TextInputType.number,
                         style: const TextStyle(fontSize: 16),
                         validator: _isParcel ? (value) {
-                          if (value == null || value.isEmpty) return 'Please enter Paid Amount';
-                          if (value.length > 8) return 'Paid amount must be 8 characters or less';
+                          if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseEnterPaidAmount;
+                          if (value.length > 8) return AppLocalizations.of(context)!.paidAmountMaxLength;
                           return null;
                         } : null,
                       ),
@@ -1470,7 +1473,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                           child: _isLoading 
                               ? const CircularProgressIndicator()
                               : Text(
-                                  _isParcel ? 'Add Parcel' : 'Add Consignment',
+                                  _isParcel ? AppLocalizations.of(context)!.addParcel : AppLocalizations.of(context)!.addConsignment,
                                   style: TextStyle(
                                     fontSize: 18,
                                     color: Colors.white,
@@ -1489,8 +1492,8 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (isLargeScreen) ...[
-                    const Text(
-                      'Add New Consignment',
+                    Text(
+                      AppLocalizations.of(context)!.addNewConsignment,
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
@@ -1504,11 +1507,11 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                   TextFormField(
                     controller: _packageNameController,
                     maxLength: 100,
-                    decoration: _buildInputDecoration('Package Name', prefixIcon: Icons.person),
+                    decoration: _buildInputDecoration(AppLocalizations.of(context)!.packageName, prefixIcon: Icons.person),
                     style: const TextStyle(fontSize: 16),
                     validator: (value) {
-                      if (value == null || value.isEmpty) return 'Please enter package name';
-                      if (value.length > 100) return 'Package name must be 100 characters or less';
+                      if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseEnterPackageName;
+                      if (value.length > 100) return AppLocalizations.of(context)!.packageNameMaxLength;
                       return null;
                     },
                   ),
@@ -1516,11 +1519,11 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                   TextFormField(
                     controller: _senderNameController,
                     maxLength: 100,
-                    decoration: _buildInputDecoration('Sender Name', prefixIcon: Icons.person),
+                    decoration: _buildInputDecoration(AppLocalizations.of(context)!.senderName, prefixIcon: Icons.person),
                     style: const TextStyle(fontSize: 16),
                     validator: (value) {
-                      if (value == null || value.isEmpty) return 'Please enter sender name';
-                      if (value.length > 100) return 'Sender name must be 100 characters or less';
+                      if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseEnterSenderName;
+                      if (value.length > 100) return AppLocalizations.of(context)!.senderNameMaxLength;
                       return null;
                     },
                   ),
@@ -1529,11 +1532,11 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                     controller: _senderPhoneNumberController,
                     maxLength: 15,
                     keyboardType: TextInputType.number,
-                    decoration: _buildInputDecoration('Sender Phone Number', prefixIcon: Icons.phone),
+                    decoration: _buildInputDecoration(AppLocalizations.of(context)!.senderPhoneNumber, prefixIcon: Icons.phone),
                     style: const TextStyle(fontSize: 16),
                     validator: (value) {
-                      if (value == null || value.isEmpty) return 'Please enter sender phone number';
-                      if (value.length > 15) return 'Sender phone number must be 15 characters or less';
+                      if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseEnterSenderPhone;
+                      if (value.length > 15) return AppLocalizations.of(context)!.senderPhoneMaxLength;
                       return null;
                     },
                   ),
@@ -1543,17 +1546,17 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                     controller: _fromController,
                     maxLength: 100,
                     enabled: false,
-                    decoration: _buildInputDecoration('From', prefixIcon: Icons.business),
+                    decoration: _buildInputDecoration(AppLocalizations.of(context)!.from, prefixIcon: Icons.business),
                     style: const TextStyle(fontSize: 16),
                     validator: (value) {
-                      if (value == null || value.isEmpty) return 'Please enter origin';
-                      if (value.length > 100) return 'Origin name must be 100 characters or less';
+                      if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseEnterOrigin;
+                      if (value.length > 100) return AppLocalizations.of(context)!.originMaxLength;
                       return null;
                     },
                   ) :
                   DropdownButtonFormField<String>(
                     value: _fromController.text.isNotEmpty ? _fromController.text : null, // preselect if any
-                    decoration: _buildInputDecoration('From', prefixIcon: Icons.business),
+                    decoration: _buildInputDecoration(AppLocalizations.of(context)!.from, prefixIcon: Icons.business),
                     style: const TextStyle(fontSize: 16),
                     items: officeNames.map((office) {
                       return DropdownMenuItem<String>(
@@ -1570,7 +1573,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                       }
                     },
                     validator: (value) {
-                      if (value == null || value.isEmpty) return 'Please select a origin';
+                      if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseSelectOrigin;
                       return null;
                     },
                   ),
@@ -1597,7 +1600,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                         controller: controller,
                         focusNode: focusNode,
                         decoration: _buildInputDecoration(
-                          'Destination',
+                          AppLocalizations.of(context)!.to,
                           prefixIcon: Icons.business,
                         ),
                         onChanged: (value) {
@@ -1605,7 +1608,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                         },
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Please enter or select a destination';
+                            return AppLocalizations.of(context)!.pleaseEnterDestination;
                           }
                           return null;
                         },
@@ -1644,11 +1647,11 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                   TextFormField(
                     controller: _receiverNameController,
                     maxLength: 100,
-                    decoration: _buildInputDecoration('Receiver Name', prefixIcon: Icons.person),
+                    decoration: _buildInputDecoration(AppLocalizations.of(context)!.receiverName, prefixIcon: Icons.person),
                     style: const TextStyle(fontSize: 16),
                     validator: (value) {
-                      if (value == null || value.isEmpty) return 'Please enter receiver name';
-                      if (value.length > 100) return 'Receiver name must be 100 characters or less';
+                      if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseEnterReceiverName;
+                      if (value.length > 100) return AppLocalizations.of(context)!.receiverNameMaxLength;
                       return null;
                     },
                   ),
@@ -1657,19 +1660,19 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                     controller: _receiverPhoneNumberController,
                     maxLength: 15,
                     keyboardType: TextInputType.number,
-                    decoration: _buildInputDecoration('Receiver Phone Number', prefixIcon: Icons.phone),
+                    decoration: _buildInputDecoration(AppLocalizations.of(context)!.receiverPhoneNumber, prefixIcon: Icons.phone),
                     style: const TextStyle(fontSize: 16),
                     validator: (value) {
-                      if (value == null || value.isEmpty) return 'Please enter receiver phone number';
-                      if (value.length > 15) return 'Receiver phone number must be 15 characters or less';
+                      if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseEnterReceiverPhone;
+                      if (value.length > 15) return AppLocalizations.of(context)!.receiverPhoneMaxLength;
                       return null;
                     },
                   ),
   
                   if (!_isParcel) ...[
                     const SizedBox(height: 16),
-                    const Text(
-                      'Consignment Items',
+                    Text(
+                      AppLocalizations.of(context)!.consignmentItems,
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
@@ -1681,7 +1684,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                       child: TextButton.icon(
                         onPressed: _addConsignmentItem,
                         icon: const Icon(Icons.add),
-                        label: const Text('Add Items'),
+                        label: Text(AppLocalizations.of(context)!.addItems),
                       ),
                     ),
                   ],
@@ -1690,18 +1693,18 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                     controller: _packageValueController,
                     maxLength: 8,
                     keyboardType: TextInputType.number,
-                    decoration: _buildInputDecoration('Package Value', prefixText: 'TSH '),
+                    decoration: _buildInputDecoration(AppLocalizations.of(context)!.packageValue, prefixText: 'TSH '),
                     style: const TextStyle(fontSize: 16),
                     validator: _isParcel ? (value) {
-                      if (value == null || value.isEmpty) return 'Please enter package value';
-                      if (value.length > 8) return 'Package value must be 8 characters or less';
+                      if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseEnterPackageValue;
+                      if (value.length > 8) return AppLocalizations.of(context)!.packageValueMaxLength;
                       return null;
                     } : (value) {
                       if (value == null || value.isEmpty) {
                         _packageValueController.text = '0';
                         return null;
                       };
-                      if (value.length > 8) return 'Package value must be 8 characters or less';
+                      if (value.length > 8) return AppLocalizations.of(context)!.packageValueMaxLength;
                       return null;
                     },
                   ),
@@ -1710,12 +1713,12 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                     controller: _paidAmountController,
                     maxLength: 8,
                     enabled: _isParcel,
-                    decoration: _buildInputDecoration('Paid Amount', prefixText: 'TSH '),
+                    decoration: _buildInputDecoration(AppLocalizations.of(context)!.paidAmount, prefixText: 'TSH '),
                     keyboardType: TextInputType.number,
                     style: const TextStyle(fontSize: 16),
                     validator: _isParcel ? (value) {
-                      if (value == null || value.isEmpty) return 'Please enter Paid Amount';
-                      if (value.length > 8) return 'Paid amount must be 8 characters or less';
+                      if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseEnterPaidAmount;
+                      if (value.length > 8) return AppLocalizations.of(context)!.paidAmountMaxLength;
                       return null;
                     } : null,
                   ),
@@ -1731,7 +1734,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                       child: _isLoading 
                           ? const CircularProgressIndicator()
                           : Text(
-                              _isParcel ? 'Add Parcel' : 'Add Consignment',
+                              _isParcel ? AppLocalizations.of(context)!.addParcel : AppLocalizations.of(context)!.addConsignment,
                               style: TextStyle(
                                 fontSize: 18,
                                 color: Colors.white,
@@ -1756,12 +1759,12 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
     if (devices.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No paired Bluetooth printer found')),
+        SnackBar(content: Text(AppLocalizations.of(context)!.noPairedPrinterFound)),  
       );
       return;
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Found ${devices.length} paired Bluetooth printer')),
+        SnackBar(content: Text( AppLocalizations.of(context)!.foundPairedPrinters(devices.length.toString()))),
       );
     }
 
@@ -1783,7 +1786,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
     if (!connected) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Printer not connected")),
+        SnackBar(content: Text(AppLocalizations.of(context)!.printerNotConnected)),
       );
       selectedPrinter = null;
       await _refreshBluetoothPrinters();
@@ -1835,7 +1838,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
     if (!connected) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Printer not connected")),
+        SnackBar(content: Text(AppLocalizations.of(context)!.printerNotConnected)),
       );
       selectedPrinter = null;
       await _refreshBluetoothPrinters();
@@ -2041,7 +2044,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
     if (!connected) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Printer not connected")),
+        SnackBar(content: Text(AppLocalizations.of(context)!.printerNotConnected)),
       );
       selectedPrinter = null;
       await _refreshBluetoothPrinters();
@@ -2599,7 +2602,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
     if (printers.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No printers found.')),
+        SnackBar(content: Text(AppLocalizations.of(context)!.noPrintersFound)),
       );
       return;
     }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tiketi_mkononi/providers/locale_provider.dart';
 import 'package:tiketi_mkononi/screens/auth/forgot_password_screen.dart';
 import 'package:tiketi_mkononi/screens/auth/login_screen.dart';
 import 'package:tiketi_mkononi/screens/auth/register_screen.dart';
@@ -12,7 +13,10 @@ import 'package:tiketi_mkononi/screens/home_page.dart';
 import 'package:tiketi_mkononi/screens/onboarding_screen.dart';
 import 'package:tiketi_mkononi/screens/profile_page.dart';
 import 'package:tiketi_mkononi/screens/tickets_page.dart';
+import 'package:tiketi_mkononi/services/language_service.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:tiketi_mkononi/l10n/app_localizations.dart';
 import 'web_setup_stub.dart'
 if (dart.library.html) 'web_setup_web.dart';
 
@@ -35,7 +39,7 @@ void main() async {
   );
 }
 
-class TiketiMkononiApp extends StatelessWidget {
+class TiketiMkononiApp extends ConsumerWidget  {
   final bool isFirstLaunch;
   final bool isLoggedIn;
 
@@ -77,14 +81,29 @@ class TiketiMkononiApp extends StatelessWidget {
   );
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final locale = ref.watch(localeProvider); // 👈 reactive
+
     return MaterialApp.router(
       title: 'Tiketi Mkononi',
+      locale: locale, // default language
+      supportedLocales: const [
+        Locale('en'),
+        Locale('sw'),
+      ],
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+
       theme: ThemeData(
-        primarySwatch: Colors.orange, // Still use the full MaterialColor
-        primaryColor: Colors.orange[800], // But override the primary color
+        primarySwatch: Colors.orange,
+        primaryColor: Colors.orange[800],
         useMaterial3: true,
       ),
+
       routerConfig: _router,
     );
   }
@@ -140,22 +159,22 @@ class _MainScreenState extends State<MainScreen> {
           NavigationDestination(
             icon: Icon(Icons.home, color: _selectedIndex == 0 ?Colors.orange[800] : Colors.grey),
             selectedIcon: Icon(Icons.home, color:Colors.orange[800]),
-            label: 'Home',
+            label: AppLocalizations.of(context)!.home,
           ),
           NavigationDestination(
             icon: Icon(Icons.event),
             selectedIcon: Icon(Icons.event, color: Colors.orange[800]),
-            label: 'Events',
+            label: AppLocalizations.of(context)!.events,
           ),
           NavigationDestination(
             icon: Icon(Icons.confirmation_number),
             selectedIcon: Icon(Icons.confirmation_number, color: Colors.orange[800]),
-            label: 'My Tickets',
+            label: AppLocalizations.of(context)!.myTickets,
           ),
           NavigationDestination(
             icon: Icon(Icons.person),
             selectedIcon: Icon(Icons.person, color: Colors.orange[800]),
-            label: 'Profile',
+            label: AppLocalizations.of(context)!.profile,
           ),
         ],
       ),
