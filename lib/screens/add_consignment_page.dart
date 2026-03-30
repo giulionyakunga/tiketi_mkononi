@@ -1233,7 +1233,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
               ),
               _buildMenuItem(
                 icon: Icons.account_balance_wallet,
-                text: AppLocalizations.of(context)!.receiptsBalance(_selectedNumberofReceiptsToPrint.toString()),
+                text: AppLocalizations.of(context)!.receiptsBalance(receiptsBalance.toString()),
                 value: 'topup_receipt',
               ),
               _buildMenuItem(
