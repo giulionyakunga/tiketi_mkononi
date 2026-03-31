@@ -34,6 +34,10 @@
 	<string>This app needs access to your photo library to save and share event tickets and images</string>
 	<key>NSContactsUsageDescription</key>
 	<string>This app needs access to your contacts</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>This app needs Bluetooth to connect to receipt printers</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>This app needs Bluetooth to connect to receipt printers</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

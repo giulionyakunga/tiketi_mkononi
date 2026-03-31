@@ -551,6 +551,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     int? selectedPackage;
     int? selectedReceiptPackages;
     int? selectedAmount;
+    String? selectedPaymentMethod;
 
     final TextEditingController phoneController = TextEditingController();
 
@@ -616,8 +617,6 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                           value: method,
                           groupValue: selectedPaymentMethod,
                           onChanged: (value) {
-                            debugPrint('Selected payment method: $value');
-                            debugPrint('SselectedPaymentMethod: $selectedPaymentMethod');
                             setState(() {
                               selectedPaymentMethod = value.toString();
                             });
@@ -646,21 +645,15 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () async {
-                          if(selectedPackage != null && selectedPackage! > 0) {
-                            await _sendPaymentRequest(
-                              phoneController.text.trim(),
-                              selectedReceiptPackages,
-                              selectedAmount,
-                            );
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("Tafadhali chagua kifurushi")),
-                            );
-                          }
+                          await _sendPaymentRequest(
+                            phoneController.text.trim(),
+                            selectedReceiptPackages,
+                            selectedAmount,
+                          );
                         },
                         child: const Text("Lipa"),
                       ),
-                    ) 
+                    )
                   ],
                 ),
               ),
@@ -688,8 +681,6 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/pay_daily_package/${widget.userId}')
     : Uri.parse('${backend_url_with_fallback_ip}pay_daily_package/${widget.userId}'); // Use IP
 
-      debugPrint('Selected payment method: $selectedPaymentMethod');
-
       String selectedPaymentMethod2 = '';
       if(selectedPaymentMethod == 'M-PESA') {
         selectedPaymentMethod2 = 'Mpesa';
@@ -702,8 +693,6 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       }else if(selectedPaymentMethod == 'AZAMPESA') {
         selectedPaymentMethod2 = 'Azampesa';
       }
-
-      debugPrint('Selected payment method 2: $selectedPaymentMethod2');
 
     try {
       final response = await http.post(
@@ -1784,11 +1773,10 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
   
   Future<void> _printBluetoothTestReceipt() async {
-    selectedPrinter = null;
-    await clearSelectedPrinter();
-
-    await _refreshBluetoothPrinters();
-    if (selectedPrinter == null) return;
+    if (selectedPrinter == null) {
+      await _refreshBluetoothPrinters();
+      if (selectedPrinter == null) return;
+    }
 
     await PrintBluetoothThermal.disconnect; // ensure clean state
 
@@ -2572,13 +2560,6 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
     await prefs.setString('printer_name', printer.name);
     await prefs.setString('printer_mac', printer.macAdress);
-  }
-
-  Future<void> clearSelectedPrinter() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    await prefs.remove('printer_name');
-    await prefs.remove('printer_mac');
   }
 
   Future<void> loadAndMatchPrinter() async {

@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:http/http.dart' as http;
 import 'package:tiketi_mkononi/l10n/app_localizations.dart';
@@ -99,7 +100,8 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       _loadSelectedPrinter();
     }
     _loadNumberOfReceipts();
-    loadAndMatchPrinter();
+    // loadAndMatchPrinter();
+    _checkAndRequestBluetoothPermission();
   }
 
   Future<void> _initializeServices() async {
@@ -126,6 +128,57 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       getUserRole();
       getCompanyOffices();
     }
+  }
+
+  Future<void> _checkAndRequestBluetoothPermission() async {
+    // Check if permission is already granted
+    PermissionStatus status = await Permission.bluetoothScan.status;
+    
+    if (!status.isGranted) {
+      // Request permission
+      status = await Permission.bluetoothScan.request();
+      
+      // For Android, also request location permission (required for Bluetooth scanning)
+      if (Platform.isAndroid) {
+        PermissionStatus locationStatus = await Permission.location.status;
+        if (!locationStatus.isGranted) {
+          await Permission.location.request();
+        }
+      }
+      
+      if (status.isGranted) {
+        // Permission granted, now load printers
+        await loadAndMatchPrinter();
+      } else if (status.isPermanentlyDenied) {
+        _showPermissionDeniedDialog();
+      }
+    } else {
+      // Permission already granted, load printers
+      await loadAndMatchPrinter();
+    }
+  }
+
+  void _showPermissionDeniedDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Permission Required'),
+        content: const Text('Bluetooth permission is required to connect to printers. Please enable it in settings.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              openAppSettings(); // Open app settings for user to enable permission
+            },
+            child: const Text('Open Settings'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> getCompanyOffices({bool useDNS = true}) async {
@@ -551,6 +604,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     int? selectedPackage;
     int? selectedReceiptPackages;
     int? selectedAmount;
+    String? selectedPaymentMethod;
 
     final TextEditingController phoneController = TextEditingController();
 
@@ -616,8 +670,6 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                           value: method,
                           groupValue: selectedPaymentMethod,
                           onChanged: (value) {
-                            debugPrint('Selected payment method: $value');
-                            debugPrint('SselectedPaymentMethod: $selectedPaymentMethod');
                             setState(() {
                               selectedPaymentMethod = value.toString();
                             });
@@ -646,21 +698,15 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () async {
-                          if(selectedPackage != null && selectedPackage! > 0) {
-                            await _sendPaymentRequest(
-                              phoneController.text.trim(),
-                              selectedReceiptPackages,
-                              selectedAmount,
-                            );
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("Tafadhali chagua kifurushi")),
-                            );
-                          }
+                          await _sendPaymentRequest(
+                            phoneController.text.trim(),
+                            selectedReceiptPackages,
+                            selectedAmount,
+                          );
                         },
                         child: const Text("Lipa"),
                       ),
-                    ) 
+                    )
                   ],
                 ),
               ),
@@ -688,8 +734,6 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/pay_daily_package/${widget.userId}')
     : Uri.parse('${backend_url_with_fallback_ip}pay_daily_package/${widget.userId}'); // Use IP
 
-      debugPrint('Selected payment method: $selectedPaymentMethod');
-
       String selectedPaymentMethod2 = '';
       if(selectedPaymentMethod == 'M-PESA') {
         selectedPaymentMethod2 = 'Mpesa';
@@ -702,8 +746,6 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       }else if(selectedPaymentMethod == 'AZAMPESA') {
         selectedPaymentMethod2 = 'Azampesa';
       }
-
-      debugPrint('Selected payment method 2: $selectedPaymentMethod2');
 
     try {
       final response = await http.post(

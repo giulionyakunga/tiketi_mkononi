@@ -29,5 +29,12 @@ class StorageService {
     await _prefs.remove("selected_event_categories");
     await _prefs.remove("use_dns");
     await _prefs.remove(_userProfileKey);
+    await _prefs.remove("receipts_balance");
+    // await _prefs.remove("number_of_receipts_to_print");
+    // await _prefs.remove("selected_printer_name");
+    // await _prefs.remove("selected_printer_url");
+    // await _prefs.remove("printer_name");
+    // await _prefs.remove("printer_mac");
+    // await _prefs.remove("selectedPrinterUrl");
   }
 }
