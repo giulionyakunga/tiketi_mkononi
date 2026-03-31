@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:http/http.dart' as http;
 import 'package:tiketi_mkononi/l10n/app_localizations.dart';
@@ -99,6 +100,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       _loadSelectedPrinter();
     }
     _loadNumberOfReceipts();
+
     loadAndMatchPrinter();
   }
 
@@ -2581,7 +2583,18 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     await prefs.remove('printer_mac');
   }
 
+  Future<void> requestPermissions() async {
+    await [
+      Permission.bluetooth,
+      Permission.bluetoothConnect,
+      Permission.bluetoothScan,
+      Permission.location,
+    ].request();
+  }
+
   Future<void> loadAndMatchPrinter() async {
+    await requestPermissions();
+
     final prefs = await SharedPreferences.getInstance();
 
     print("******************************************************************************");

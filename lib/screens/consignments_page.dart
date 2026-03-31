@@ -63,7 +63,6 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     String dateStr = DateFormat('d-M-yyyy').format(DateTime.now());
     _selectedDate = DateFormat('d-M-yyyy').parse(dateStr);
 
-    requestPermissions();    
     _fetchConsignments();
 
     if (Platform.isWindows) {
@@ -169,15 +168,6 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     setState(() {
       _searchQuery = _searchController.text;
     });
-  }
-  
-  Future<void> requestPermissions() async {
-    await [
-      Permission.bluetooth,
-      Permission.bluetoothConnect,
-      Permission.bluetoothScan,
-      Permission.location,
-    ].request();
   }
 
   Future<void> _fetchConsignments({bool useDNS = true}) async {
@@ -2170,8 +2160,18 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     await prefs.setString('printer_mac', printer.macAdress);
   }
 
+  Future<void> requestPermissions() async {
+    await [
+      Permission.bluetooth,
+      Permission.bluetoothConnect,
+      Permission.bluetoothScan,
+      Permission.location,
+    ].request();
+  }
   
   Future<void> loadAndMatchPrinter() async {
+    await requestPermissions();
+
     final prefs = await SharedPreferences.getInstance();
 
     print("******************************************************************************");
