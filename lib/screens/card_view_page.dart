@@ -275,33 +275,6 @@ class LivePreviewCanvas extends StatelessWidget {
               ),
             ),
 
-            Positioned(
-              left: qrX,
-              top: qrY, // we’ll adjust using Transform
-              child: Transform.translate(
-                offset: const Offset(0, -20), // move label up by its approximate height (~20px)
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: Colors.black),
-                  ),
-                  child: Text(
-                    'Label',
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
- 
-
-
             /// QR
             Positioned(
               left: qrX,
@@ -323,12 +296,9 @@ class LivePreviewCanvas extends StatelessWidget {
               child: const Text(
                 'Firstname Lastname',
                 style: TextStyle(
-                  fontSize: 20,
+                  fontSize: 10,
                   fontWeight: FontWeight.bold,
                   color: Colors.black,
-                  shadows: [
-                    Shadow(color: Colors.black, blurRadius: 4),
-                  ],
                 ),
               ),
             ),

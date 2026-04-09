@@ -332,18 +332,9 @@ class _EditOfficePageState extends State<EditOfficePage> {
     }
   }
 
-  Future<void> _toggleOfficeAttendantStatus(bool value, int officeAttendantId, {bool useDNS = true}) async {
-    if (_userData == null) return;
-
-    if(widget.userId == _userData!['id']) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('You are default attendant for this office'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      return;
-    }
+  Future<void> _toggleOfficeAttendantStatus(bool value, int officeAttendantId, String officeAttendantName, {bool useDNS = true}) async {
+    debugPrint(' >>>>>>>>>>>>>>>>>>>>>>>>>>>... _toggleOfficeAttendantStatus: $value');
+    debugPrint(' >>>>>>>>>>>>>>>>>>>>>>>>>>>... _toggleOfficeAttendantStatus2: $value');
 
     setState(() {
       _isLoading = true;
@@ -360,6 +351,8 @@ class _EditOfficePageState extends State<EditOfficePage> {
       );
 
       if (response.statusCode == 200) {
+        getOfficeAttendants();
+        
         if(response.body == "Office attendant added successfully!") {
           setState(() {
             _isOfficeAttendant = value;
@@ -367,14 +360,14 @@ class _EditOfficePageState extends State<EditOfficePage> {
 
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('${_userData!['first_name']} is now an attendant for this office'),
+              content: Text('${officeAttendantName} is now an attendant for this office'),
               backgroundColor: Colors.green,
             ),
           );
         } else if(response.body == "Office attendant removed successfully!") {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('${_userData!['first_name']} is no longer an attendant for this office'),
+              content: Text('${officeAttendantName} is no longer an attendant for this office'),
               backgroundColor: Colors.green,
             ),
           );
@@ -405,7 +398,7 @@ class _EditOfficePageState extends State<EditOfficePage> {
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await _toggleOfficeAttendantStatus(value, officeAttendantId, useDNS: false); // Recursive retry
+          await _toggleOfficeAttendantStatus(value, officeAttendantId, officeAttendantName, useDNS: false); // Recursive retry
 
           return;
         }
@@ -722,8 +715,7 @@ class _EditOfficePageState extends State<EditOfficePage> {
                             value: _isOfficeAttendant,
                             onChanged: _isLoading
                                 ? null
-                                : (value) => _toggleOfficeAttendantStatus(
-                                    value, _userData!['id']),
+                                : (value) => _toggleOfficeAttendantStatus(value, _userData!['id'], _userData!['first_name']),
                             activeColor: Colors.green,
                           ),
                         ],
@@ -842,9 +834,10 @@ class _EditOfficePageState extends State<EditOfficePage> {
                                     ? null
                                     : (value) =>
                                         _toggleOfficeAttendantStatus(
-                                            value,
-                                            officeAttendant[
-                                                'id']),
+                                          value,
+                                          officeAttendant['id'],
+                                          officeAttendant['first_name']
+                                        ),
                                 activeColor: Colors.green,
                               ),
                             ],

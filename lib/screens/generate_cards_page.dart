@@ -39,6 +39,7 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> with TickerProvid
   final _fullNameController = TextEditingController();
   final _phoneNumberController = TextEditingController();
   final _maxScanTimesController = TextEditingController();
+  final _extraInfoController = TextEditingController();
   String _ticketType = '';
   double _ticketPrice = 0.0;
   final Map<String, double> ticketTypePriceMap = {};
@@ -80,6 +81,7 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> with TickerProvid
     _fullNameController.dispose();
     _phoneNumberController.dispose();
     _maxScanTimesController.dispose();
+    _extraInfoController.dispose();
     super.dispose();
   }
 
@@ -304,6 +306,7 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> with TickerProvid
     String fullName = _fullNameController.text.trim();
     String phoneNumber = _phoneNumberController.text.trim();
     String maxScanTimes = _maxScanTimesController.text.trim();
+    String extraInfo = _extraInfoController.text.trim();
     if(_ticketType.trim().toUpperCase() == 'DOUBLE') {
        maxScanTimes = '2';
     } else if(_ticketType.trim().toUpperCase() == 'SINGLE') {
@@ -317,6 +320,7 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> with TickerProvid
       'user_phone_number': phoneNumber,
       'ticket_type': _ticketType,
       'ticket_price': _ticketPrice,
+      'extra_info': extraInfo,
       'max_scan_times': maxScanTimes,
     };
 
@@ -463,26 +467,26 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> with TickerProvid
           borderRadius: BorderRadius.circular(12),
         ),
         child: _eventImage != null
-            ? ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: kIsWeb ? 
-                Image.memory(
-                  _webImageBytes!,
-                  fit: BoxFit.cover,
-                ) :
-                Image.file(
-                  File(_eventImage!.path),
-                  fit: BoxFit.cover,
-                ),
-              )
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.add_photo_alternate, size: isLargeScreen ? 64 : 48),
-                  const SizedBox(height: 8),
-                  const Text('Add Event Card'),
-                ],
-              ),
+        ? ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: kIsWeb ? 
+            Image.memory(
+              _webImageBytes!,
+              fit: BoxFit.cover,
+            ) :
+            Image.file(
+              File(_eventImage!.path),
+              fit: BoxFit.cover,
+            ),
+          )
+        : Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.add_photo_alternate, size: isLargeScreen ? 64 : 48),
+              const SizedBox(height: 8),
+              const Text('Add Event Card (700x1080)'),
+            ],
+          ),
       ),
     );
   }
@@ -865,6 +869,66 @@ Widget _buildFeatureChip(IconData icon, String label) {
               },
             ),
             const SizedBox(height: 16),
+            TextFormField(
+              controller: _extraInfoController,
+              maxLength: 100,
+              decoration: InputDecoration(
+                labelText: 'Extra Info',
+                labelStyle: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 16,
+                ),
+                prefixIcon: Icon(
+                  Icons.info,
+                  color: Colors.grey[600],
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                  borderSide: BorderSide(
+                    color: Colors.grey[400]!,
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                  borderSide: BorderSide(
+                    color: Colors.grey[400]!,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                  borderSide: BorderSide(
+                    color: Colors.orange[800]!,
+                    width: 2.0,
+                  ),
+                ),
+                filled: true,
+                fillColor: Colors.grey[200],
+                contentPadding: const EdgeInsets.symmetric(
+                    vertical: 16.0, horizontal: 16.0),
+              ),
+              style: const TextStyle(
+                color: Colors.black87,
+                fontSize: 16,
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return null;
+                }
+                if (value.length > 100) {
+                  return 'Extra info must be 100 characters or less';
+                }
+                return null;
+              },
+            ),
+
+            const SizedBox(height: 16),
+
+
+
+
+
+
+
             const Text(
               'Ticket Type',
               style: TextStyle(
@@ -939,7 +1003,6 @@ Widget _buildFeatureChip(IconData icon, String label) {
               validator: (value) =>
                   value == null ? 'Please select a ticket type' : null,
             ),
-
             const SizedBox(height: 16),
             TextFormField(
               controller: _maxScanTimesController,

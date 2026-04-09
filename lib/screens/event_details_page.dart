@@ -13,6 +13,7 @@ import 'package:tiketi_mkononi/screens/checkout_page.dart';
 import 'package:tiketi_mkononi/screens/confirm_page.dart';
 import 'package:tiketi_mkononi/screens/edit_event_page.dart';
 import 'package:http/http.dart' as http;
+import 'package:tiketi_mkononi/screens/event_pledges_page.dart';
 import 'package:tiketi_mkononi/screens/event_providers.dart';
 import 'package:tiketi_mkononi/screens/event_tickets_page.dart';
 import 'package:go_router/go_router.dart';
@@ -1169,7 +1170,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
 
                                   ),
                                 ),
-                                 if ((role == 'admin') && (event.category.toUpperCase() == "WEDDING"))
+                                if ((role == 'admin') && (event.category.toUpperCase() == "WEDDING"))
                                 Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 8),
                                   child: TextButton(
@@ -1190,6 +1191,30 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                       Icons.notifications_active,
                                       size: 18,
                                       color: Colors.blue
+                                    ),
+                                  ),
+                                ),
+                                if ((role == 'admin') && (event.category.toUpperCase() == "WEDDING"))
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  child: TextButton(
+                                    style: TextButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      minimumSize: Size.zero,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => EventPledgesPage(event: event),
+                                        ),
+                                      );
+                                    },
+                                    child: const Icon(
+                                      Icons.volunteer_activism,
+                                      size: 18,
+                                      color: Colors.red
                                     ),
                                   ),
                                 ),
@@ -1463,8 +1488,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) =>
-                                      SendReminderMessagesPage(event: event),
+                                  builder: (context) => SendReminderMessagesPage(event: event),
                                 ),
                               );
                             },
@@ -1472,6 +1496,23 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                               Icons.notifications_active,
                               size: 18,
                               color: Colors.blue,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          TextButton(
+                            style: _compactBtnStyle,
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => EventPledgesPage(event: event),
+                                ),
+                              );
+                            },
+                            child: const Icon(
+                              Icons.volunteer_activism,
+                              size: 18,
+                              color: Colors.red,
                             ),
                           ),
                         ],

@@ -4,8 +4,8 @@ import 'package:tiketi_mkononi/screens/add_consignment_page.dart';
 import 'package:tiketi_mkononi/screens/apply_to_be_cargo_transporter_page.dart';
 import 'package:tiketi_mkononi/screens/apply_to_be_transporter_page.dart';
 import 'package:tiketi_mkononi/screens/auth/login_screen.dart';
-import 'package:tiketi_mkononi/screens/bus_booking_page.dart';
 import 'package:tiketi_mkononi/screens/category_events_page.dart';
+import 'package:tiketi_mkononi/screens/find_bus_routes_page.dart';
 import 'package:tiketi_mkononi/screens/offices_page.dart';
 
 class Category {
@@ -243,14 +243,7 @@ class CategoryGrid2 extends StatelessWidget {
                         ),
                       );
                     } else {
-                      if(role == 'transporter_office_attendant'){
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => BusBookingPage(userId: userId, companyId: companyId, companyName:companyName, officeId: officeId, userName: userName, userPhoneNumber: userPhoneNumber, isReplacableScreen: false),
-                          ),
-                        );
-                      } else if(role == 'transporter'){
+                      if(role == 'transporter'){
                         await Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -260,7 +253,13 @@ class CategoryGrid2 extends StatelessWidget {
 
                         refreshMethod();
                       } else {
-                        _showBusesDialog2(context);
+                        // _showBusesDialog2(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => FindBusRoutesPage(userId: userId, officeId: 0, companyId: companyId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, role: role),
+                          ),
+                        );
                       }
                     }
                   } else {

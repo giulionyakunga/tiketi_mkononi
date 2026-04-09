@@ -3,8 +3,8 @@ import 'package:tiketi_mkononi/screens/add_consignment_page.dart';
 import 'package:tiketi_mkononi/screens/apply_to_be_cargo_transporter_page.dart';
 import 'package:tiketi_mkononi/screens/apply_to_be_transporter_page.dart';
 import 'package:tiketi_mkononi/screens/auth/login_screen.dart';
-import 'package:tiketi_mkononi/screens/bus_booking_page.dart';
 import 'package:tiketi_mkononi/screens/category_events_page.dart';
+import 'package:tiketi_mkononi/screens/find_bus_routes_page.dart';
 import 'package:tiketi_mkononi/screens/offices_page.dart';
 
 class Category {
@@ -108,9 +108,9 @@ class CategoryGrid extends StatelessWidget {
 
     final List<Category> categories = [
       Category(name: 'Concerts', icon: Icons.music_note, color: Colors.blue),
-      // Category(name: 'Buses', icon: Icons.directions_bus, color: Colors.orange),
-      Category(name: 'Sports', icon: Icons.sports_basketball, color: Colors.red),
+      Category(name: 'Buses', icon: Icons.directions_bus, color: Colors.orange),
       Category(name: 'Cargo', icon: Icons.local_shipping, color: Colors.teal),
+      Category(name: 'Sports', icon: Icons.sports_basketball, color: Colors.red),
       Category(name: 'Comedy', icon: Icons.theater_comedy, color: Colors.brown),
       Category(name: 'Fun', icon: Icons.beach_access, color: Colors.amber[500]!),
       // Category(name: 'Festivals', icon: Icons.festival, color: Colors.blue),
@@ -173,14 +173,7 @@ class CategoryGrid extends StatelessWidget {
                     ),
                   );
                 } else {
-                  if(role == 'transporter_office_attendant'){
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => BusBookingPage(userId: userId, companyId: companyId, companyName:companyName, officeId: officeId, userName: userName, userPhoneNumber: userPhoneNumber, isReplacableScreen: false),
-                      ),
-                    );
-                  } else if(role == 'transporter'){
+                  if(role == 'transporter'){
                     await Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -190,7 +183,13 @@ class CategoryGrid extends StatelessWidget {
 
                     refreshMethod();
                   } else {
-                    _showBusesDialog2(context);
+                    // _showBusesDialog2(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => FindBusRoutesPage(userId: userId, officeId: officeId, companyId: companyId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, role: role),
+                      ),
+                    );
                   }
                 }
               } else {

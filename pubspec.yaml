@@ -77,6 +77,7 @@ dependencies:
   print_bluetooth_thermal: ^1.1.6
   flutter_colorpicker: ^1.0.3
   esc_pos_utils_plus: ^2.0.4
+  font_awesome_flutter: ^10.7.0
 
 dev_dependencies:
   flutter_test:
@@ -118,7 +119,9 @@ flutter:
     - assets/double.jpeg
     - assets/single.jpeg
     - assets/special.jpeg
+    - assets/wakwe.jpeg
     - assets/other.jpeg
+    - assets/stearing.png
     - assets/tiketimkononi_logo.png
     - assets/fonts/poppins/Poppins-Regular.ttf
     - assets/sounds/error.mp3

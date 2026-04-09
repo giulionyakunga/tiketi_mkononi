@@ -2154,7 +2154,10 @@ class ImageQrService {
         labelAsset = await rootBundle.load('assets/single.jpeg');
       } else if(ticket.ticketType.trim().toUpperCase() == "SPECIAL") {
         labelAsset = await rootBundle.load('assets/special.jpeg');
-      } else {
+      } else if(ticket.ticketType.trim().toUpperCase() == "WAKWE") {
+        labelAsset = await rootBundle.load('assets/wakwe.jpeg');
+      } 
+      else {
         labelAsset = await rootBundle.load('assets/other.jpeg');
       }
 

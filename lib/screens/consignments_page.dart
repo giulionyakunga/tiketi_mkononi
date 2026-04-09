@@ -1125,236 +1125,235 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
               final paidAmount = (consignment['paid_amount'] ?? 0).toInt();
 
-
               return Card(
-  elevation: isSelected ? 8 : 2,
-  margin: const EdgeInsets.only(bottom: 12),
-  shape: RoundedRectangleBorder(
-    borderRadius: BorderRadius.circular(16),
-    side: isSelected
-        ? BorderSide(color: Colors.teal.shade300, width: 2)
-        : BorderSide.none,
-  ),
-  child: InkWell(
-    onTap: () {
-      setState(() {
-        if (_selectedConsignment == consignment) {
-          _showDetails = !_showDetails;
-        } else {
-          _selectedConsignment = consignment;
-          _showDetails = true;
-        }
-      });
-    },
-    borderRadius: BorderRadius.circular(16),
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.teal.shade50,
-                  borderRadius: BorderRadius.circular(12),
+                elevation: isSelected ? 8 : 2,
+                margin: const EdgeInsets.only(bottom: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: isSelected
+                      ? BorderSide(color: Colors.teal.shade300, width: 2)
+                      : BorderSide.none,
                 ),
-                child: Icon(
-                  _getPackageTypeIcon(consignment['is_parcel']),
-                  color: Colors.teal,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: 
-                    Text(
-                      consignment['package_name'] ?? 'Unnamed Package',
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                 
-              ),
-              // Paid amount at top right
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.teal.shade100,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      "TZS ${NumberFormat('#,##0').format(paidAmount)}",
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.teal.shade800,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                child: const SizedBox(width: 20),
-              ),
-              const SizedBox(width: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: _getPaymentStatusColor(
-                          consignment['payment_status'])
-                      .withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      consignment['payment_status'] == true
-                          ? Icons.check_circle
-                          : Icons.pending,
-                      size: 14,
-                      color: _getPaymentStatusColor(
-                          consignment['payment_status']),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      _getPaymentStatusText(
-                          consignment['payment_status']),
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: _getPaymentStatusColor(
-                            consignment['payment_status']),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: _getPaymentStatusColor(
-                          consignment['payment_status'])
-                      .withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Package No: ${consignment['id']}',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: _getPaymentStatusColor(
-                            consignment['payment_status']),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          // Route information
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Row(
-                    children: [
-                      Icon(Icons.location_on,
-                          size: 16, color: Colors.grey.shade600),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          consignment['from'] ?? 'Unknown',
-                          style: const TextStyle(fontWeight: FontWeight.w500),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                child: InkWell(
+                  onTap: () {
+                    setState(() {
+                      if (_selectedConsignment == consignment) {
+                        _showDetails = !_showDetails;
+                      } else {
+                        _selectedConsignment = consignment;
+                        _showDetails = true;
+                      }
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.teal.shade50,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                _getPackageTypeIcon(consignment['is_parcel']),
+                                color: Colors.teal,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: 
+                                  Text(
+                                    consignment['package_name'] ?? 'Unnamed Package',
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                              
+                            ),
+                            // Paid amount at top right
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.teal.shade100,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    "TZS ${NumberFormat('#,##0').format(paidAmount)}",
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.teal.shade800,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              child: const SizedBox(width: 20),
+                            ),
+                            const SizedBox(width: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _getPaymentStatusColor(
+                                        consignment['payment_status'])
+                                    .withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    consignment['payment_status'] == true
+                                        ? Icons.check_circle
+                                        : Icons.pending,
+                                    size: 14,
+                                    color: _getPaymentStatusColor(
+                                        consignment['payment_status']),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _getPaymentStatusText(
+                                        consignment['payment_status']),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                      color: _getPaymentStatusColor(
+                                          consignment['payment_status']),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _getPaymentStatusColor(
+                                        consignment['payment_status'])
+                                    .withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'Package No: ${consignment['id']}',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                      color: _getPaymentStatusColor(
+                                          consignment['payment_status']),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        // Route information
+                        Container(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.location_on,
+                                        size: 16, color: Colors.grey.shade600),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        consignment['from'] ?? 'Unknown',
+                                        style: const TextStyle(fontWeight: FontWeight.w500),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                child: Icon(Icons.arrow_forward,
+                                    size: 16, color: Colors.grey.shade400),
+                              ),
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.location_on,
+                                        size: 16, color: Colors.grey.shade600),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        consignment['to'] ?? 'Unknown',
+                                        style: const TextStyle(fontWeight: FontWeight.w500),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Divider(),
+                        // Sender & Receiver info
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildPersonInfo(
+                                icon: Icons.person_outline,
+                                label: 'Sender',
+                                name: consignment['sender_name'],
+                                phone: consignment['sender_phone_number'],
+                              ),
+                            ),
+                            Container(
+                              width: 1,
+                              height: 30,
+                              color: Colors.grey.shade300,
+                              margin: const EdgeInsets.symmetric(horizontal: 12),
+                            ),
+                            Expanded(
+                              child: _buildPersonInfo(
+                                icon: Icons.person,
+                                label: 'Receiver',
+                                name: consignment['receiver_name'],
+                                phone: consignment['receiver_phone_number'],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Icon(Icons.arrow_forward,
-                      size: 16, color: Colors.grey.shade400),
-                ),
-                Expanded(
-                  child: Row(
-                    children: [
-                      Icon(Icons.location_on,
-                          size: 16, color: Colors.grey.shade600),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          consignment['to'] ?? 'Unknown',
-                          style: const TextStyle(fontWeight: FontWeight.w500),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Divider(),
-          // Sender & Receiver info
-          Row(
-            children: [
-              Expanded(
-                child: _buildPersonInfo(
-                  icon: Icons.person_outline,
-                  label: 'Sender',
-                  name: consignment['sender_name'],
-                  phone: consignment['sender_phone_number'],
-                ),
-              ),
-              Container(
-                width: 1,
-                height: 30,
-                color: Colors.grey.shade300,
-                margin: const EdgeInsets.symmetric(horizontal: 12),
-              ),
-              Expanded(
-                child: _buildPersonInfo(
-                  icon: Icons.person,
-                  label: 'Receiver',
-                  name: consignment['receiver_name'],
-                  phone: consignment['receiver_phone_number'],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    ),
-  ),
-);
+              );
             },
           )
         )

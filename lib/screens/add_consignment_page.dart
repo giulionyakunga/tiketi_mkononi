@@ -133,6 +133,8 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
   Future<void> getCompanyOffices({bool useDNS = true}) async {
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/company_offices/${widget.companyId}') // Original URL 
     : Uri.parse('${backend_url_with_fallback_ip}company_offices/${widget.companyId}'); // Use IP
+
+      debugPrint('Fetching company offices from: ${uri.toString()}');
         
     try {
       final response = await http.get(uri);
@@ -278,7 +280,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await getCompanyOffices(useDNS: false); // Recursive retry
+          await getReceiptPackages(useDNS: false); // Recursive retry
 
           final prefs = await SharedPreferences.getInstance();
           await prefs.setBool('use_dns', false);

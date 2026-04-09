@@ -4,7 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
+import 'package:tiketi_mkononi/screens/add_bus_route_page.dart';
 import 'package:tiketi_mkononi/screens/add_office_page.dart';
+import 'package:tiketi_mkononi/screens/bus_routes_page.dart';
+import 'package:tiketi_mkononi/screens/buses_page.dart';
 import 'package:tiketi_mkononi/screens/consignments_page.dart';
 import 'package:tiketi_mkononi/screens/edit_company_page.dart';
 import 'package:tiketi_mkononi/screens/edit_office_page.dart';
@@ -153,6 +156,20 @@ class _OfficesPageState extends State<OfficesPage> {
                 var profile = _storageService.getUserProfile();
                 widget.companyName = profile!.companyName;
 
+              } if (value == 'bus_routes') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => BusRoutesPage(userId: widget.userId, officeId: 0, officeName: '', companyId: widget.companyId, companyName: widget.companyName, userName: widget.userName, userPhoneNumber: widget.userPhoneNumber, role: widget.role),
+                  ),
+                );
+              } else if (value == 'company_buses') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => BusesPage(userId: widget.userId, officeId: 0, officeName: '', companyId: widget.companyId, companyName: widget.companyName, userName: widget.userName, userPhoneNumber: widget.userPhoneNumber, role: widget.role),
+                  ),
+                );
               } else if (value == 'exit') {
                 Navigator.pop(context);
               }
@@ -166,6 +183,22 @@ class _OfficesPageState extends State<OfficesPage> {
                 value: 'company_name',
               ),
               if((widget.role == "transporter") || (widget.role == "cargo_transporter"))
+              const PopupMenuDivider(),
+              if(widget.role == "transporter")
+              _buildMenuItem(
+                icon: Icons.directions_bus,
+                text: "Bus Routes",
+                value: 'bus_routes',
+              ),
+              if(widget.role == "transporter")
+              const PopupMenuDivider(),
+              if(widget.role == "transporter")
+              _buildMenuItem(
+                icon: Icons.directions_bus,
+                text: "Company Buses",
+                value: 'company_buses',
+              ),
+              if(widget.role == "transporter")
               const PopupMenuDivider(),
               _buildMenuItem(
                 icon: Icons.exit_to_app,
@@ -184,10 +217,10 @@ class _OfficesPageState extends State<OfficesPage> {
         backgroundColor: Colors.teal,
         onPressed: () async {
           await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => AddOfficePage(userId: widget.userId, companyId: widget.companyId),
-          )
+            context,
+            MaterialPageRoute(
+              builder: (context) => AddOfficePage(userId: widget.userId, companyId: widget.companyId),
+            )
           );
           
           _fetchOffices();
