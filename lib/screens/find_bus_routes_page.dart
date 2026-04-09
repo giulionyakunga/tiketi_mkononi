@@ -317,7 +317,7 @@ class _FindBusRoutesPageState extends State<FindBusRoutesPage> {
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      margin: const EdgeInsets.all(16),
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -331,7 +331,7 @@ class _FindBusRoutesPageState extends State<FindBusRoutesPage> {
                 color: Colors.black87,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 4),
             Container(
               decoration: BoxDecoration(
                 color: Colors.grey[50],
@@ -366,7 +366,7 @@ class _FindBusRoutesPageState extends State<FindBusRoutesPage> {
                       ),
                     ),
                     trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-                    onTap: (from == '') ? () => _showLocationPicker(context, isOrigin: true) : () => {}, 
+                    onTap: (widget.officeId == 0) ? () => _showLocationPicker(context, isOrigin: true) : () => {}, 
                   ),
                   
                   const Padding(
@@ -399,7 +399,7 @@ class _FindBusRoutesPageState extends State<FindBusRoutesPage> {
                         color: to.isEmpty ? Colors.grey : Colors.black87,
                       ),
                     ),
-                    trailing: IconButton(
+                    trailing: (widget.officeId == 0) ? IconButton(
                       icon: const Icon(Icons.swap_vert, color: Colors.grey),
                       onPressed: () {
                         setState(() {
@@ -408,19 +408,19 @@ class _FindBusRoutesPageState extends State<FindBusRoutesPage> {
                           to = temp;
                         });
                       },
-                    ),
+                    ) : null,
                     onTap: () => _showLocationPicker(context, isOrigin: false),
                   ),
                 ],
               ),
             ),
             
-            const SizedBox(height: 16),
+            const SizedBox(height: 4),
             
             // Date Picker - Place it HERE
             _buildDatePicker(),
             
-            const SizedBox(height: 16),
+            const SizedBox(height: 4),
             
             // Search button
             SizedBox(
@@ -621,8 +621,8 @@ class _FindBusRoutesPageState extends State<FindBusRoutesPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title:  Text(
-          '${widget.officeId},${widget.companyId},${from} Bus Routes',
+        title: const Text(
+          'Bus Routes',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
         backgroundColor: Colors.teal,
@@ -663,229 +663,178 @@ class _FindBusRoutesPageState extends State<FindBusRoutesPage> {
     );
   }
 
-  Widget _timeBlock(String label, String time, IconData icon) {
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.center,
-    children: [
-      Icon(icon, size: 18, color: Colors.teal),
-      const SizedBox(height: 4),
-      Text(
-        time,
-        style: const TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: 13,
-        ),
-      ),
-      Text(
-        label,
-        style: TextStyle(
-          fontSize: 10,
-          color: Colors.grey.shade600,
-        ),
-      ),
-    ],
-  );
-}
-
-Widget _infoItem(IconData icon, String label, String value) {
-  return Expanded(
-    child: Row(
-      children: [
-        Icon(icon, size: 16, color: Colors.teal.shade400),
-        const SizedBox(width: 6),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
-            ),
-            Text(
-              value,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-              ),
-            ),
-          ],
-        )
-      ],
-    ),
-  );
-}
-
-String calculateDuration({
-  required String departureDate,
-  required String departureTime,
-  required String arrivalDate,
-  required String arrivalTime,
-}) {
-  try {
-    // Parse dates and times
-    List<String> depDateParts = departureDate.split('-');
-    List<String> arrDateParts = arrivalDate.split('-');
-    
-    // Handle both 2-digit and 4-digit years
-    int depYear = int.parse(depDateParts[2]);
-    int arrYear = int.parse(arrDateParts[2]);
-    
-    // Convert 2-digit year to 4-digit if needed (assuming 2000s)
-    if (depYear < 100) depYear += 2000;
-    if (arrYear < 100) arrYear += 2000;
-    
-    // Parse departure time (assuming format like "21:00" or "04:55")
-    List<String> depTimeParts = departureTime.split(':');
-    List<String> arrTimeParts = arrivalTime.split(':');
-    
-    int depHour = int.parse(depTimeParts[0]);
-    int depMinute = int.parse(depTimeParts[1]);
-    int arrHour = int.parse(arrTimeParts[0]);
-    int arrMinute = int.parse(arrTimeParts[1]);
-    
-    // Create DateTime objects
-    DateTime depDateTime = DateTime(
-      depYear,
-      int.parse(depDateParts[1]), // month
-      int.parse(depDateParts[0]), // day
-      depHour,
-      depMinute,
-    );
-    
-    DateTime arrDateTime = DateTime(
-      arrYear,
-      int.parse(arrDateParts[1]), // month
-      int.parse(arrDateParts[0]), // day
-      arrHour,
-      arrMinute,
-    );
-    
-    // Calculate difference
-    Duration difference = arrDateTime.difference(depDateTime);
-    
-    // Handle negative duration (if arrival is before departure, add 24 hours)
-    if (difference.isNegative) {
-      difference = difference + const Duration(days: 1);
-    }
-    
-    // Format the duration
-    int totalHours = difference.inHours;
-    int minutes = difference.inMinutes.remainder(60);
-    
-    // Format as "Xh Ym" or "X hours Y minutes"
-    if (totalHours > 0 && minutes > 0) {
-      return "${totalHours}h ${minutes}m";
-    } else if (totalHours > 0) {
-      return "${totalHours}h";
-    } else {
-      return "${minutes}m";
-    }
-    
-  } catch (e) {
-    debugPrint("Error calculating duration: $e");
-    return "Duration unknown";
-  }
-}
-
-// Alternative version with more detailed formatting
-String calculateDurationDetailed({
-  required String departureDate,
-  required String departureTime,
-  required String arrivalDate,
-  required String arrivalTime,
-}) {
-  try {
-    // Parse dates
-    List<String> depDateParts = departureDate.split('-');
-    List<String> arrDateParts = arrivalDate.split('-');
-    
-    int depDay = int.parse(depDateParts[0]);
-    int depMonth = int.parse(depDateParts[1]);
-    int depYear = int.parse(depDateParts[2]);
-    
-    int arrDay = int.parse(arrDateParts[0]);
-    int arrMonth = int.parse(arrDateParts[1]);
-    int arrYear = int.parse(arrDateParts[2]);
-    
-    // Convert 2-digit years to 4-digit
-    if (depYear < 100) depYear += 2000;
-    if (arrYear < 100) arrYear += 2000;
-    
-    // Parse times
-    List<String> depTimeParts = departureTime.split(':');
-    List<String> arrTimeParts = arrivalTime.split(':');
-    
-    int depHour = int.parse(depTimeParts[0]);
-    int depMinute = int.parse(depTimeParts[1]);
-    int arrHour = int.parse(arrTimeParts[0]);
-    int arrMinute = int.parse(arrTimeParts[1]);
-    
-    // Create DateTime objects
-    DateTime departure = DateTime(depYear, depMonth, depDay, depHour, depMinute);
-    DateTime arrival = DateTime(arrYear, arrMonth, arrDay, arrHour, arrMinute);
-    
-    // Calculate duration
-    Duration duration = arrival.difference(departure);
-    
-    // Handle overnight trips
-    if (duration.isNegative) {
-      duration = Duration(
-        hours: (24 - depHour) + arrHour,
-        minutes: (60 - depMinute) + arrMinute,
+  String calculateDuration({
+    required String departureDate,
+    required String departureTime,
+    required String arrivalDate,
+    required String arrivalTime,
+  }) {
+    try {
+      // Parse dates and times
+      List<String> depDateParts = departureDate.split('-');
+      List<String> arrDateParts = arrivalDate.split('-');
+      
+      // Handle both 2-digit and 4-digit years
+      int depYear = int.parse(depDateParts[2]);
+      int arrYear = int.parse(arrDateParts[2]);
+      
+      // Convert 2-digit year to 4-digit if needed (assuming 2000s)
+      if (depYear < 100) depYear += 2000;
+      if (arrYear < 100) arrYear += 2000;
+      
+      // Parse departure time (assuming format like "21:00" or "04:55")
+      List<String> depTimeParts = departureTime.split(':');
+      List<String> arrTimeParts = arrivalTime.split(':');
+      
+      int depHour = int.parse(depTimeParts[0]);
+      int depMinute = int.parse(depTimeParts[1]);
+      int arrHour = int.parse(arrTimeParts[0]);
+      int arrMinute = int.parse(arrTimeParts[1]);
+      
+      // Create DateTime objects
+      DateTime depDateTime = DateTime(
+        depYear,
+        int.parse(depDateParts[1]), // month
+        int.parse(depDateParts[0]), // day
+        depHour,
+        depMinute,
       );
-      // Adjust minutes if needed
-      if (duration.inMinutes >= 60) {
-        duration = Duration(minutes: duration.inMinutes);
+      
+      DateTime arrDateTime = DateTime(
+        arrYear,
+        int.parse(arrDateParts[1]), // month
+        int.parse(arrDateParts[0]), // day
+        arrHour,
+        arrMinute,
+      );
+      
+      // Calculate difference
+      Duration difference = arrDateTime.difference(depDateTime);
+      
+      // Handle negative duration (if arrival is before departure, add 24 hours)
+      if (difference.isNegative) {
+        difference = difference + const Duration(days: 1);
       }
+      
+      // Format the duration
+      int totalHours = difference.inHours;
+      int minutes = difference.inMinutes.remainder(60);
+      
+      // Format as "Xh Ym" or "X hours Y minutes"
+      if (totalHours > 0 && minutes > 0) {
+        return "${totalHours}h ${minutes}m";
+      } else if (totalHours > 0) {
+        return "${totalHours}h";
+      } else {
+        return "${minutes}m";
+      }
+      
+    } catch (e) {
+      debugPrint("Error calculating duration: $e");
+      return "Duration unknown";
     }
-    
-    // Format output
-    int days = duration.inDays;
-    int hours = duration.inHours.remainder(24);
-    int minutes = duration.inMinutes.remainder(60);
-    
-    List<String> parts = [];
-    
-    if (days > 0) {
-      parts.add("$days day${days > 1 ? 's' : ''}");
-    }
-    if (hours > 0) {
-      parts.add("$hours hour${hours > 1 ? 's' : ''}");
-    }
-    if (minutes > 0) {
-      parts.add("$minutes minute${minutes > 1 ? 's' : ''}");
-    }
-    
-    return parts.join(" ");
-    
-  } catch (e) {
-    debugPrint("Error calculating duration: $e");
-    return "0 hours";
   }
-}
 
-// Helper function to detect time period (NIGHT, EARLY MORNING, etc.)
-String getTimePeriod(String time) {
-  try {
-    List<String> timeParts = time.split(':');
-    int hour = int.parse(timeParts[0]);
-    
-    if (hour >= 0 && hour < 4) {
-      return "LATE NIGHT";
-    } else if (hour >= 4 && hour < 6) {
-      return "EARLY MORNING";
-    } else if (hour >= 6 && hour < 12) {
-      return "MORNING";
-    } else if (hour >= 12 && hour < 17) {
-      return "AFTERNOON";
-    } else if (hour >= 17 && hour < 20) {
-      return "EVENING";
-    } else {
-      return "NIGHT";
+  // Alternative version with more detailed formatting
+  String calculateDurationDetailed({
+    required String departureDate,
+    required String departureTime,
+    required String arrivalDate,
+    required String arrivalTime,
+  }) {
+    try {
+      // Parse dates
+      List<String> depDateParts = departureDate.split('-');
+      List<String> arrDateParts = arrivalDate.split('-');
+      
+      int depDay = int.parse(depDateParts[0]);
+      int depMonth = int.parse(depDateParts[1]);
+      int depYear = int.parse(depDateParts[2]);
+      
+      int arrDay = int.parse(arrDateParts[0]);
+      int arrMonth = int.parse(arrDateParts[1]);
+      int arrYear = int.parse(arrDateParts[2]);
+      
+      // Convert 2-digit years to 4-digit
+      if (depYear < 100) depYear += 2000;
+      if (arrYear < 100) arrYear += 2000;
+      
+      // Parse times
+      List<String> depTimeParts = departureTime.split(':');
+      List<String> arrTimeParts = arrivalTime.split(':');
+      
+      int depHour = int.parse(depTimeParts[0]);
+      int depMinute = int.parse(depTimeParts[1]);
+      int arrHour = int.parse(arrTimeParts[0]);
+      int arrMinute = int.parse(arrTimeParts[1]);
+      
+      // Create DateTime objects
+      DateTime departure = DateTime(depYear, depMonth, depDay, depHour, depMinute);
+      DateTime arrival = DateTime(arrYear, arrMonth, arrDay, arrHour, arrMinute);
+      
+      // Calculate duration
+      Duration duration = arrival.difference(departure);
+      
+      // Handle overnight trips
+      if (duration.isNegative) {
+        duration = Duration(
+          hours: (24 - depHour) + arrHour,
+          minutes: (60 - depMinute) + arrMinute,
+        );
+        // Adjust minutes if needed
+        if (duration.inMinutes >= 60) {
+          duration = Duration(minutes: duration.inMinutes);
+        }
+      }
+      
+      // Format output
+      int days = duration.inDays;
+      int hours = duration.inHours.remainder(24);
+      int minutes = duration.inMinutes.remainder(60);
+      
+      List<String> parts = [];
+      
+      if (days > 0) {
+        parts.add("$days day${days > 1 ? 's' : ''}");
+      }
+      if (hours > 0) {
+        parts.add("$hours hour${hours > 1 ? 's' : ''}");
+      }
+      if (minutes > 0) {
+        parts.add("$minutes minute${minutes > 1 ? 's' : ''}");
+      }
+      
+      return parts.join(" ");
+      
+    } catch (e) {
+      debugPrint("Error calculating duration: $e");
+      return "0 hours";
     }
-  } catch (e) {
-    return "";
   }
-}
+
+  // Helper function to detect time period (NIGHT, EARLY MORNING, etc.)
+  String getTimePeriod(String time) {
+    try {
+      List<String> timeParts = time.split(':');
+      int hour = int.parse(timeParts[0]);
+      
+      if (hour >= 0 && hour < 4) {
+        return "LATE NIGHT";
+      } else if (hour >= 4 && hour < 6) {
+        return "EARLY MORNING";
+      } else if (hour >= 6 && hour < 12) {
+        return "MORNING";
+      } else if (hour >= 12 && hour < 17) {
+        return "AFTERNOON";
+      } else if (hour >= 17 && hour < 20) {
+        return "EVENING";
+      } else {
+        return "NIGHT";
+      }
+    } catch (e) {
+      return "";
+    }
+  }
 
   Widget _buildRoutesList() {
     var filteredBusRoutes = _busRoutes.where((r) {
@@ -973,7 +922,7 @@ String getTimePeriod(String time) {
                                 border: Border.all(color: Colors.teal.shade200),
                               ),
                               child: Text(
-                                route.company!.name ?? "Company Name",
+                                route.company!.name,
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
@@ -991,7 +940,7 @@ String getTimePeriod(String time) {
                                 border: Border.all(color: Colors.grey.shade300),
                               ),
                               child: Text(
-                                route.bus!.name ?? "bus name",
+                                route.bus!.name,
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w600,
@@ -1001,7 +950,7 @@ String getTimePeriod(String time) {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 6),
 
                         /// BUS MODEL & PLATE NUMBER
                         Row(
@@ -1025,7 +974,7 @@ String getTimePeriod(String time) {
                                 border: Border.all(color: Colors.amber.shade200),
                               ),
                               child: Text(
-                                route.bus!.registrationNumber ?? "Reg No",
+                                route.bus!.registrationNumber,
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w600,
@@ -1036,7 +985,7 @@ String getTimePeriod(String time) {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 6),
 
                         /// TERMINAL INFORMATION
                         Row(
@@ -1044,7 +993,7 @@ String getTimePeriod(String time) {
                             Icon(Icons.location_on, size: 14, color: Colors.teal.shade600),
                             const SizedBox(width: 6),
                             Text(
-                              route.from ?? "from",
+                              route.from,
                               style: TextStyle(
                                 fontSize: 11,
                                 color: Colors.grey.shade600,
@@ -1053,7 +1002,7 @@ String getTimePeriod(String time) {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 8),
 
                         /// ROUTE (FROM → TO)
                         Container(
@@ -1077,7 +1026,7 @@ String getTimePeriod(String time) {
                                     ),
                                   ),
                                   Text(
-                                    route.from ?? "from",
+                                    route.from,
                                     style: TextStyle(
                                       fontSize: 10,
                                       color: Colors.grey.shade500,
@@ -1105,7 +1054,7 @@ String getTimePeriod(String time) {
                                     ),
                                   ),
                                   Text(
-                                    route.to ?? "to",
+                                    route.to,
                                     style: TextStyle(
                                       fontSize: 10,
                                       color: Colors.grey.shade500,
@@ -1116,7 +1065,7 @@ String getTimePeriod(String time) {
                             ],
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 8),
 
                         /// TIME INFORMATION (DEPARTURE & ARRIVAL)
                         Container(
@@ -1266,7 +1215,7 @@ String getTimePeriod(String time) {
                             ],
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 6),
 
                         /// AVAILABLE SEATS & PRICE
                         Row(

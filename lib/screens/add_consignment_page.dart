@@ -2036,10 +2036,6 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       'Email:tiketimkononi@telabs.co.tz',
       styles: const PosStyles(align: PosAlign.center)
     );
-    bytes += generator.text(
-      'Phone: +255 651 138 380',
-      styles: const PosStyles(align: PosAlign.center)
-    );
   
     bytes += generator.cut();
 
@@ -2164,10 +2160,6 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     );
     bytes += generator.text(
       'Email:tiketimkononi@telabs.co.tz',
-      styles: const PosStyles(align: PosAlign.center)
-    );
-    bytes += generator.text(
-      'Phone: +255 651 138 380',
       styles: const PosStyles(align: PosAlign.center)
     );
   
@@ -2422,13 +2414,6 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                 pw.Center(
                   child: pw.Text(
                     "Email:tiketimkononi@telabs.co.tz",
-                    style: pw.TextStyle(font: customFont, fontSize: 9),
-                  ),
-                ),
-
-                pw.Center(
-                  child: pw.Text(
-                    "Phone: +255 651 138 380",
                     style: pw.TextStyle(font: customFont, fontSize: 9),
                   ),
                 ),

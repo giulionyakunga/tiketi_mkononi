@@ -587,7 +587,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
     _showSnackBar("Contact saved as : $givenName");
   }
 
-  String generateContactName(String eventName, int ticketId, { int maxWords = 3 }) {
+  String generateContactName(String eventName, String ticketId, { int maxWords = 3 }) {
     final ignoreWords = {
       'ya', 'na', 'and', 'of', 'the', '&', 'a', 'an'
     };
@@ -937,7 +937,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
                 ),
               ),
               TextButton(
-                onPressed: () => addContactUnique(generateContactName(widget.ticket.eventName, widget.ticket.id), widget.ticket.userPhoneNumber),
+                onPressed: () => addContactUnique(generateContactName(widget.ticket.eventName, widget.ticket.userPhoneNumber), widget.ticket.userPhoneNumber),
                 style: TextButton.styleFrom(
                   alignment: Alignment.centerLeft,
                   padding: EdgeInsets.zero,  // Removed vertical padding

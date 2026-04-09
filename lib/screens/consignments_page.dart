@@ -1684,10 +1684,6 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
       'Email:tiketimkononi@telabs.co.tz',
       styles: const PosStyles(align: PosAlign.center)
     );
-    bytes += generator.text(
-      'Phone: +255 651 138 380',
-      styles: const PosStyles(align: PosAlign.center)
-    );
   
     bytes += generator.cut();
 
@@ -1812,10 +1808,6 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     );
     bytes += generator.text(
       'Email:tiketimkononi@telabs.co.tz',
-      styles: const PosStyles(align: PosAlign.center)
-    );
-    bytes += generator.text(
-      'Phone: +255 651 138 380',
       styles: const PosStyles(align: PosAlign.center)
     );
   
@@ -2091,13 +2083,6 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                   ),
                 ),
 
-                pw.Center(
-                  child: pw.Text(
-                    "Phone: +255 672 120 941",
-                    style: pw.TextStyle(fontSize: 9),
-                  ),
-                ),
-
                 pw.Text(
                   "********************************",
                   style: pw.TextStyle(font: customFont),
@@ -2342,7 +2327,6 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
               pw.SizedBox(height: 3),
 
-
               _pdfRow('  Package Name', consignment['package_name']),
 
               _pdfRow(
@@ -2438,13 +2422,6 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
               pw.Center(
                 child: pw.Text(
                   "Email:tiketimkononi@telabs.co.tz",
-                  style: pw.TextStyle(fontSize: 9),
-                ),
-              ),
-
-              pw.Center(
-                child: pw.Text(
-                  "Phone: +255 672 120 941",
                   style: pw.TextStyle(fontSize: 9),
                 ),
               ),

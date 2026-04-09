@@ -391,7 +391,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       ? null // No app bar for wide screens (we'll use our own)
       : AppBar(
         title: Text(
-          '${officeId},${companyId} Tiketi Mkononi',
+          'Tiketi Mkononi',
           style: TextStyle(
             fontWeight: FontWeight.normal,
             fontSize: 24,
