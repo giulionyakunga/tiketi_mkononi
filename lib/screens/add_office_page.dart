@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
+import 'package:tiketi_mkononi/l10n/app_localizations.dart';
 
 class AddOfficePage extends StatefulWidget {
   final int userId;
@@ -20,6 +22,88 @@ class _AddOfficePageState extends State<AddOfficePage> {
   final TextEditingController _officeLocationController = TextEditingController();
 
   bool _isLoading = false;
+  List<String> regions = [];
+
+  @override
+  void initState() {
+    super.initState();
+    getRegions();
+  }
+
+  Future<void> getRegions({bool useDNS = true}) async {
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/tanzania_regions') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}tanzania_regions'); // Use IP
+
+    debugPrint('Fetching regions from: ${uri.toString()}');
+        
+    try {
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+
+        debugPrint("tanzania_regions : ${response.body}");
+
+        final responseData = jsonDecode(response.body); // This is a List<dynamic>
+        
+        List<String> regionsList = [];
+
+        // Loop through each office
+        for (var office in responseData) {
+          // Add name to regionsList
+          regionsList.add(office['name']);
+        }
+
+        if(regionsList.isNotEmpty) {
+          setState(() {
+            regions = regionsList;
+          });
+        }
+      }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await getRegions(useDNS: false); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
+          return;
+        }
+      }
+
+      _handleSocketException(e);
+    } catch (e) {
+      debugPrint('Error getting offices: $e');
+    } finally {
+      debugPrint('Process finished');
+    }
+  }
+
+  void _handleSocketException(SocketException e) {
+    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 101 || e.osError?.errorCode == 111) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Connection Error'),
+          content: const Text('Could not connect to the server. Please check your internet connection.'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      );
+    } else {
+      _showSnackBar('Connection Error: ${e.message}');
+    }
+  }
 
   Future<void> _submitOffice({bool useDNS = true}) async {
     if (!_formKey.currentState!.validate()) return;
@@ -124,7 +208,7 @@ class _AddOfficePageState extends State<AddOfficePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add Office'),
+        title: Text(AppLocalizations.of(context)!.addOffice),
         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
         elevation: 4,
@@ -145,30 +229,90 @@ class _AddOfficePageState extends State<AddOfficePage> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Office Information',
+                      Text(
+                        AppLocalizations.of(context)!.officeInformation,
                         style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Add a new office location for your transport company.',
+                      Text(
+                        AppLocalizations.of(context)!.addANewOfficeLocation,
                         style: TextStyle(color: Colors.grey),
                       ),
                       const SizedBox(height: 24),
                       TextFormField(
                         controller: _officeNameController,
-                        decoration: _buildInputDecoration('Office Name', prefixIcon: Icons.apartment),
+                        decoration: _buildInputDecoration(AppLocalizations.of(context)!.officeName, prefixIcon: Icons.apartment),
                         validator: (value) => value == null || value.trim().isEmpty
                             ? 'Office name is required'
                             : null,
                       ),
                       const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _officeLocationController,
-                        decoration: _buildInputDecoration('Office Location', prefixIcon: Icons.apartment),
-                        validator: (value) => value == null || value.trim().isEmpty
-                            ? 'Office location is required'
+                      Autocomplete<String>(
+                        initialValue: TextEditingValue(text: _officeLocationController.text),
+
+                        optionsBuilder: (TextEditingValue textEditingValue) {
+                          if (textEditingValue.text.isEmpty) {
+                            return regions;
+                          }
+                          return regions.where((office) =>
+                              office.toLowerCase().contains(textEditingValue.text.toLowerCase()));
+                        },
+
+                        onSelected: (String selection) {
+                          _officeLocationController.text = selection;
+                          if(_officeLocationController.text.isEmpty) {
+                            _officeLocationController.text = selection;
+                          }
+                        },
+
+                        fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
+                          controller.text = _officeLocationController.text;
+
+                          return TextFormField(
+                            controller: controller,
+                            focusNode: focusNode,
+                            decoration: _buildInputDecoration(
+                              AppLocalizations.of(context)!.officeLocation,
+                              prefixIcon: Icons.business,
+                            ),
+                            onChanged: (value) {
+                              _officeLocationController.text = value;
+                              if(_officeLocationController.text.isEmpty) {
+                                _officeLocationController.text = value;
+                              }
+                            },
+                            validator: (value) => value == null || value.trim().isEmpty
+                            ? AppLocalizations.of(context)!.pleaseEnterOfficeLocation
                             : null,
+                          );
+                        },
+
+                        // 👇 THIS CONTROLS HEIGHT
+                        optionsViewBuilder: (context, onSelected, options) {
+                          return Align(
+                            alignment: Alignment.topLeft,
+                            child: Material(
+                              elevation: 4,
+                              child: SizedBox(
+                                height: 300, // 👈 🔥 increase this (e.g. 400, 500)
+                                width: MediaQuery.of(context).size.width * 0.9,
+                                child: ListView.builder(
+                                  padding: EdgeInsets.zero,
+                                  itemCount: options.length,
+                                  itemBuilder: (context, index) {
+                                    final option = options.elementAt(index);
+
+                                    return ListTile(
+                                      dense: true, // 👈 reduces item height
+                                      title: Text(option),
+                                      onTap: () => onSelected(option),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                          );
+                        },
                       ),
                       const SizedBox(height: 32),
                       SizedBox(
@@ -184,8 +328,8 @@ class _AddOfficePageState extends State<AddOfficePage> {
                           ),
                           child: _isLoading
                               ? const CircularProgressIndicator(color: Colors.white)
-                              : const Text(
-                                  'Add Office',
+                              : Text(
+                                  AppLocalizations.of(context)!.addOffice,
                                   style: TextStyle(
                                     fontSize: 16,
                                     color: Colors.white,

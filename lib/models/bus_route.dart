@@ -7,12 +7,15 @@ class BusRoute {
   int busId;
   String from;
   String to;
+  String startingPoint;
+  String finalPoint;
   final String departureDate;
   String departureTime;
   final String arrivalDate;
   String arrivalTime;
   double ticketPrice;
   double totalCollection;
+  int availableSeats;
   final String status;
   final Bus? bus;
   final Company? company;
@@ -24,12 +27,15 @@ class BusRoute {
     required this.busId,
     required this.from,
     required this.to,
+    required this.startingPoint,
+    required this.finalPoint,
     required this.departureDate,
     required this.departureTime,
     required this.arrivalDate,
     required this.arrivalTime,
     required this.ticketPrice,
     required this.totalCollection,
+    required this.availableSeats,
     required this.status,
     required this.bus,
     required this.company,
@@ -43,12 +49,15 @@ class BusRoute {
       busId: json['bus_id'] ?? 0,
       from: json['from'] ?? '',
       to: json['to'] ?? '',
+      startingPoint: json['starting_point'] ?? '',
+      finalPoint: json['final_point'] ?? '',
       departureDate: json['departure_date'] ?? '',
       departureTime: json['departure_time'] ?? '',
       arrivalDate: json['arrival_date'] ?? '',
       arrivalTime: json['arrival_time'] ?? '', 
       ticketPrice: (json['ticket_price'] ?? 0).toDouble(),
       totalCollection: (json['total_collection'] ?? 0).toDouble(),
+      availableSeats: json['available_seats'] ?? 0,
       status: json['status'] ?? '',
       bus: json['bus'] != null ? Bus.fromJson(json['bus']) : null,
       company: json['company'] != null ? Company.fromJson(json['company']) : null,

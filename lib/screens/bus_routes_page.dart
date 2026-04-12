@@ -9,7 +9,6 @@ import 'package:tiketi_mkononi/env.dart';
 import 'package:tiketi_mkononi/models/bus_route.dart';
 import 'package:tiketi_mkononi/screens/add_bus_route_page.dart';
 import 'package:tiketi_mkononi/screens/bus_tickets_checkout_page.dart';
-import 'package:url_launcher/url_launcher.dart';  // Hide Excel's Border
 
 class BusRoutesPage extends StatefulWidget {
   final int userId;
@@ -29,10 +28,9 @@ class BusRoutesPage extends StatefulWidget {
 
 class _BusRoutesPageState extends State<BusRoutesPage> {
   bool _isLoading = true;
-  String? _error;
+  String _error = '';
   List<BusRoute> _busRoutes = [];
   BusRoute? _selectedBusRoute;
-  bool _showDetails = false;
   int numberOfRoutes = 0;
   DateTime _selectedDate = DateTime.now();
   BluetoothInfo? selectedPrinter;
@@ -49,13 +47,15 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
   final _departureController = TextEditingController();
   final _arrivalController = TextEditingController();
   final _priceController = TextEditingController();
-  bool _isEditing = false;
-  BusRoute? _editingRoute;
+  bool _showDetails = false;
 
   @override
   void initState() {
     super.initState();
-    String dateStr = DateFormat('d-M-yyyy').format(DateTime.now());
+
+    // Add 1 day to current date, then format and parse
+    DateTime tomorrow = DateTime.now().add(Duration(days: 1));
+    String dateStr = DateFormat('d-M-yyyy').format(tomorrow);
     _selectedDate = DateFormat('d-M-yyyy').parse(dateStr);
 
     _fetchBusRoutes();
@@ -168,13 +168,13 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
     try {
       setState(() {
         _isLoading = true;
-        _error = null;
+        _error = '';
         _showDetails = false;
         _selectedBusRoute = null;
       });
 
-      final uri = useDNS ? Uri.parse('$backend_url/api/bus_routes/${widget.companyId}/${DateFormat('d-M-yyyy').format(_selectedDate)}')
-      : Uri.parse('${backend_url_with_fallback_ip}bus_routes/${widget.companyId}/${DateFormat('d-M-yyyy').format(_selectedDate)}');
+      final uri = useDNS ? Uri.parse('$backend_url/api/scheduled_bus_routes/${widget.companyId}/${DateFormat('d-M-yyyy').format(_selectedDate)}')
+      : Uri.parse('${backend_url_with_fallback_ip}scheduled_bus_routes/${widget.companyId}/${DateFormat('d-M-yyyy').format(_selectedDate)}');
 
       final response = await http.get(uri);
 
@@ -209,11 +209,70 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
     }
   }
 
-  IconData _getPackageTypeIcon(bool? type) {
-    if (type!)
-      return Icons.inventory_2;   // package/box icon
-    else
-      return Icons.local_shipping; // shipment icon
+  Future<void> deleteRoute(int routeId, {bool useDNS = true}) async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _error = '';
+        _showDetails = false;
+        _selectedBusRoute = null;
+      });
+
+      final uri = useDNS ? Uri.parse('$backend_url/api/delete_bus_route/${widget.userId}/$routeId')
+      : Uri.parse('${backend_url_with_fallback_ip}scheduled_bus_routes/${widget.userId}/$routeId');
+
+      debugPrint('Deleting bus routes from: $uri');
+
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        if(response.body == 'Bus Route deleted successfully') {
+          _fetchBusRoutes();
+
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(response.body),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(response.body),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } else if (response.statusCode == 403) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(response.body),
+            backgroundColor: Colors.red,
+          ),
+        );
+      } else {
+        _error = 'Failed to delete bus routes (${response.statusCode})';
+        debugPrint(_error);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_error),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } on SocketException catch (e) {
+      if ((e.osError?.errorCode == 7 || e.osError?.errorCode == 11001) && useDNS) {
+        await deleteRoute(routeId, useDNS: false);
+        return;
+      }
+      _error = 'Network error. Please check your connection.';
+    } catch (e) {
+      _error = 'Unexpected error occurred: $e';
+      debugPrint('Error: $e');
+    } finally {
+      setState(() => _isLoading = false);
+    }
   }
 
   Widget _buildDatePicker() {
@@ -263,7 +322,7 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
+        title: const Text(
           'Bus Routes',
           style: TextStyle(
             fontSize: 16,
@@ -291,36 +350,41 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
         ],
       ),
 
-      body: Stack(
-        children: [
-
-          RefreshIndicator(
-            onRefresh: _fetchBusRoutes,
-            color: Colors.teal,
-            child: _buildBody(),
-          ),
-
-          if (_showDetails && _selectedBusRoute != null) ...[
-            
-            /// This disables background clicks
-            ModalBarrier(
-              dismissible: true,
-              onDismiss: () {
-                setState(() {
-                  _showDetails = false;
-                  _selectedBusRoute = null;
-                });
-              },
-              color: Colors.black.withOpacity(0.2),
-            ),
-
-            /// Details panel
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: _buildDetailsPanel(),
-            ),
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            _isLoading ? const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const SizedBox(height: 16),
+                  CircularProgressIndicator(),
+                  const SizedBox(height: 16),
+                  Text('Loading routes...'),
+                ],
+              ),
+            )
+            : _error != ''
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.error_outline, size: 60, color: Colors.red.shade300),
+                    const SizedBox(height: 16),
+                    Text(_error!),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () {
+                        _fetchBusRoutes();
+                      },
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              )
+            : _buildRoutesList(),
           ],
-        ],
+        ),
       ),
 
       floatingActionButton: Column(
@@ -333,8 +397,8 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
       heroTag: "addBtn",
       backgroundColor: Colors.teal,
       tooltip: "Add Bus Route",
-      onPressed: () {
-        Navigator.pushReplacement(
+      onPressed: () async {
+        await Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => AddBusRoutePage(
@@ -347,6 +411,7 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
             ),
           ),
         );
+        _fetchBusRoutes();
       },
       icon: const Icon(Icons.add, color: Colors.white),
       label: const Text(
@@ -460,121 +525,85 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
       ),
     );
   }
-
-  bool _isLargeScreen(BuildContext context) {
-    return MediaQuery.of(context).size.width > 768;
+  
+  // Alternative version with more detailed formatting
+  String calculateDurationDetailed({
+    required String departureDate,
+    required String departureTime,
+    required String arrivalDate,
+    required String arrivalTime,
+  }) {
+    try {
+      // Parse dates
+      List<String> depDateParts = departureDate.split('-');
+      List<String> arrDateParts = arrivalDate.split('-');
+      
+      int depDay = int.parse(depDateParts[0]);
+      int depMonth = int.parse(depDateParts[1]);
+      int depYear = int.parse(depDateParts[2]);
+      
+      int arrDay = int.parse(arrDateParts[0]);
+      int arrMonth = int.parse(arrDateParts[1]);
+      int arrYear = int.parse(arrDateParts[2]);
+      
+      // Convert 2-digit years to 4-digit
+      if (depYear < 100) depYear += 2000;
+      if (arrYear < 100) arrYear += 2000;
+      
+      // Parse times
+      List<String> depTimeParts = departureTime.split(':');
+      List<String> arrTimeParts = arrivalTime.split(':');
+      
+      int depHour = int.parse(depTimeParts[0]);
+      int depMinute = int.parse(depTimeParts[1]);
+      int arrHour = int.parse(arrTimeParts[0]);
+      int arrMinute = int.parse(arrTimeParts[1]);
+      
+      // Create DateTime objects
+      DateTime departure = DateTime(depYear, depMonth, depDay, depHour, depMinute);
+      DateTime arrival = DateTime(arrYear, arrMonth, arrDay, arrHour, arrMinute);
+      
+      // Calculate duration
+      Duration duration = arrival.difference(departure);
+      
+      // Handle overnight trips
+      if (duration.isNegative) {
+        duration = Duration(
+          hours: (24 - depHour) + arrHour,
+          minutes: (60 - depMinute) + arrMinute,
+        );
+        // Adjust minutes if needed
+        if (duration.inMinutes >= 60) {
+          duration = Duration(minutes: duration.inMinutes);
+        }
+      }
+      
+      // Format output
+      int days = duration.inDays;
+      int hours = duration.inHours.remainder(24);
+      int minutes = duration.inMinutes.remainder(60);
+      
+      List<String> parts = [];
+      
+      if (days > 0) {
+        parts.add("$days day${days > 1 ? 's' : ''}");
+      }
+      if (hours > 0) {
+        parts.add("$hours hour${hours > 1 ? 's' : ''}");
+      }
+      if (minutes > 0) {
+        parts.add("$minutes minute${minutes > 1 ? 's' : ''}");
+      }
+      
+      return parts.join(" ");
+      
+    } catch (e) {
+      debugPrint("Error calculating duration: $e");
+      return "0 hours";
+    }
   }
 
-  Widget _buildTextField(String label, TextEditingController controller,
-      {bool isNumber = false}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: TextField(
-        controller: controller,
-        keyboardType:
-            isNumber ? TextInputType.number : TextInputType.text,
-        decoration: InputDecoration(
-          labelText: label,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBody() {
-    final isLargeScreen = _isLargeScreen(context);
-    final theme = Theme.of(context);
-    final isDarkMode = theme.brightness == Brightness.dark;
-
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.error_outline,
-                  size: 60,
-                  color: Colors.red.shade300,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                _error!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 16, color: Colors.grey),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: _fetchBusRoutes,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Try Again'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.teal,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    if (_busRoutes.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(30),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.inbox,
-                size: 80,
-                color: Colors.grey.shade400,
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'No Bus Routes Yet',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.teal,
-              ),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Bus routes you create will appear here',
-              style: TextStyle(fontSize: 16, color: Colors.grey),
-            ),
-          ],
-        ),
-      );
-    }
-
+  Widget _buildRoutesList() {
     var filteredBusRoutes = _busRoutes.where((r) {
       if (_typeFilter == 'all') return true;
       return _typeFilter == 'scheduled'
@@ -582,290 +611,396 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
           : r.status == 'rescheduled';
     }).toList();
 
-    // Apply search filter
     if (_searchQuery.isNotEmpty) {
       filteredBusRoutes = filteredBusRoutes.where(
-        (route) => (route.to.toLowerCase().contains(_searchQuery.toLowerCase()) || route.from.toLowerCase().contains(_searchQuery.toLowerCase()))
+        (route) => route.from.toLowerCase().contains(_searchQuery.toLowerCase()) || 
+                    route.to.toLowerCase().contains(_searchQuery.toLowerCase())
       ).toList();
     }
 
-    setState(() {
-      numberOfRoutes = filteredBusRoutes.length;
-    });
-
-    return Column(
-      children: [
-        // Search Bar
-        if (_isSearchBarVisible) _buildSearchBar(isDarkMode, isLargeScreen),
-
-        // FILTER BUTTONS
-        _buildTypeFilter(),
-
-        // Main Amount/Count
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.teal[50],
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: Colors.teal.withOpacity(0.2),
-              width: 1,
-            ),
-          ),
-          child: Column(
-            children: [
-              Text(
-                '$numberOfRoutes',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.teal[700],
-                  fontSize: 28,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 2),
-              Text(
-                (numberOfRoutes > 1) ? 'Routes' : 'Route',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.teal[600],
-                  fontWeight: FontWeight.w500,
-                  fontSize: 26,
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        isLargeScreen ? Expanded(
-          child: Row(
-            children: [
-              /// LEFT PANEL — Bus Routes LIST
-              Container(
-                width: 420,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  border: Border(
-                    right: BorderSide(color: Colors.grey.shade300),
+    if (filteredBusRoutes.isEmpty) {
+      return 
+       Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline, size: 60, color: Colors.red.shade300),
+                  const SizedBox(height: 16),
+                  Text('No bus routes found for this date'),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      _fetchBusRoutes();
+                    },
+                    child: const Text('Retry'),
                   ),
-                ),
-                child: ListView.builder(
-                  itemCount: filteredBusRoutes.length,
-                  itemBuilder: (context, index) {
-                    final route = filteredBusRoutes[index];
-                    final isSelected = _selectedBusRoute == route;
-
-                    return Card(
-                      elevation: isSelected ? 6 : 1,
-                      margin: const EdgeInsets.only(bottom: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        side: isSelected
-                            ? BorderSide(color: Colors.teal.shade400, width: 2)
-                            : BorderSide.none,
-                      ),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(14),
-                        onTap: () async {
-                          debugPrint('Selected route: ${route.from} → ${route.to}');
-                          await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => BusTicketsCheckoutPage(userId: widget.userId, companyId: widget.companyId, busRoute: route, refreshMethod: _fetchBusRoutes),
-                            )
-                          );
-                          
-                          _fetchBusRoutes();
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.all(14),
-                          child: Row(
-                            children: [
-
-                              /// PACKAGE ICON
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: Colors.teal.shade50,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Icon(
-                                  _getPackageTypeIcon(route.status == 'scheduled'),
-                                  color: Colors.teal,
-                                ),
-                              ),
-
-                              const SizedBox(width: 12),
-
-                              /// PACKAGE INFO
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start, 
-                                  children: [
-                                    Text(
-                                      '${route.from} - ${route.to}' ?? 'Unnamed Route',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      "${route.from} → ${route.to}",
-                                      style: TextStyle(
-                                        color: Colors.grey.shade600,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                              Icon(
-                                Icons.chevron_right,
-                                color: Colors.grey.shade400,
-                              )
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
+                ],
               ),
+            );
+    }
 
-              /// RIGHT PANEL — DETAILS
-              Expanded(
-                child: _selectedBusRoute == null
-                    ? Center(
-                        child: Text(
-                          "Select a route to view details",
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey.shade600,
-                          ),
+    return RefreshIndicator(
+      onRefresh: () async {
+        _fetchBusRoutes();
+      },
+      color: Colors.teal,
+      child: ListView.builder(
+        shrinkWrap: true,  // Add this
+        physics: const NeverScrollableScrollPhysics(),  // Add this to disable internal scrolling
+        padding: const EdgeInsets.all(16),
+        itemCount: filteredBusRoutes.length,
+        itemBuilder: (context, index) {
+          final route = filteredBusRoutes[index];
+
+          return Card(
+            elevation: 2,
+            margin: const EdgeInsets.only(bottom: 6),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide.none,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Material(
+                color: Colors.white,
+                child: InkWell(
+                  onTap: () {
+                    debugPrint('Selected route: ${route.from} → ${route.to}');
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => BusTicketsCheckoutPage(
+                          userId: widget.userId,
+                          role: widget.role,
+                          companyId: widget.companyId,
+                          companyName: widget.companyName,
+                          busRoute: route,
+                          refreshMethod: () {},
                         ),
                       )
-                    : Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: _buildRouteDetails(_selectedBusRoute!),
-                      ),
-              ),
-            ],
-          ),
-        ) :
-        Expanded(
-          child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: filteredBusRoutes.length,
-              itemBuilder: (context, index) {
-                final route = filteredBusRoutes[index];
-                final isSelected = _selectedBusRoute == route;
+                    );
+                  },
+                  splashColor: Colors.teal.withOpacity(0.1),
+                  highlightColor: Colors.teal.withOpacity(0.05),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        /// COMPANY NAME & BUS TYPE
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.teal.shade50,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: Colors.teal.shade200),
+                              ),
+                              child: Text(
+                                route.company!.name,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.teal.shade800,
+                                  letterSpacing: -0.2,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: Colors.grey.shade300),
+                              ),
+                              child: Text(
+                                route.bus!.name,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey.shade700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
 
-                return Card(
-                  elevation: isSelected ? 8 : 2,
-                  margin: const EdgeInsets.only(bottom: 6),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: isSelected
-                        ? BorderSide(color: Colors.teal.shade300, width: 2)
-                        : BorderSide.none,
-                  ),
+                        /// BUS MODEL & PLATE NUMBER
+                        Row(
+                          children: [
+                            Icon(Icons.directions_bus, size: 14, color: Colors.grey.shade600),
+                            const SizedBox(width: 6),
+                            Text(
+                              route.bus?.type ?? "bus type",
+                              overflow: TextOverflow.ellipsis, 
+                              style: TextStyle(
+                                fontSize: 11, 
+                                color: Colors.grey.shade600,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.amber.shade50,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: Colors.amber.shade200),
+                              ),
+                              child: Text(
+                                route.bus!.registrationNumber,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.amber.shade800,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),                        
 
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: Material(
-                      color: Colors.white,
-                      child: InkWell(
-                        onTap: () async {
-                          debugPrint('Selected route: ${route.from} → ${route.to}');
-                          // sell ticket for this route
-                          await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => BusTicketsCheckoutPage(userId: widget.userId, companyId: widget.companyId, busRoute: route, refreshMethod: _fetchBusRoutes),
-                            )
-                          );
-                          
-                          _fetchBusRoutes();
-                        },
-                        splashColor: Colors.teal.withOpacity(0.1),
-                        highlightColor: Colors.teal.withOpacity(0.05),
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                        /// ROUTE (FROM → TO)
+                        Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              /// ================= HEADER =================
-                              Row(
+                              Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(
-                                    child: Row(
-                                      children: [
-                                        Text(
-                                          "${route.from}",
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w700,
-                                            color: Color(0xFF1A1A1A),
-                                            letterSpacing: -0.3,
-                                          ),
-                                        ),
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(vertical: 4),
-                                          child: Icon(
-                                            Icons.arrow_forward,
-                                            size: 16,
-                                            color: Colors.teal.shade300,
-                                          ),
-                                        ),
-                                        Text(
-                                          "${route.to}",
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w700,
-                                            color: Color(0xFF1A1A1A),
-                                            letterSpacing: -0.3,
-                                          ),
-                                        ),
-                                      ],
+                                  Text(
+                                    route.from,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.teal.shade900,
+                                    ),
+                                  ),
+                                  Text(
+                                    route.startingPoint,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.grey.shade500,
                                     ),
                                   ),
                                 ],
                               ),
-
-                              const SizedBox(height: 4),
-
-                              /// TIME INFORMATION
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: Colors.grey.shade50,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.grey.shade200),
+                                  color: Colors.teal.shade100,
+                                  borderRadius: BorderRadius.circular(20),
                                 ),
-                                child: Row(
+                                child: Icon(Icons.arrow_forward, size: 16, color: Colors.teal.shade700),
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    route.to,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.teal.shade900,
+                                    ),
+                                  ),
+                                  Text(
+                                    route.finalPoint,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.grey.shade500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+
+                        /// TIME INFORMATION (DEPARTURE & ARRIVAL)
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Icon(Icons.schedule, size: 18, color: Colors.grey.shade600),
-                                    const SizedBox(width: 8),
-                                    Expanded(
+                                    Row(
+                                      children: [
+                                        Icon(Icons.departure_board, size: 16, color: Colors.teal.shade700),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          "DEPARTURE",
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.grey.shade500,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      route.departureTime,
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.teal.shade800,
+                                      ),
+                                    ),
+                                    Text(
+                                      route.departureDate,
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                margin: const EdgeInsets.symmetric(horizontal: 8),
+                                child: Column(
+                                  children: [
+                                    Icon(Icons.arrow_forward, size: 20, color: Colors.grey.shade400),
+                                    const SizedBox(height: 4),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: Colors.orange.shade100,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
                                       child: Text(
-                                        "Departure: ${route.departureTime} • Arrival: ${route.arrivalTime}",
+                                        '${calculateDurationDetailed(departureDate: route.departureDate, departureTime: route.departureTime, arrivalDate: route.arrivalDate, arrivalTime: route.arrivalTime)}',
+                                        overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
-                                          color: Colors.grey.shade700,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w500,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.orange.shade800,
                                         ),
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          "ARRIVAL",
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.grey.shade500,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Icon(Icons.flag, size: 16, color: Colors.teal.shade700),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      route.arrivalTime,
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.teal.shade800,
+                                      ),
+                                    ),
+                                    Text(
+                                      route.arrivalDate,
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 6),
 
-                              const SizedBox(height: 12),
-
-                              /// PRICE
-                              Container(
+                        /// AVAILABLE SEATS & PRICE
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: route.availableSeats == 0 ? Colors.red.shade50 : Colors.grey.shade50,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: route.availableSeats == 0 ? Colors.red.shade200 : Colors.grey.shade200,
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.event_seat,
+                                      size: 18,
+                                      color: route.availableSeats == 0 ? Colors.red.shade700 : Colors.teal.shade700,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            "Available Seats",
+                                            style: TextStyle( 
+                                              fontSize: 10,
+                                              color: Colors.grey.shade600,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          Text(
+                                            route.availableSeats == 0 ? "SOLD OUT" : "${route.availableSeats} seats left",
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 13,
+                                              color: route.availableSeats == 0 ? Colors.red.shade700 : Colors.teal.shade800,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
@@ -879,213 +1014,215 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
                                   children: [
                                     Icon(Icons.currency_franc, size: 18, color: Colors.teal.shade700),
                                     const SizedBox(width: 8),
-                                    Text(
-                                      "TZS ${NumberFormat('#,##0').format(route.ticketPrice)}",
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 13,
-                                        color: Colors.teal.shade800,
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            "Price per seat",
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              color: Colors.teal.shade600,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          Text(
+                                            "TZS ${NumberFormat('#,##0').format(route.ticketPrice)}",
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 13,
+                                              color: Colors.teal.shade800,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
 
-                              /// ================= EXPANDABLE EDIT FORM =================
-                              if (_isEditing && _editingRoute?.id == route.id) ...[
-                                const SizedBox(height: 24),
-                                Divider(height: 1, color: Colors.grey.shade200),
-                                const SizedBox(height: 20),
-
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey.shade50,
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(16),
-                                    child: Column(
-                                      children: [
-                                        _buildTextField("Origin", _originController),
-                                        const SizedBox(height: 12),
-                                        _buildTextField("Destination", _destinationController),
-                                        const SizedBox(height: 12),
-                                        _buildTextField("Departure Time", _departureController),
-                                        const SizedBox(height: 12),
-                                        _buildTextField("Arrival Time", _arrivalController),
-                                        const SizedBox(height: 12),
-                                        _buildTextField("Ticket Price", _priceController, isNumber: true),
-                                        const SizedBox(height: 20),
-                                        Row(
-                                          children: [
-                                            /// SAVE BUTTON
-                                            Expanded(
-                                              child: ElevatedButton(
-                                                onPressed: () {
-                                                  setState(() {
-                                                    route.from = _originController.text;
-                                                    route.to = _destinationController.text;
-                                                    route.departureTime = _departureController.text;
-                                                    route.arrivalTime = _arrivalController.text;
-                                                    route.ticketPrice =
-                                                        double.tryParse(_priceController.text) ?? 0;
-
-                                                    _isEditing = false;
-                                                    _editingRoute = null;
-                                                  });
-
-                                                  // 👉 call your update API here
-                                                  print("Updated route ${route.id}");
-                                                },
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor: Colors.teal.shade600,
-                                                  foregroundColor: Colors.white,
-                                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius: BorderRadius.circular(12),
-                                                  ),
-                                                  elevation: 0,
-                                                ),
-                                                child: const Text("Save Changes"),
-                                              ),
+                        if(widget.userId == route.userId)
+                        /// DELETE ICON - Bottom Right
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            InkWell(
+                              onTap: () {
+                                // Check if booking has started
+                                final int totalSeats = route.bus!.seatsPerRow * route.bus!.numberOfSeatRows;
+                                final bool hasStartedBooking = route.availableSeats != totalSeats;
+                                
+                                if (hasStartedBooking) {
+                                  // Show error dialog - booking already started
+                                  showDialog(
+                                    context: context,
+                                    builder: (BuildContext context) => AlertDialog(
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      title: Row(
+                                        children: [
+                                          Icon(Icons.warning_amber_rounded, color: Colors.red.shade700, size: 28),
+                                          const SizedBox(width: 12),
+                                          Expanded(  // ← This constrains the text
+                                            child: Text(
+                                              'Cannot Delete Route',
+                                              style: TextStyle(fontWeight: FontWeight.bold),
+                                              overflow: TextOverflow.ellipsis, // Optional: adds ... if still too long
                                             ),
-                                            const SizedBox(width: 12),
-                                            /// CANCEL BUTTON
-                                            Expanded(
-                                              child: OutlinedButton(
-                                                onPressed: () {
-                                                  setState(() {
-                                                    _isEditing = false;
-                                                    _editingRoute = null;
-                                                  });
-                                                },
-                                                style: OutlinedButton.styleFrom(
-                                                  foregroundColor: Colors.grey.shade700,
-                                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius: BorderRadius.circular(12),
-                                                  ),
-                                                  side: BorderSide(color: Colors.grey.shade300),
-                                                ),
-                                                child: const Text("Cancel"),
-                                              ),
-                                            ),
-                                          ],
+                                          ),
+                                        ],
+                                      ),
+                                      content: const Text(
+                                        'This route cannot be removed because passengers have already started booking seats.',
+                                        style: TextStyle(fontSize: 14),
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(context),
+                                          style: TextButton.styleFrom(
+                                            foregroundColor: Colors.teal.shade700,
+                                          ),
+                                          child: const Text('OK'),
                                         ),
                                       ],
                                     ),
-                                  ),
-                                ),
-                              ],
-
-                              const SizedBox(height: 6),
-
-                              Row(
-                                children: [
-                                  /// EDIT BUTTON
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.teal.shade50,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: IconButton(
-                                      icon: Icon(Icons.edit_outlined, 
-                                        color: Colors.teal.shade700, 
-                                        size: 14,
+                                  );
+                                } else {
+                                  // Show confirmation dialog for deletion
+                                  showDialog(
+                                    context: context,
+                                    builder: (BuildContext context) => AlertDialog(
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
                                       ),
-                                      onPressed: () {
-                                        setState(() {
-                                          _isEditing = true;
-                                          _editingRoute = route;
-
-                                          _originController.text = route.from;
-                                          _destinationController.text = route.to;
-                                          _departureController.text = route.departureTime;
-                                          _arrivalController.text = route.arrivalTime;
-                                          _priceController.text = route.ticketPrice.toString();
-                                        });
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  /// DELETE BUTTON
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.red.shade50,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: IconButton(
-                                      icon: Icon(Icons.delete_outline, 
-                                        color: Colors.red.shade600, 
-                                        size: 14,
-                                      ),
-                                      onPressed: () async {
-                                        final confirm = await showDialog(
-                                          context: context,
-                                          builder: (context) => AlertDialog(
-                                            title: const Text("Delete Route"),
-                                            content: const Text(
-                                                "Are you sure you want to delete this route?"),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () => Navigator.pop(context, false),
-                                                child: const Text("Cancel"),
-                                              ),
-                                              ElevatedButton(
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor: Colors.red,
-                                                  foregroundColor: Colors.white,
-                                                ),
-                                                onPressed: () => Navigator.pop(context, true),
-                                                child: const Text("Delete"),
-                                              ),
-                                            ],
+                                      title: Row(
+                                        children: [
+                                          Icon(Icons.delete_outline, color: Colors.red.shade700, size: 28),
+                                          const SizedBox(width: 12),
+                                          const Text(
+                                            'Delete Route',
+                                            style: TextStyle(fontWeight: FontWeight.bold),
                                           ),
-                                        );
-
-                                        if (confirm == true) {
-                                          // 👉 call your delete API/function here
-                                          print("Deleted route ${route.id}");
-                                        }
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(width: 18),
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.teal.shade50,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: IconButton(
-                                      icon: Icon(Icons.info_outline, 
-                                        color: Colors.teal.shade700,
-                                        size: 14,
+                                        ],
                                       ),
-                                      onPressed: () {
-                                        setState(() {
-                                          _selectedBusRoute = route;
-                                          _showDetails = true;
-                                        });
-                                      },
+                                      content: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'Are you sure you want to delete this route?',
+                                            style: TextStyle(fontSize: 14),
+                                          ),
+                                          const SizedBox(height: 12),
+                                          Container(
+                                            padding: const EdgeInsets.all(12),
+                                            decoration: BoxDecoration(
+                                              color: Colors.grey.shade50,
+                                              borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(color: Colors.grey.shade200),
+                                            ),
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  '${route.from} → ${route.to}',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.teal.shade800,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  'Date: ${route.departureDate} at ${route.departureTime}',
+                                                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          const SizedBox(height: 12),
+                                          const Text(
+                                            'This action cannot be undone.',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.red,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(context),
+                                          style: TextButton.styleFrom(
+                                            foregroundColor: Colors.grey.shade700,
+                                          ),
+                                          child: const Text('CANCEL'),
+                                        ),
+                                        ElevatedButton(
+                                          onPressed: () {
+                                            // Close dialog
+                                            Navigator.pop(context);
+
+                                            debugPrint('Delete route: ${route.id}');
+                                            deleteRoute(route.id);
+                                          },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.red.shade700,
+                                            foregroundColor: Colors.white,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                          ),
+                                          child: const Text('DELETE'),
+                                        ),
+                                      ],
                                     ),
-                                  ),
-                                ],
+                                  );
+                                }
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade50,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: Colors.red.shade200),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.delete_outline, color: Colors.red.shade700, size: 18),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Delete Route',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.red.shade700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                      ),
+
+                      ],
                     ),
                   ),
-                );
-            },
-          )
-        )
-      ]
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
-
-  List<BluetoothInfo> devices = [];
 
   Widget _buildDetailsPanel() {
     final route = _selectedBusRoute;

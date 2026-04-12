@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
+import 'package:tiketi_mkononi/l10n/app_localizations.dart';
 import 'package:tiketi_mkononi/screens/add_bus_route_page.dart';
 import 'package:tiketi_mkononi/screens/add_office_page.dart';
 import 'package:tiketi_mkononi/screens/bus_routes_page.dart';
@@ -115,7 +116,7 @@ class _OfficesPageState extends State<OfficesPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Offices'),
+        title: Text(AppLocalizations.of(context)!.myOffices),
         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
         elevation: 3,

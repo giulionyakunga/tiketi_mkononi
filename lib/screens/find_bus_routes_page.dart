@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -855,7 +854,7 @@ class _FindBusRoutesPageState extends State<FindBusRoutesPage> {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(32),
-          child: Text('No bus routes found for this route'),
+          child: Text('No bus routes found for this route/date'),
         ),
       );
     }
@@ -897,7 +896,9 @@ class _FindBusRoutesPageState extends State<FindBusRoutesPage> {
                       MaterialPageRoute(
                         builder: (context) => BusTicketsCheckoutPage(
                           userId: widget.userId,
+                          role: widget.role,
                           companyId: widget.companyId,
+                          companyName: widget.companyName,
                           busRoute: route,
                           refreshMethod: () {},
                         ),
@@ -923,6 +924,7 @@ class _FindBusRoutesPageState extends State<FindBusRoutesPage> {
                               ),
                               child: Text(
                                 route.company!.name,
+                                overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
@@ -941,6 +943,7 @@ class _FindBusRoutesPageState extends State<FindBusRoutesPage> {
                               ),
                               child: Text(
                                 route.bus!.name,
+                                overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w600,
@@ -959,6 +962,7 @@ class _FindBusRoutesPageState extends State<FindBusRoutesPage> {
                             const SizedBox(width: 6),
                             Text(
                               route.bus?.type ?? "bus type",
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 11,
                                 color: Colors.grey.shade600,
@@ -987,23 +991,6 @@ class _FindBusRoutesPageState extends State<FindBusRoutesPage> {
                         ),
                         const SizedBox(height: 6),
 
-                        /// TERMINAL INFORMATION
-                        Row(
-                          children: [
-                            Icon(Icons.location_on, size: 14, color: Colors.teal.shade600),
-                            const SizedBox(width: 6),
-                            Text(
-                              route.from,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey.shade600,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-
                         /// ROUTE (FROM → TO)
                         Container(
                           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
@@ -1019,14 +1006,16 @@ class _FindBusRoutesPageState extends State<FindBusRoutesPage> {
                                 children: [
                                   Text(
                                     route.from,
+                                    overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
-                                      fontSize: 16,
+                                      fontSize: 14,
                                       fontWeight: FontWeight.w800,
                                       color: Colors.teal.shade900,
                                     ),
                                   ),
                                   Text(
-                                    route.from,
+                                    route.startingPoint,
+                                    overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       fontSize: 10,
                                       color: Colors.grey.shade500,
@@ -1047,14 +1036,16 @@ class _FindBusRoutesPageState extends State<FindBusRoutesPage> {
                                 children: [
                                   Text(
                                     route.to,
+                                    overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
-                                      fontSize: 16,
+                                      fontSize: 14,
                                       fontWeight: FontWeight.w800,
                                       color: Colors.teal.shade900,
                                     ),
                                   ),
                                   Text(
-                                    route.to,
+                                    route.finalPoint,
+                                    overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       fontSize: 10,
                                       color: Colors.grey.shade500,
@@ -1108,27 +1099,10 @@ class _FindBusRoutesPageState extends State<FindBusRoutesPage> {
                                     Text(
                                       route.departureDate,
                                       style: TextStyle(
-                                        fontSize: 11,
+                                        fontSize: 10,
                                         color: Colors.grey.shade600,
                                       ),
                                     ),
-                                    if (route.departureTime.isNotEmpty)
-                                      Container(
-                                        margin: const EdgeInsets.only(top: 2),
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: Colors.indigo.shade50,
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                        child: Text(
-                                          route.departureTime,
-                                          style: TextStyle(
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.indigo.shade700,
-                                          ),
-                                        ),
-                                      ),
                                   ],
                                 ),
                               ),
@@ -1146,6 +1120,7 @@ class _FindBusRoutesPageState extends State<FindBusRoutesPage> {
                                       ),
                                       child: Text(
                                         '${calculateDurationDetailed(departureDate: route.departureDate, departureTime: route.departureTime, arrivalDate: route.arrivalDate, arrivalTime: route.arrivalTime)}',
+                                        overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
                                           fontSize: 10,
                                           fontWeight: FontWeight.w700,
@@ -1188,27 +1163,10 @@ class _FindBusRoutesPageState extends State<FindBusRoutesPage> {
                                     Text(
                                       route.arrivalDate,
                                       style: TextStyle(
-                                        fontSize: 11,
+                                        fontSize: 10,
                                         color: Colors.grey.shade600,
                                       ),
                                     ),
-                                    if (route.arrivalTime.isNotEmpty)
-                                      Container(
-                                        margin: const EdgeInsets.only(top: 2),
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: Colors.green.shade50,
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                        child: Text(
-                                          route.arrivalTime!,
-                                          style: TextStyle(
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.green.shade700,
-                                          ),
-                                        ),
-                                      ),
                                   ],
                                 ),
                               ),
@@ -1224,10 +1182,10 @@ class _FindBusRoutesPageState extends State<FindBusRoutesPage> {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                                 decoration: BoxDecoration(
-                                  color: route.id == 0 ? Colors.red.shade50 : Colors.grey.shade50,
+                                  color: route.availableSeats == 0 ? Colors.red.shade50 : Colors.grey.shade50,
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
-                                    color: route.id == 0 ? Colors.red.shade200 : Colors.grey.shade200,
+                                    color: route.availableSeats == 0 ? Colors.red.shade200 : Colors.grey.shade200,
                                   ),
                                 ),
                                 child: Row(
@@ -1235,7 +1193,7 @@ class _FindBusRoutesPageState extends State<FindBusRoutesPage> {
                                     Icon(
                                       Icons.event_seat,
                                       size: 18,
-                                      color: route.id == 0 ? Colors.red.shade700 : Colors.teal.shade700,
+                                      color: route.availableSeats == 0 ? Colors.red.shade700 : Colors.teal.shade700,
                                     ),
                                     const SizedBox(width: 8),
                                     Expanded(
@@ -1244,18 +1202,18 @@ class _FindBusRoutesPageState extends State<FindBusRoutesPage> {
                                         children: [
                                           Text(
                                             "Available Seats",
-                                            style: TextStyle(
+                                            style: TextStyle( 
                                               fontSize: 10,
                                               color: Colors.grey.shade600,
                                               fontWeight: FontWeight.w500,
                                             ),
                                           ),
                                           Text(
-                                            route.id == 0 ? "SOLD OUT" : "${route.id} seats left",
+                                            route.availableSeats == 0 ? "SOLD OUT" : "${route.availableSeats} seats left",
                                             style: TextStyle(
                                               fontWeight: FontWeight.w800,
-                                              fontSize: 14,
-                                              color: route.id == 0 ? Colors.red.shade700 : Colors.teal.shade800,
+                                              fontSize: 13,
+                                              color: route.availableSeats == 0 ? Colors.red.shade700 : Colors.teal.shade800,
                                             ),
                                           ),
                                         ],

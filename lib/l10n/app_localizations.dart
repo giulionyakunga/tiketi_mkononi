@@ -122,6 +122,96 @@ abstract class AppLocalizations {
   /// **'Profile'**
   String get profile;
 
+  /// No description provided for @myProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'My Profile'**
+  String get myProfile;
+
+  /// No description provided for @searchEvents.
+  ///
+  /// In en, this message translates to:
+  /// **'searchEvents'**
+  String get searchEvents;
+
+  /// No description provided for @featuredEvents.
+  ///
+  /// In en, this message translates to:
+  /// **'Featured Events'**
+  String get featuredEvents;
+
+  /// No description provided for @seeAll.
+  ///
+  /// In en, this message translates to:
+  /// **'See All'**
+  String get seeAll;
+
+  /// No description provided for @categories.
+  ///
+  /// In en, this message translates to:
+  /// **'Categories'**
+  String get categories;
+
+  /// No description provided for @concerts.
+  ///
+  /// In en, this message translates to:
+  /// **'Concerts'**
+  String get concerts;
+
+  /// No description provided for @buses.
+  ///
+  /// In en, this message translates to:
+  /// **'Buses'**
+  String get buses;
+
+  /// No description provided for @cargo.
+  ///
+  /// In en, this message translates to:
+  /// **'Cargo'**
+  String get cargo;
+
+  /// No description provided for @sports.
+  ///
+  /// In en, this message translates to:
+  /// **'Sports'**
+  String get sports;
+
+  /// No description provided for @comedy.
+  ///
+  /// In en, this message translates to:
+  /// **'Comedy'**
+  String get comedy;
+
+  /// No description provided for @fun.
+  ///
+  /// In en, this message translates to:
+  /// **'Fun'**
+  String get fun;
+
+  /// No description provided for @barsAndGrills.
+  ///
+  /// In en, this message translates to:
+  /// **'Bars & Grills'**
+  String get barsAndGrills;
+
+  /// No description provided for @training.
+  ///
+  /// In en, this message translates to:
+  /// **'Training'**
+  String get training;
+
+  /// No description provided for @theater.
+  ///
+  /// In en, this message translates to:
+  /// **'Theater'**
+  String get theater;
+
+  /// No description provided for @wedding.
+  ///
+  /// In en, this message translates to:
+  /// **'Wedding'**
+  String get wedding;
+
   /// No description provided for @addParcel.
   ///
   /// In en, this message translates to:
@@ -181,6 +271,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Destination'**
   String get to;
+
+  /// No description provided for @startingPoint.
+  ///
+  /// In en, this message translates to:
+  /// **'Starting point'**
+  String get startingPoint;
+
+  /// No description provided for @finalPoint.
+  ///
+  /// In en, this message translates to:
+  /// **'Final point'**
+  String get finalPoint;
 
   /// No description provided for @receiverName.
   ///
@@ -1093,6 +1195,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Select a consignment to view details'**
   String get selectConsignment;
+
+  /// No description provided for @officeInformation.
+  ///
+  /// In en, this message translates to:
+  /// **'Office Information'**
+  String get officeInformation;
+
+  /// No description provided for @addANewOfficeLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a new office location for your transport company.'**
+  String get addANewOfficeLocation;
+
+  /// No description provided for @officeName.
+  ///
+  /// In en, this message translates to:
+  /// **'Office Name'**
+  String get officeName;
+
+  /// No description provided for @officeLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Office Location'**
+  String get officeLocation;
+
+  /// No description provided for @pleaseEnterOfficeLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter office location'**
+  String get pleaseEnterOfficeLocation;
+
+  /// No description provided for @addOffice.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Office'**
+  String get addOffice;
+
+  /// No description provided for @myOffices.
+  ///
+  /// In en, this message translates to:
+  /// **'My Offices'**
+  String get myOffices;
+
+  /// No description provided for @pleaseEnterBusRegistrationNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter bus registration number'**
+  String get pleaseEnterBusRegistrationNumber;
+
+  /// No description provided for @pleaseEnterBusName.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter bus name'**
+  String get pleaseEnterBusName;
 }
 
 class _AppLocalizationsDelegate

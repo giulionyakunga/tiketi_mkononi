@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
+import 'package:tiketi_mkononi/l10n/app_localizations.dart';
 import 'package:tiketi_mkononi/models/ticket.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
 import 'package:tiketi_mkononi/widgets/ticket_card.dart';
@@ -351,7 +352,7 @@ class _TicketsPageState extends State<TicketsPage> with WidgetsBindingObserver {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('My Tickets'),
+          title: Text(AppLocalizations.of(context)!.myTickets),
           backgroundColor: Theme.of(context).colorScheme.surface,
           elevation: 0,
           bottom: TabBar(

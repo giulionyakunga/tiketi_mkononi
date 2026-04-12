@@ -1,3 +1,4 @@
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -5,21 +6,32 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
+import 'package:tiketi_mkononi/l10n/app_localizations.dart';
 import 'package:tiketi_mkononi/models/bus_route.dart';
 import 'package:http/http.dart' as http;
+import 'package:tiketi_mkononi/models/bus_ticket.dart';
 import 'package:tiketi_mkononi/screens/bus_tickets_page.dart';
+import 'package:tiketi_mkononi/services/SimpleCodec.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
+import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
+import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
+import 'package:permission_handler/permission_handler.dart';
+
 
 class BusTicketsCheckoutPage extends StatefulWidget {
   final int userId;
+  final String role;
   final int companyId;
+  final String companyName;
   final BusRoute busRoute;
   final VoidCallback refreshMethod;
 
   const BusTicketsCheckoutPage({
     super.key,
     required this.userId,
+    required this.role,
     required this.companyId,
+    required this.companyName,
     required this.busRoute,
     required this.refreshMethod,
   });
@@ -35,13 +47,17 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
   double totalPrice = 0.0;
   String selectedPaymentMethod = 'CASH';
   final List<String> paymentMethods = ['CASH','MIXX BY YAS', 'M-PESA', 'AIRTEL MONEY', 'HALOPESA', 'AZAMPESA'];
-  final _phoneNumberController = TextEditingController();
+  final TextEditingController _phoneNumberController = TextEditingController();
+  final TextEditingController _manualPriceController = TextEditingController();
+  final TextEditingController _passengerNameController = TextEditingController();
+  String issuedBy = '';
   bool _isLoading = false;
   bool _payed = false;
   bool _processingPayment = false;
   Timer? _timer;
   bool _isAppActive = true;
   final _formKey = GlobalKey<FormState>();
+  final _formKey2 = GlobalKey<FormState>();
 
   String pickupLocation = '';
   String dropoffLocation = '';
@@ -50,39 +66,63 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
   List<String> _selectedSeats = [];
   List<String> _bookedSeats = [];
   List<String> _allSeats = [];
+  List<BusTicket> busTickets = [];
   int _maxSelectableSeats = 1;
+
+  List<dynamic> receiptPackages = [];
+  int receiptsBalance = 0;
+
+  List<BluetoothInfo> devices = [];
+  BluetoothInfo? selectedPrinter;
+
+  String receiptFooter = "Karibu Sana";
 
   @override
   void initState() {
     super.initState();
-    pickupLocation = widget.busRoute.from;
-    dropoffLocation = widget.busRoute.to;
+    pickupLocation = widget.busRoute.startingPoint;
+    dropoffLocation = widget.busRoute.finalPoint;
     WidgetsBinding.instance.addObserver(this);
     _initializeServices();
     _initializeSeats();
     _getBookedSeats();
     _startFetchingBookedSeats();
     _setTicketPrice();
+
+    loadAndMatchPrinter();
   }
 
   void _setTicketPrice() {
     setState(() {
       ticketPrice = widget.busRoute.ticketPrice;
-      _maxSelectableSeats = 4;
+      _manualPriceController.text = '${widget.busRoute.ticketPrice}';
     });
   }
 
   Future<void> _initializeServices() async {
     final prefs = await SharedPreferences.getInstance();
+    receiptsBalance = prefs.getInt('receipts_balance') ?? 0;
     _storageService = StorageService(prefs);
     _loadUserProfile();
   }
+
+  Future<void> _saveReceiptsBalance(int value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('receipts_balance', value);
+  }
+
+
 
   void _loadUserProfile() {
     final profile = _storageService.getUserProfile();
     if (profile != null) {
       setState(() {
-        _phoneNumberController.text = profile.phoneNumber;
+        if (widget.companyId == 0) {
+          _phoneNumberController.text = profile.phoneNumber;
+          _passengerNameController.text = '${profile.firstName} ${profile.lastName}';
+        } else {
+          issuedBy = profile.firstName;
+        }
       });
     }
   }
@@ -91,11 +131,11 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
     List<String> letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
     _allSeats = [];
     
-    int rows = widget.busRoute.bus?.numberOfSeatRows ?? 10;
+    int rows = widget.busRoute.bus?.numberOfSeatRows ?? 14;
     int seatsPerRow = widget.busRoute.bus?.seatsPerRow ?? 4;
-    
+
     for (int row = 0; row < rows; row++) {
-      for (int col = 0; col < seatsPerRow; col++) {
+      for (int col = seatsPerRow - 1; col >= 0; col--) {
         _allSeats.add('${letters[row]}${col + 1}');
       }
     }
@@ -119,10 +159,264 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
     return true;
   }
 
+  Future<void> getReceiptPackages({bool useDNS = true}) async {
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/receipt_packages') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}receipt_packages'); // Use IP
+        
+    try {
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        debugPrint("response.body : ${response.body}");
+
+        final responseData = jsonDecode(response.body); // This is a List<dynamic>
+
+        if(responseData.length > 0) {
+          setState(() {
+            receiptPackages = responseData;
+          });
+        } 
+      }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await getReceiptPackages(useDNS: false); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error getting offices: $e');
+    } finally {
+      debugPrint('Process finished');
+    }
+  }
+
+  Future<void> _payDialog() async {
+    int? selectedPackage;
+    int? selectedReceiptPackages;
+    int? selectedAmount;
+    String? selectedPaymentMethod;
+
+    final TextEditingController phoneController = TextEditingController();
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+              title: const Text(
+                "Chagua kifurushi",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+
+                    const Divider(height: 4),
+                    
+                    /// Packages
+                    ...receiptPackages
+                    .map((pkg) {
+                      return RadioListTile(
+                        dense: true,  
+                        visualDensity: const VisualDensity(vertical: -4),
+                        title: Text(
+                          "Receipts ${pkg["number_of_receipts"]} - TSH ${pkg["price"]}",
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        value: pkg["number_of_receipts"],
+                        groupValue: selectedPackage,
+                        onChanged: (value) {
+                          setState(() {
+                            selectedPackage = value;
+                            selectedReceiptPackages = value;
+                            selectedAmount = pkg["price"] as int;
+                          });
+                        },
+                      );
+                    }),
+
+                    const SizedBox(height: 6),
+
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        "Njia ya Malipo",
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+
+                    const Divider(height: 10),
+
+                    /// Payment Methods
+                    Column(
+                      children: paymentMethods.map((method) {
+                        return RadioListTile(
+                          dense: true,
+                          visualDensity: const VisualDensity(vertical: -4),
+                          title: Text(method, style: const TextStyle(fontSize: 12)),
+                          value: method,
+                          groupValue: selectedPaymentMethod,
+                          onChanged: (value) {
+                            setState(() {
+                              selectedPaymentMethod = value.toString();
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+
+                    const SizedBox(height: 6),
+
+                    /// Phone
+                    TextField(
+                      controller: phoneController,
+                      keyboardType: TextInputType.phone,
+                      decoration: const InputDecoration(
+                        isDense: true,
+                        labelText: "Namba ya simu ya malipo",
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    /// Pay button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          await _sendPaymentRequest(
+                            phoneController.text.trim(),
+                            selectedReceiptPackages,
+                            selectedAmount,
+                          );
+                        },
+                        child: const Text("Lipa"),
+                      ),
+                    )
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+
+  Future<void> _sendPaymentRequest(
+    String phone,
+    int? receipts,
+    int? amount,
+    {bool useDNS = true}
+  ) async {
+
+    if (phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Phone number cannot be empty')),
+      );
+      return;
+    }
+
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/pay_daily_package/${widget.userId}')
+    : Uri.parse('${backend_url_with_fallback_ip}pay_daily_package/${widget.userId}'); // Use IP
+
+      String selectedPaymentMethod2 = '';
+      if(selectedPaymentMethod == 'M-PESA') {
+        selectedPaymentMethod2 = 'Mpesa';
+      }else if(selectedPaymentMethod == 'MIXX BY YAS') {
+        selectedPaymentMethod2 = 'Tigo';
+      }else if(selectedPaymentMethod == 'AIRTEL MONEY') {
+        selectedPaymentMethod2 = 'Airtel';
+      }else if(selectedPaymentMethod == 'HALOPESA') {
+        selectedPaymentMethod2 = 'Halopesa';
+      }else if(selectedPaymentMethod == 'AZAMPESA') {
+        selectedPaymentMethod2 = 'Azampesa';
+      }
+
+    try {
+      final response = await http.post(
+        uri,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: jsonEncode({
+          "phone_number": phone,
+          "receipts": receipts,
+          "amount": amount,
+          'selected_payment_method': selectedPaymentMethod2,
+        }),
+      );
+
+      debugPrint('phone_number: $phone');
+      debugPrint('receipts: $receipts');
+      debugPrint('amount: $amount');
+
+      if (response.statusCode == 200) {
+        if (response.body == "Processing payment!") { 
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Ombi la malipo limetumwa")),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(response.body)),
+          );
+        }
+
+        Navigator.pop(context);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Malipo yameshindwa")),
+        );
+      }
+    }  on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await _sendPaymentRequest(phone, receipts, amount, useDNS: false); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
+          return;
+        }
+      }      
+    } catch (e) {
+      print("Payment error: $e");
+    }
+  }
+
   Future<void> _handlePayment({bool useDNS = true}) async {
     if (_isLoading) return;
 
-    if (_formKey.currentState!.validate() && checkNumberTickets()) {
+    if (_formKey2.currentState!.validate() && _formKey.currentState!.validate() && checkNumberTickets()) {
       String selectedPaymentMethod2 = '';
       switch (selectedPaymentMethod) {
         case 'M-PESA':
@@ -142,23 +436,37 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
           break;
       }
 
+      // Check if locations are different from original route
+      bool isPickupDifferent = pickupLocation != widget.busRoute.startingPoint;
+      bool isDropoffDifferent = dropoffLocation != widget.busRoute.finalPoint;
+      
+      if (isPickupDifferent || isDropoffDifferent) {
+        bool isValidPrice = await _showCustomRouteDialog();
+        if(isValidPrice) {
+          return;
+        }
+      }
+
       final Map<String, dynamic> requestBody = {
         'user_id': widget.userId,
         'bus_route_id': widget.busRoute.id,
         'company_id': widget.companyId,
+        'pickup_location': pickupLocation,
+        'dropoff_location': dropoffLocation,
         'quantity': _selectedSeats.length,
         'ticket_price': ticketPrice,
+        'passenger_name': (widget.companyId > 0) ? _passengerNameController.text.trim() : '',
+        'phone_number': (widget.companyId > 0) ? formatPhoneNumber(_phoneNumberController.text) : '',
         'selected_seats': _selectedSeats,
         'selected_payment_method': selectedPaymentMethod2,
-        'phone_number': formatPhoneNumber(_phoneNumberController.text),
       };
 
       try {
         setState(() => _isLoading = true);
 
         final Uri uri = useDNS 
-            ? Uri.parse('${backend_url}api/bus_checkout')
-            : Uri.parse('${backend_url_with_fallback_ip}bus_checkout');
+            ? Uri.parse('${backend_url}api/bus_ticket_checkout')
+            : Uri.parse('${backend_url_with_fallback_ip}bus_ticket_checkout');
 
         final response = await http.post(
           uri,
@@ -167,21 +475,43 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
         );
 
         if (response.statusCode == 200) {
-          if (response.body.contains("Payment failed") || 
-              response.body.contains("Someone is already booking seat")) {
+          final responseData = jsonDecode(response.body);
+          String message = responseData['message'].trim();
+
+          if (message.contains("Payment failed") || message.contains("Someone is already booking seat")) {
+            _getBookedSeats();
             _selectedSeats.clear();
             _showSnackBar(response.body);
-          } else if (response.body == "Not routed") {
+          } else if (message == "Not routed") {
             _showSnackBar("Malipo hayawezi kukamilika. Tafadhali tumia namba ya mtandao tofauti");
-          } else if (response.body == "Invalid msisdn!") {
+          } else if (message == "Invalid msisdn!") {
             _showSnackBar("Namba uliyoweka sio sahihi");
-          } else if (response.body == "Processing payment!") {
+          } else if (message == "Processing payment!") {
             setState(() {
               _processingPayment = true;
               _payed = false;
             });
             _startFetchingPaymentStatus();
-          } else if (response.body == "Payed successfully!") {
+          } else if (message == "Bus tickets booked successfully!") {
+            _selectedSeats.clear();
+            receiptsBalance = responseData['number_of_sms'];
+            _saveReceiptsBalance(responseData['number_of_sms']);
+            receiptFooter = responseData['receipt_footer'];
+            _getBookedSeats();
+
+            debugPrint(' >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> responseData bus_tickets : ${responseData['bus_tickets']}');
+
+            final List<dynamic> jsonList = responseData['bus_tickets']; // Remove jsonDecode
+            busTickets = jsonList.map((json) => BusTicket.fromJson(json)).toList();
+
+            if (busTickets.isNotEmpty) {
+              for (var busTicket in busTickets) {
+                await _printBluetoothReceipt(busTicket);
+              }
+            }
+
+            _showSuccessDialog();
+          } else if (message == "Payed successfully!") {
             setState(() {
               _payed = true;
               _processingPayment = false;
@@ -196,6 +526,18 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
           }
         } else if (response.statusCode == 302) {
           _handleHTTPRedirect();
+        } else if (response.statusCode == 403) {
+          final responseData = jsonDecode(response.body);
+          String message = responseData['message'];
+
+          if (message.trim() == "Kifurushi chako kimeisha!") {
+            await getReceiptPackages();
+            _payDialog();
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(message.trim())),
+            );
+          }
         } else {
           _showSnackBar('Request failed: ${response.statusCode}');
         }
@@ -203,12 +545,142 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
         _handleSocketException(e, useDNS, (retryUseDNS) => _handlePayment(useDNS: retryUseDNS));
       } catch (e) {
         _showSnackBar('An error occurred: $e');
+        debugPrint('An error occurred: $e');
       } finally {
         setState(() => _isLoading = false);
       }
     }
   }
 
+  void _showSuccessDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green),
+            SizedBox(width: 8),
+            Text('Success!'),
+          ],
+        ),
+        content: Text((quantity > 1)? 'Your tickets have been booked successfully.' : 'Your ticket has been booked successfully.'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: const Text('OK'),
+          )
+        ],
+      ),
+    );
+  }
+
+  Future<bool> _showCustomRouteDialog() async {
+    return await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning, color: Colors.orange),
+            SizedBox(width: 8),
+            Expanded(  // Wrap Text with Expanded to prevent overflow
+              child: Text(
+                'Confirm Price',
+                overflow: TextOverflow.visible,  // Allow text to wrap
+                softWrap: true,  // Enable text wrapping
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'We have detected that you are taking a custom route that differs from the standard route.',
+              style: TextStyle(fontSize: 14),
+              softWrap: true,  // Enable text wrapping
+              overflow: TextOverflow.visible,  // Allow text to wrap
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey[300]!),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Flexible(  // Use Flexible for long text
+                    child: Text(
+                      'Ticket Price:',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      softWrap: true,
+                      overflow: TextOverflow.visible,
+                    ),
+                  ),
+                  const SizedBox(width: 4),  // Add spacing between text and price
+                  Flexible(  // Make price flexible too
+                    child: Text(
+                      'TSh ${widget.busRoute.ticketPrice.toString()}',
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green,
+                      ),
+                      softWrap: true,
+                      overflow: TextOverflow.visible,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Would you like to adjust the ticket price for this custom route?',
+              style: TextStyle(fontSize: 14),
+              softWrap: true,  // Enable text wrapping
+              overflow: TextOverflow.visible,  // Allow text to wrap
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context, false);
+            },
+            child: const Text(
+              'OK',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context, true);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Change Price'),
+          ),
+        ],
+      ),
+    ) ?? false;
+  }
+  
   void _startFetchingPaymentStatus() {
     int checksRemaining = 15;
     Timer.periodic(const Duration(seconds: 3), (timer) {
@@ -225,65 +697,19 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
         });
         return;
       }
-
-      _fetchPaymentStatus();
     });
-  }
-
-  Future<void> _fetchPaymentStatus({bool useDNS = true}) async {
-    final Uri uri = useDNS
-        ? Uri.parse('${backend_url}api/bus_payment_status/${widget.userId}')
-        : Uri.parse('${backend_url_with_fallback_ip}bus_payment_status/${widget.userId}');
-
-    try {
-      final response = await http.get(uri);
-
-      if (response.statusCode == 200) {
-        final responseData = jsonDecode(response.body);
-        final transactionDesc = responseData['transaction_description'];
-
-        if (transactionDesc == "SENDER_NOT_ENOUGH_FUND") {
-          if (_processingPayment) {
-            _showSnackBar("Hauna salio la kutosha");
-            setState(() {
-              _processingPayment = false;
-            });
-          }
-          return;
-        }
-
-        bool hasTicket = responseData['has_ticket'];
-
-        if (hasTicket && transactionDesc == "Success") {
-          setState(() {
-            _payed = true;
-            _processingPayment = false;
-          });
-          widget.refreshMethod();
-          _selectedSeats.clear();
-          _getBookedSeats();
-          _fetchTickets();
-          _showSnackBar("Payment successful! Your tickets have been booked.");
-        }
-      }
-    } on SocketException catch (e) {
-      if ((e.osError?.errorCode == 11001 || e.osError?.errorCode == 7) && useDNS) {
-        await _fetchPaymentStatus(useDNS: false);
-      }
-    } catch (e) {
-      debugPrint('Error fetching payment status: $e');
-    }
   }
 
   Future<void> _getBookedSeats({bool useDNS = true}) async {
     try {
-      final Uri uri = useDNS
-          ? Uri.parse('${backend_url}api/bus_booked_seats/${widget.busRoute.id}')
-          : Uri.parse('${backend_url_with_fallback_ip}bus_booked_seats/${widget.busRoute.id}');
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/bus_booked_seats/${widget.busRoute.id}')
+      : Uri.parse('${backend_url_with_fallback_ip}bus_booked_seats/${widget.busRoute.id}');
 
       final response = await http.get(uri);
 
       if (response.statusCode == 200) {
+        debugPrint(' Booked seats : ${response.body}');
+        
         final bookedSeats = jsonDecode(response.body);
         setState(() {
           _bookedSeats = List<String>.from(bookedSeats);
@@ -363,12 +789,42 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
     WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     _phoneNumberController.dispose();
+    _manualPriceController.dispose();
+    _passengerNameController.dispose();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _isAppActive = state == AppLifecycleState.resumed;
+  }
+
+  PopupMenuItem<String> _buildMenuItem({
+    required IconData icon,
+    required String text,
+    required String value,
+  }) {
+    return PopupMenuItem<String>(
+      value: value,
+      height: 44,
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 20,
+            color: Colors.grey.shade800,
+          ),
+          const SizedBox(width: 12),
+          Text(
+            text,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -380,25 +836,75 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
         title: const Text('Bus Ticket Checkout'),
         backgroundColor: const Color.fromARGB(255, 240, 244, 247),
         actions: [
-          if (_payed)
-            ElevatedButton.icon(
-              icon: const Icon(Icons.confirmation_number),
-              label: const Text('My Tickets'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.orange[800],
-                padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              onPressed: () {
-                Navigator.pushReplacement(
+          PopupMenuButton<String>(
+            padding: EdgeInsets.zero,
+            tooltip: 'More Options',
+            elevation: 8,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            icon: Icon(
+              Icons.more_vert,
+              color: Colors.black,
+              size: 22,
+            ),
+            onSelected: (value) async {
+              if (value == 'my_tickets') {
+                Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => BusTicketsPage(busRoute: widget.busRoute),
+                    builder: (context) => BusTicketsPage(userId: widget.userId, busRoute: widget.busRoute),
                   ),
                 );
-              },
-            ),
+              } else if (value == 'reprint_receipt') {
+                if (busTickets.isNotEmpty) {
+                  for (var busTicket in busTickets) {
+                    await _printBluetoothReceipt(busTicket);
+                  }
+                }
+              } else if (value == 'refresh_printers') {
+                _printBluetoothTestReceipt();
+              } else if (value == 'topup_receipt') {
+                await getReceiptPackages();
+                _payDialog();
+              } else if (value == 'exit') {
+                Navigator.pop(context);
+              }
+            },
+            itemBuilder: (context) => [    
+              _buildMenuItem(
+                icon: Icons.print,
+                text: 'My Tickets',
+                value: 'my_tickets',
+              ),          
+              _buildMenuItem(
+                icon: Icons.print,
+                text: AppLocalizations.of(context)!.reprintReceipt,
+                value: 'reprint_receipt',
+              ),
+              _buildMenuItem(
+                icon: Icons.refresh,
+                text: AppLocalizations.of(context)!.refreshPrinters,
+                value: 'refresh_printers',
+              ),
+              _buildMenuItem(
+                icon: Icons.account_balance_wallet,
+                text: AppLocalizations.of(context)!.receiptsBalance(receiptsBalance.toString()),
+                value: 'topup_receipt',
+              ),
+              _buildMenuItem(
+                icon: Icons.add_card,
+                text: AppLocalizations.of(context)!.topupReceipt,
+                value: 'topup_receipt',
+              ),
+              const PopupMenuDivider(),
+              _buildMenuItem(
+                icon: Icons.exit_to_app,
+                text: AppLocalizations.of(context)!.exit,
+                value: 'exit',
+              ),
+            ],
+          ),
         ],
       ),
       body: SingleChildScrollView(
@@ -414,7 +920,11 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
             const SizedBox(height: 20),
             _buildSeatSelection(),
             const SizedBox(height: 20),
-            _buildPaymentMethodSelector(),
+            _buildPassengerNameInput(),
+            if (widget.companyId == 0) ...[
+              const SizedBox(height: 20),
+              _buildPaymentMethodSelector(),
+            ],
             const SizedBox(height: 20),
             _buildPhoneNumberInput(),
             const SizedBox(height: 20),
@@ -440,11 +950,11 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
           children: [
             Text(
               '${widget.busRoute.from} → ${widget.busRoute.to}',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
-            _buildDetailRow('🚌', 'Bus:', widget.busRoute.bus?.name ?? 'Standard Bus'),
-            _buildDetailRow('🏢', 'Company:', 'Bus Company Name'),
+            _buildDetailRow('🚌', 'Bus:', widget.busRoute.bus!.name),
+            _buildDetailRow('🏢', 'Company:', widget.busRoute.company!.name),
             _buildDetailRow('⏰', 'Departure:', widget.busRoute.departureTime),
             _buildDetailRow('📅', 'Date:', widget.busRoute.departureDate),
             _buildDetailRow('💺', 'Available Seats:', '${_allSeats.length - _bookedSeats.length}'),
@@ -470,23 +980,8 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
     );
   }
 
-
-
-
-
-
-
   // Add this method to your _BusTicketsCheckoutPageState class
   Widget _buildLocationSelectionWidget() {
-    // Sample locations - replace with your actual data
-    final List<Map<String, String>> popularLocations = [
-      {'name': 'Current Location', 'icon': '📍'},
-      {'name': 'Dar es Salaam Bus Terminal', 'icon': '🚌'},
-      {'name': 'Ubungo Bus Terminal', 'icon': '🏢'},
-      {'name': 'Mwenge Bus Stop', 'icon': '🚏'},
-      {'name': 'Kariakoo Market', 'icon': '🏪'},
-      {'name': 'Posta Bus Stop', 'icon': '📮'},
-    ];
     
     return Card(
       elevation: 4,
@@ -593,47 +1088,6 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                 ],
               ),
             ),
-            
-            const SizedBox(height: 12),
-            
-            // Recent/Suggested locations
-            const Text(
-              'Suggested Locations',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
-              ),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 40,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: popularLocations.length,
-                separatorBuilder: (context, index) => const SizedBox(width: 8),
-                itemBuilder: (context, index) {
-                  final location = popularLocations[index];
-                  return ActionChip(
-                    label: Text(
-                      location['name']!,
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                    avatar: Text(location['icon']!),
-                    onPressed: () {
-                      setState(() {
-                        // Update pickup or dropoff based on context
-                        // This is a simplified example
-                      });
-                    },
-                    backgroundColor: Colors.grey[100],
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  );
-                },
-              ),
-            ),
           ],
         ),
       ),
@@ -647,12 +1101,10 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
     
     // Sample locations - replace with your actual data source
     final List<Map<String, String>> allLocations = [
-      {'name': 'Dar es Salaam Bus Terminal', 'address': 'Dar es Salaam', 'type': 'terminal'},
+      {'name': 'Mbezi Bus Terminal', 'address': 'Dar es Salaam', 'type': 'terminal'},
       {'name': 'Ubungo Bus Terminal', 'address': 'Ubungo, Dar es Salaam', 'type': 'terminal'},
       {'name': 'Mwenge Bus Stop', 'address': 'Mwenge, Dar es Salaam', 'type': 'stop'},
-      {'name': 'Kariakoo Market', 'address': 'Kariakoo, Dar es Salaam', 'type': 'market'},
-      {'name': 'Posta Bus Stop', 'address': 'Posta, Dar es Salaam', 'type': 'stop'},
-      {'name': 'Temeke Bus Stop', 'address': 'Temeke, Dar es Salaam', 'type': 'stop'},
+      {'name': 'Kigamboni Bus Terminal', 'address': 'Kigamboni, Dar es Salaam', 'type': 'terminal'},
       {'name': 'Kimara Bus Stop', 'address': 'Kimara, Dar es Salaam', 'type': 'stop'},
       {'name': 'Mbagala Bus Terminal', 'address': 'Mbagala, Dar es Salaam', 'type': 'terminal'},
     ];
@@ -665,7 +1117,7 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
       ),
       builder: (context) {
         return StatefulBuilder(
-          builder: (context, setState) {
+          builder: (context, setModalState) {  // Renamed to avoid confusion
             return Container(
               height: MediaQuery.of(context).size.height * 0.8,
               padding: const EdgeInsets.all(16),
@@ -692,7 +1144,7 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                         icon: const Icon(Icons.clear),
                         onPressed: () {
                           searchController.clear();
-                          setState(() {
+                          setModalState(() {
                             searchResults = [];
                           });
                         },
@@ -705,7 +1157,7 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                       fillColor: Colors.grey[50],
                     ),
                     onChanged: (value) {
-                      setState(() {
+                      setModalState(() {
                         if (value.isEmpty) {
                           searchResults = [];
                         } else {
@@ -714,6 +1166,11 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                                   .toLowerCase()
                                   .contains(value.toLowerCase()))
                               .toList();
+                          if (searchResults.isEmpty) {
+                            searchResults = [
+                              {'name': value.toUpperCase(), 'address': value.toLowerCase(), 'type': 'stop'}
+                            ];
+                          }
                         }
                       });
                     },
@@ -728,7 +1185,7 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
-                                'Recent Locations',
+                                'Popular Locations',
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
@@ -774,14 +1231,15 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                                       ),
                                       onTap: () {
                                         Navigator.pop(context);
-                                        // Update the location
+                                        // FIXED: Using parent widget's setState
                                         setState(() {
                                           if (isPickup) {
-                                            // Update pickup location logic here
+                                            pickupLocation = location['name']!;
                                           } else {
-                                            // Update dropoff location logic here
+                                            dropoffLocation = location['name']!;
                                           }
                                         });
+                                        debugPrint(" >>>>>>>>>>>>>>>>>>>>>>>>>>>>> isPickup: $isPickup, location['name']: ${location['name']}");
                                       },
                                     );
                                   },
@@ -799,16 +1257,15 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                                 subtitle: Text(location['address']!),
                                 onTap: () {
                                   Navigator.pop(context);
-                                  // Update the location
+                                  // FIXED: Using parent widget's setState
                                   setState(() {
                                     if (isPickup) {
-                                      // Update pickup location logic here
                                       pickupLocation = location['name']!;
                                     } else {
-                                      // Update dropoff location logic here
                                       dropoffLocation = location['name']!;
                                     }
                                   });
+                                  debugPrint(" >>>>>>>>>>>>>>>>>>>>>>>>>>>>> isPickup: $isPickup, location['name']: ${location['name']}");
                                 },
                               );
                             },
@@ -825,13 +1282,12 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
 
   // Add this method to your _BusTicketsCheckoutPageState class
   Widget _buildManualPriceCard() {
-    final TextEditingController _manualPriceController = TextEditingController();
     bool isCustomRoute = false;
     double customTicketPrice = ticketPrice;
     
     // Check if locations are different from original route
-    bool isPickupDifferent = pickupLocation != widget.busRoute.from;
-    bool isDropoffDifferent = dropoffLocation != widget.busRoute.to;
+    bool isPickupDifferent = pickupLocation != widget.busRoute.startingPoint;
+    bool isDropoffDifferent = dropoffLocation != widget.busRoute.finalPoint;
     
     if (isPickupDifferent || isDropoffDifferent) {
       isCustomRoute = true;
@@ -1013,6 +1469,12 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                                 }
                               }
                             },
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter price';
+                              }
+                              return null;
+                            },
                           ),
                         ),
                       ],
@@ -1020,26 +1482,26 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                     
                     const SizedBox(height: 12),
                     
-                    // Suggested price options
-                    const Text(
-                      'Suggested Prices:',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.grey,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _buildPriceChip(widget.busRoute.ticketPrice * 0.8, '20% Off'),
-                        _buildPriceChip(widget.busRoute.ticketPrice, 'Standard'),
-                        _buildPriceChip(widget.busRoute.ticketPrice * 1.2, '20% Extra'),
-                        _buildPriceChip(widget.busRoute.ticketPrice * 1.5, 'Premium'),
-                      ],
-                    ),
+                    // // Suggested price options
+                    // const Text(
+                    //   'Suggested Prices:',
+                    //   style: TextStyle(
+                    //     fontSize: 12,
+                    //     fontWeight: FontWeight.w500,
+                    //     color: Colors.grey,
+                    //   ),
+                    // ),
+                    // const SizedBox(height: 8),
+                    // Wrap(
+                    //   spacing: 8,
+                    //   runSpacing: 8,
+                    //   children: [
+                    //     _buildPriceChip(widget.busRoute.ticketPrice * 0.8, '20% Off'),
+                    //     _buildPriceChip(widget.busRoute.ticketPrice, 'Standard'),
+                    //     _buildPriceChip(widget.busRoute.ticketPrice * 1.2, '20% Extra'),
+                    //     _buildPriceChip(widget.busRoute.ticketPrice * 1.5, 'Premium'),
+                    //   ],
+                    // ),
                     
                     const SizedBox(height: 12),
                     
@@ -1137,44 +1599,36 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
 
   // Helper method for price chips
   Widget _buildPriceChip(double price, String label) {
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: Colors.orange[200]!),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          'TSh ${(price).toInt()}',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: Colors.orange[800],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.orange[200]!),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'TSh ${(price).toInt()}',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.orange[800],
+            ),
           ),
-        ),
-        const SizedBox(width: 4),
-        Text(
-          '($label)',
-          style: TextStyle(
-            fontSize: 10,
-            color: Colors.grey[600],
+          const SizedBox(width: 4),
+          Text(
+            '($label)',
+            style: TextStyle(
+              fontSize: 10,
+              color: Colors.grey[600],
+            ),
           ),
-        ),
-      ],
-    ),
-  );
-}
-
-
-
-
-
-
-
-
+        ],
+      ),
+    );
+  }
 
   // Helper method to convert row letter to number (A=1, B=2, etc.)
   int _getRowNumber(String rowLetter) {
@@ -1280,17 +1734,17 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
     );
   }
 
-  // Reorder seats from [1,2,3,4] to [1,2,4,3]
+  // Reorder seats from [4,3,2,1] to [3,4,2,1]
   List<String> _reorderSeats(List<String> seats) {
     if (seats.length != 4) return seats; // Only reorder for 4-seat rows
     
     // Extract seat numbers
     final List<String> reordered = List.from(seats);
     if (reordered.length >= 4) {
-      // Swap positions 2 and 3 (0-indexed: swap index 2 and 3)
-      final temp = reordered[2];
-      reordered[2] = reordered[3];
-      reordered[3] = temp;
+      // Swap positions 0 and 1 (0-indexed: swap index 0 and 1)
+      final temp = reordered[0];
+      reordered[0] = reordered[1];
+      reordered[1] = temp;
     }
     return reordered;
   }
@@ -1418,9 +1872,11 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                         
                         // Row checks
                         final bool isLastRow = rowNumber == totalRows;
-                        final bool isToiletRow = widget.busRoute.bus?.isHavingToilet == true && (rowNumber == widget.busRoute.bus?.toiletAtRowNumber); // Toilet spans 2 rows
+                        final bool isToiletRow = widget.busRoute.bus?.isHavingToilet == true && (rowNumber == widget.busRoute.bus?.toiletAtRowNumber);
                         final bool isToiletNextRow = widget.busRoute.bus?.isHavingToilet == true && (rowNumber == (widget.busRoute.bus?.toiletAtRowNumber ?? 0) + 1); // Toilet spans 2 rows
-                        
+                        final int numberOfRowsThatToiletSpans = widget.busRoute.bus!.numberOfRowsThatToiletSpans;
+                        final bool isToiletNextNextRow = ((widget.busRoute.bus?.isHavingToilet == true) && ((rowNumber == (widget.busRoute.bus?.toiletAtRowNumber ?? 0) + 2)) && (numberOfRowsThatToiletSpans > 2)); // Toilet spans 3 rows
+
                         // Calculate the split point for left and right seats
                         final int leftSeatCount = seats.length ~/ 2;
                         final List<String> leftSeats = seats.take(leftSeatCount).toList();
@@ -1436,7 +1892,7 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                               const SizedBox(width: 2),
                               // Left side seats
                               Row(
-                                children: List.generate( (!isToiletRow && !isToiletNextRow) ?leftSeats.length : 1, (index) {
+                                children: List.generate( ((!isToiletRow && !isToiletNextRow && !isToiletNextNextRow) || !isToiletOnLeft) ? leftSeats.length : 1, (index) {
                                   final seat = leftSeats[index];
                                   final isBooked = _bookedSeats.contains(seat);
                                   final isSelected = _selectedSeats.contains(seat);
@@ -1444,7 +1900,8 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                                   // Check if this seat should be a toilet (only on toilet side)
                                   final bool isToiletSeat = isToiletRow && isToiletOnLeft && _isToiletPositionOnSide(index, leftSeats.length, true);
                                   final bool isToiletNextSeat = isToiletNextRow && isToiletOnLeft && _isToiletPositionOnSide(index, leftSeats.length, true);
-                                  
+                                  final bool isToiletNextNextSeat = isToiletNextNextRow && isToiletOnLeft && _isToiletPositionOnSide(index, rightSeats.length, true);
+
                                   if (isToiletSeat) {
                                     return Padding(
                                       padding: const EdgeInsets.only(right: 8.0),
@@ -1484,6 +1941,19 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                                       ),
                                     );
                                   }
+
+                                  if (isToiletNextNextSeat) {
+                                    return Padding(
+                                      padding: const EdgeInsets.only(right: 8.0),
+                                      child: Container(
+                                        width: 80,
+                                        height: 36,
+                                        decoration: BoxDecoration(
+                                          color: Colors.transparent,
+                                        ),
+                                      ),
+                                    );
+                                  }
                                   
                                   return _buildSeatWidget(seat, isBooked, isSelected);
                                 }),
@@ -1511,7 +1981,7 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                                   padding: const EdgeInsets.symmetric(horizontal: 10),
                                   child: Row(
                                     children: List.generate(1, (index) {
-                                      final seat = '5';
+                                      final seat = '${leftSeats[index][0]}5';
                                       final isBooked = _bookedSeats.contains(seat);
                                       final isSelected = _selectedSeats.contains(seat);
 
@@ -1543,7 +2013,7 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                                             ),
                                             child: Center(
                                               child: Text(
-                                                seat,
+                                                seat.substring(1),
                                                 style: TextStyle(
                                                   color: isBooked || isSelected ? Colors.white : Colors.black,
                                                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
@@ -1560,20 +2030,21 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                               
                               // Right side seats
                               Row(
-                                children: List.generate(rightSeats.length, (index) {
+                                children: List.generate( ((!isToiletRow && !isToiletNextRow && !isToiletNextNextRow) || isToiletOnLeft) ? rightSeats.length : 1, (index) {
                                   final seat = rightSeats[index];
                                   final isBooked = _bookedSeats.contains(seat);
                                   final isSelected = _selectedSeats.contains(seat);
                                   
                                   // Check if this seat should be a toilet (only on toilet side)
-                                  final bool isToiletSeat = isToiletRow && !isToiletOnLeft && 
-                                      _isToiletPositionOnSide(index, rightSeats.length, false);
-                                  
+                                  final bool isToiletSeat = isToiletRow && !isToiletOnLeft && _isToiletPositionOnSide(index, rightSeats.length, false);
+                                  final bool isToiletNextSeat = isToiletNextRow && !isToiletOnLeft && _isToiletPositionOnSide(index, rightSeats.length, false);
+                                  final bool isToiletNextNextSeat = isToiletNextNextRow && !isToiletOnLeft && _isToiletPositionOnSide(index, rightSeats.length, false);
+
                                   if (isToiletSeat) {
                                     return Padding(
                                       padding: const EdgeInsets.only(right: 8.0),
                                       child: Container(
-                                        width: 36,
+                                        width: 80,
                                         height: 36,
                                         decoration: BoxDecoration(
                                           color: Colors.blue[50],
@@ -1581,6 +2052,43 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                                           border: Border.all(color: Colors.blue[200]!),
                                         ),
                                         child: Icon(Icons.wc, size: 20, color: Colors.blue[700]),
+                                      ),
+                                    );
+                                  }
+
+                                  if (isToiletNextSeat) {
+                                    return Padding(
+                                      padding: const EdgeInsets.only(right: 8.0),
+                                      child: Container(
+                                        width: 80,
+                                        height: 36,
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue[50],
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            'TOILET',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold, 
+                                              color: Colors.blue[700],
+                                            ),
+                                          ),
+                                        )
+                                      ),
+                                    );
+                                  }
+
+                                  if (isToiletNextNextSeat) {
+                                    return Padding(
+                                      padding: const EdgeInsets.only(right: 8.0),
+                                      child: Container(
+                                        width: 80,
+                                        height: 36,
+                                        decoration: BoxDecoration(
+                                          color: Colors.transparent,
+                                        ),
                                       ),
                                     );
                                   }
@@ -1672,12 +2180,71 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
             ),
             keyboardType: TextInputType.phone,
             validator: (value) {
-              if (value != null && value.isNotEmpty) {
-                if (value.length > 15) return 'Invalid phone number';
-                final regex = RegExp(r'^\d{1,3}\d{9}$');
-                if (!regex.hasMatch(value.trim())) return 'Format: 255xxxxxxxxxx';
+              if (value == null || value.trim().isEmpty) {
+                return 'Phone number is required';
               }
+              
+              final cleanedNumber = value.trim();
+              
+              // Check length (Tanzania numbers: 255 + 9 digits = 12 digits)
+              if (cleanedNumber.length < 10 || cleanedNumber.length > 13) {
+                return 'Phone number must be 10-13 digits';
+              }
+              
+              // Check if it starts with 255 or 0
+              if (!cleanedNumber.startsWith('255') && !cleanedNumber.startsWith('0')) {
+                return 'Phone number must start with 255 or 0';
+              }
+              
+              // Check if it contains only digits
+              final phoneRegex = RegExp(r'^\d+$');
+              if (!phoneRegex.hasMatch(cleanedNumber)) {
+                return 'Phone number can only contain digits';
+              }
+              
               return null;
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPassengerNameInput() {
+    return Form(
+      key: _formKey2,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: Text('Passenger Name', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ),
+          TextFormField(
+            controller: _passengerNameController,
+            decoration: InputDecoration(
+              hintText: 'Passenger name',
+              prefixIcon: const Icon(Icons.person),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              filled: true,
+              fillColor: Colors.grey[200],
+            ),
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return 'Please enter passenger name';
+              }
+              if (value.trim().length < 3) {
+                return 'Name must be at least 3 characters';
+              }
+              if (value.trim().length > 50) {
+                return 'Name must be less than 50 characters';
+              }
+              // Optional: Check for valid name format (letters and spaces only)
+              final nameRegex = RegExp(r'^[a-zA-Z\s\-\.]+$');
+              if (!nameRegex.hasMatch(value.trim())) {
+                return 'Name can only contain letters, spaces, dots, and hyphens';
+              }
+              return null;            
             },
           ),
         ],
@@ -1792,7 +2359,7 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                       ),
                       child: _isLoading
                           ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text('Pay Now', style: TextStyle(fontSize: 16, color: Colors.white)),
+                          : Text( (widget.companyId > 0) ? (quantity == 1) ? 'Book Ticket' : 'Book Tickets' : 'Pay Now', style: TextStyle(fontSize: 16, color: Colors.white)),
                     ),
     );
   }
@@ -1811,4 +2378,439 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
       ),
     );
   }
+
+  Future<void> saveSelectedPrinter(BluetoothInfo printer) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.setString('printer_name', printer.name);
+    await prefs.setString('printer_mac', printer.macAdress);
+  }
+
+  Future<void> clearSelectedPrinter() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.remove('printer_name');
+    await prefs.remove('printer_mac');
+  }
+
+  Future<void> requestPermissions() async {
+    await [
+      Permission.bluetooth,
+      Permission.bluetoothConnect,
+      Permission.bluetoothScan,
+      Permission.location,
+    ].request();
+  }
+
+  Future<void> loadAndMatchPrinter() async {
+    await requestPermissions();
+
+    final prefs = await SharedPreferences.getInstance();
+
+    print("******************************************************************************");
+    final savedMac = prefs.getString('printer_mac');
+    if (savedMac == null || savedMac.isEmpty) {
+      debugPrint("No saved printer");
+      await _refreshBluetoothPrinters();
+      return;
+    }
+
+    debugPrint("Found saved printer");
+
+    List<BluetoothInfo> devices = await PrintBluetoothThermal.pairedBluetooths;
+
+    final matched = devices.where(
+      (d) => d.macAdress == savedMac,
+    ).toList();
+
+    if (matched.isNotEmpty) {
+      setState(() {
+        selectedPrinter = matched.first;
+      });
+
+      debugPrint("Printer restored: ${matched.first.name}");
+    } else {
+      debugPrint("Saved printer not found");
+      setState(() {
+        selectedPrinter = null;
+      });
+
+      await _refreshBluetoothPrinters();
+    }
+  }
+
+  Future<void> _selectPrinterDialog() async {
+    await showDialog(
+      context: context,
+      builder: (_) {
+        return AlertDialog(
+          title: const Text("Select Printer"),
+          content: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.5, // 50% of screen height
+            ),
+            child: SizedBox(
+              width: double.maxFinite,
+              child: ListView(
+                children: devices.map((device) {
+                  return ListTile(
+                    title: Text(device.name),
+                    subtitle: Text(device.macAdress),
+                    onTap: () {
+                      selectedPrinter = device;
+                      saveSelectedPrinter(device);
+                      Navigator.pop(context);
+                    },
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+  
+  Future<void> _refreshBluetoothPrinters() async {
+    debugPrint("Refreshing printers...");
+    devices = await PrintBluetoothThermal.pairedBluetooths;
+
+    debugPrint("Refreshing printers...");
+
+    if (devices.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context)!.noPairedPrinterFound)),  
+      );
+      return;
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text( AppLocalizations.of(context)!.foundPairedPrinters(devices.length.toString()))),
+      );
+    }
+
+    await _selectPrinterDialog();
+  }
+
+  Future<void> _printBluetoothTestReceipt() async {
+    selectedPrinter = null;
+    await clearSelectedPrinter();
+
+    await _refreshBluetoothPrinters();
+    if (selectedPrinter == null) return;
+
+    await PrintBluetoothThermal.disconnect; // ensure clean state
+
+    bool connected = await PrintBluetoothThermal.connect(
+      macPrinterAddress: selectedPrinter!.macAdress,
+    );
+
+    if (!connected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context)!.printerNotConnected)),
+      );
+      selectedPrinter = null;
+      await _refreshBluetoothPrinters();
+      if (selectedPrinter == null) return;
+    }
+
+    final profile = await CapabilityProfile.load();
+    final generator = Generator(PaperSize.mm58, profile);
+
+    List<int> bytes = [];
+
+    bytes += generator.text("********************************",
+      styles: const PosStyles(
+        align: PosAlign.center,
+      )
+    );
+
+    bytes += generator.text(widget.companyName,
+      styles: const PosStyles(
+        align: PosAlign.center,
+        bold: true,
+        height: PosTextSize.size1,
+      )
+    );
+
+    bytes += generator.text("********************************",
+      styles: const PosStyles(
+        align: PosAlign.center,
+      )
+    );
+
+    bytes += generator.feed(1);
+    bytes += generator.cut();
+
+    await PrintBluetoothThermal.writeBytes(bytes);
+  }
+
+  Future<void> _printBluetoothReceipt(BusTicket busTicket) async {
+    if (selectedPrinter == null) {
+      await _refreshBluetoothPrinters();
+      if (selectedPrinter == null) return;
+    }
+
+    await PrintBluetoothThermal.disconnect; // ensure clean state
+
+    bool connected = await PrintBluetoothThermal.connect(
+      macPrinterAddress: selectedPrinter!.macAdress,
+    );
+
+    if (!connected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context)!.printerNotConnected)),
+      );
+      selectedPrinter = null;
+      await _refreshBluetoothPrinters();
+      if (selectedPrinter == null) return;
+    }
+
+    final profile = await CapabilityProfile.load();
+    final generator = Generator(PaperSize.mm58, profile);
+
+    List<int> bytes = [];
+
+    bytes += generator.text("********************************",
+      styles: const PosStyles(
+        align: PosAlign.center,
+      )
+    );
+
+    bytes += generator.text(widget.companyName,
+      styles: const PosStyles(
+        align: PosAlign.center,
+        bold: true,
+        height: PosTextSize.size1,
+      )
+    );
+
+    bytes += generator.text("********************************",
+      styles: const PosStyles(
+        align: PosAlign.center,
+      )
+    );
+
+    bytes += generator.text(
+      "TICKET RECEIPT",
+      styles: const PosStyles(align: PosAlign.center),
+    );
+
+    bytes += generator.text(
+      "",
+      styles: const PosStyles(bold: true),
+    );
+
+    bytes += generator.text(
+      "Route",
+      styles: const PosStyles(bold: true),
+    );
+
+    bytes += generator.text(
+      "${widget.busRoute.from} - - - ${widget.busRoute.to}",
+      styles: const PosStyles(bold: true),
+    );
+
+    bytes += generator.row([
+      PosColumn(text: "Ticket No:", width: 6),
+      PosColumn(text: busTicket.ticketCode, width: 6),
+    ]);
+
+    bytes += generator.row([
+      PosColumn(text: "From:", width: 6),
+      PosColumn(text: busTicket.pickupLocation, width: 6),
+    ]);
+
+    bytes += generator.row([
+      PosColumn(text: "To:", width: 6),
+      PosColumn(text: busTicket.dropoffLocation, width: 6),
+    ]);
+
+    bytes += generator.text(
+      "",
+      styles: const PosStyles(bold: true),
+    );
+
+    bytes += generator.text(
+      "BUS DETAILS",
+      styles: const PosStyles(bold: true),
+    );
+
+    bytes += generator.text(
+      widget.busRoute.bus!.name,
+      styles: const PosStyles(bold: false),
+    );
+
+    bytes += generator.row([
+      PosColumn(text: "Plate No:", width: 6),
+      PosColumn(text: widget.busRoute.bus!.registrationNumber, width: 6),
+    ]);
+
+    bytes += generator.row([
+      PosColumn(text: "Travel Date:", width: 6),
+      PosColumn(text: widget.busRoute.departureDate, width: 6),
+    ]);
+
+    bytes += generator.row([
+      PosColumn(text: "Reporting Time:", width: 6),
+      PosColumn(text: getTime30MinBefore(widget.busRoute.departureTime), width: 6),
+    ]);
+
+    bytes += generator.row([
+      PosColumn(text: "Departure Time:", width: 6),
+      PosColumn(text: widget.busRoute.departureTime, width: 6),
+    ]);
+
+    bytes += generator.row([
+      PosColumn(text: "Pickup point:", width: 6),
+      PosColumn(text: busTicket.pickupLocation, width: 6),
+    ]);
+
+    bytes += generator.row([
+      PosColumn(text: "Arrival Date:", width: 6),
+      PosColumn(text: widget.busRoute.arrivalDate, width: 6),
+    ]);
+
+    bytes += generator.row([
+      PosColumn(text: "Arrival Time:", width: 6),
+      PosColumn(text: widget.busRoute.arrivalTime, width: 6),
+    ]);
+
+    bytes += generator.row([
+      PosColumn(text: "Dropoff point:", width: 6),
+      PosColumn(text: busTicket.dropoffLocation, width: 6),
+    ]);
+
+    bytes += generator.text(
+      "",
+      styles: const PosStyles(bold: true),
+    );
+
+    bytes += generator.text(
+      "PASSENGER DETAILS",
+      styles: const PosStyles(bold: true),
+    );
+
+    bytes += generator.row([
+      PosColumn(text: "Full Name:", width: 6),
+      PosColumn(text: busTicket.passengerName, width: 6),
+    ]);
+
+    bytes += generator.row([
+      PosColumn(text: "Phone:", width: 6),
+      PosColumn(text: busTicket.phoneNumber, width: 6),
+    ]);
+
+    bytes += generator.row([
+      PosColumn(text: "Seat Number:", width: 6),
+      PosColumn(text: busTicket.seatNumber, width: 6),
+    ]);
+
+    bytes += generator.text("--------------------------------",
+      styles: const PosStyles(
+        align: PosAlign.center,
+      )
+    );
+
+    bytes += generator.row([
+      PosColumn(text: "Ticket Price:", width: 6),
+      PosColumn(text: "TZS ${NumberFormat('#,##0').format(busTicket.ticketPrice)}", width: 6, styles: const PosStyles(align: PosAlign.right)),
+    ]);
+
+    bytes += generator.text("--------------------------------",
+      styles: const PosStyles(
+        align: PosAlign.center,
+      )
+    );
+
+    bytes += generator.text(
+      "Issued By:",
+      styles: const PosStyles(bold: true),
+    );
+    bytes += generator.row([
+      PosColumn(text: "Name", width: 6),
+      PosColumn(text: busTicket.issuedBy, width: 6),
+    ]);
+    bytes += generator.row([
+      PosColumn(text: "Phone number", width: 6),
+      PosColumn(text: busTicket.issuerPhoneNumber, width: 6),
+    ]);
+
+    String day = busTicket.createdAt.day.toString().padLeft(2, '0');
+    String month = busTicket.createdAt.month.toString().padLeft(2, '0');
+    String year = busTicket.createdAt.year.toString();
+    String hour = busTicket.createdAt.hour.toString().padLeft(2, '0');
+    String minute = busTicket.createdAt.minute.toString().padLeft(2, '0');
+    String second = busTicket.createdAt.second.toString().padLeft(2, '0');
+
+    bytes += generator.row([
+      PosColumn(text: "Receipt Date", width: 6),
+      PosColumn(text: '$day-$month-$year $hour:$minute:$second', width: 6),
+    ]);
+
+    bytes += generator.row([
+      PosColumn(text: "Receipt Time", width: 6),
+      PosColumn(text: '$hour:$minute:$second', width: 6),
+    ]);
+
+    // QR
+    String data = SimpleCodec.encode(jsonEncode({
+      "tid": busTicket.id,
+      "cid": widget.companyId,
+    }));
+
+    bytes += generator.qrcode(
+      data,
+      size: QRSize.size5,
+    );
+
+    bytes += generator.text(
+      receiptFooter,
+      styles: const PosStyles(align: PosAlign.center)
+    );
+
+    bytes += generator.text(
+      "",
+      styles: const PosStyles(bold: true),
+    );
+
+    bytes += generator.text(
+      'Powered by Tiketi Mkononi',
+      styles: const PosStyles(align: PosAlign.center)
+    );
+    bytes += generator.text(
+      'Email:tiketimkononi@telabs.co.tz',
+      styles: const PosStyles(align: PosAlign.center)
+    );
+  
+    bytes += generator.cut();
+
+    await PrintBluetoothThermal.writeBytes(bytes);
+  }
+
+  String getTime30MinBefore(String departureTime) {
+    // Split hour and minute
+    final parts = departureTime.split(':');
+    int hour = int.parse(parts[0]);
+    int minute = int.parse(parts[1]);
+
+    // Create DateTime (use any date, only time matters)
+    final now = DateTime.now();
+    DateTime dateTime = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      hour,
+      minute,
+    );
+
+    // Subtract 30 minutes
+    final newTime = dateTime.subtract(const Duration(minutes: 30));
+
+    // Format back to HH:mm
+    String formattedHour = newTime.hour.toString().padLeft(2, '0');
+    String formattedMinute = newTime.minute.toString().padLeft(2, '0');
+
+    return "$formattedHour:$formattedMinute";
+  }
+
 }

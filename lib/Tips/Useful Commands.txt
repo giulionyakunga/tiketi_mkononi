@@ -1,4 +1,12 @@
 
+
+
+*** APP LOCALIZATION GENERATE COMMANDS ***
+flutter gen-l10n
+
+
+
+*** WEB COMMANDS ***
 flutter build web
 
 scp -r .\build\web ubuntu@telabs.co.tz:~/

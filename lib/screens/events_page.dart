@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:tiketi_mkononi/env.dart';
+import 'package:tiketi_mkononi/l10n/app_localizations.dart';
 import 'package:tiketi_mkononi/models/event.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
 import 'package:tiketi_mkononi/widgets/event_card.dart';
@@ -393,7 +394,7 @@ class _EventsPageState extends State<EventsPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Events ($numberOfActiveEvents)'),
+        title: Text('${AppLocalizations.of(context)!.events} ($numberOfActiveEvents)'),
         backgroundColor: colorScheme.surface,
         elevation: 1,
         actions: [

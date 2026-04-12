@@ -6,11 +6,13 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
+import 'package:tiketi_mkononi/l10n/app_localizations.dart';
 import 'package:tiketi_mkononi/screens/ad/post_ad_page.dart';
 import 'package:tiketi_mkononi/screens/app_info_updates_page.dart';
 import 'package:tiketi_mkononi/screens/apply_to_be_cargo_transporter_page.dart';
 import 'package:tiketi_mkononi/screens/apply_to_be_organizer_page.dart';
 import 'package:tiketi_mkononi/screens/apply_to_be_shop_owner_page.dart';
+import 'package:tiketi_mkononi/screens/apply_to_be_transporter_page.dart';
 import 'package:tiketi_mkononi/screens/auth/login_screen2.dart';
 import 'package:tiketi_mkononi/screens/add_consignment_page.dart';
 import 'package:tiketi_mkononi/screens/book_of_accounts_page.dart';
@@ -18,6 +20,7 @@ import 'package:tiketi_mkononi/screens/book_of_accounts_page.dart';
 import 'package:tiketi_mkononi/screens/edit_profile_page.dart';
 import 'package:tiketi_mkononi/screens/event_organizers_page.dart';
 import 'package:tiketi_mkononi/screens/favorite_events_page.dart';
+import 'package:tiketi_mkononi/screens/find_bus_routes_page.dart';
 import 'package:tiketi_mkononi/screens/generate_barcodes_page.dart';
 import 'package:tiketi_mkononi/screens/help_support_page.dart';
 import 'package:tiketi_mkononi/screens/language_settings_page.dart';
@@ -112,6 +115,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
         });
         var profile = _storageService.getUserProfile();
         profile!.role =  responseData['role'];
+        profile.companyId =  responseData['company_id']  ?? 0;
         profile.companyName =  responseData['company_name']  ?? '';
         await _storageService.saveUserProfile(profile);
       }
@@ -617,6 +621,82 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
     );
   }
 
+  void _showCargoDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Access Restricted'),
+        content: const Text(
+          'This feature is available only to registered Tiketi Mkononi cargo transporters. '
+          'If you would like to offer cargo transportation services, please submit an application to become an approved transporter.'
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      ApplyToBeCargoTransporterPage(userId: userId),
+                ),
+              );
+            },
+            child: const Text(
+              'Apply Now',
+              style: TextStyle(color: Colors.green),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showBusesDialog2(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Access Restricted'),
+        content: const Text(
+          'This feature is available only to registered Tiketi Mkononi transporters. '
+          'If you would like to offer transportation services, please submit an application to become an approved transporter.'
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      ApplyToBeTransporterPage(userId: userId),
+                ),
+              );
+            },
+            child: const Text(
+              'Apply Now',
+              style: TextStyle(color: Colors.green),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildOtherApps(BuildContext context) {
     final otherApps = [
       _buildActionTile(
@@ -648,19 +728,47 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
           );
         },
       ),
-      if((role == "cargo_office_attendant") && (companyId > 0) && (officeId > 0))
       _buildActionTile(
         context,
-        icon: Icons.security,
+        icon: Icons.local_shipping,
         iconColor: Colors.teal,
         title: 'Cargo',
         onTap: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => AddConsignmentPage(userId: userId, companyId: companyId, companyName:companyName, officeId: officeId, userName: userName, userPhoneNumber: userPhoneNumber, isReplacableScreen: false),
-            ),
-          );
+          if ((role == 'transporter') || (role == 'cargo_transporter') || (role == 'transport_office_attendant') || (role == 'cargo_office_attendant')) {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => AddConsignmentPage(userId: userId, companyId: companyId, companyName:companyName, officeId: officeId, userName: userName, userPhoneNumber: userPhoneNumber, isReplacableScreen: false),
+              ),
+            );
+          } else {
+            _showCargoDialog(context);
+          }
+        },
+      ),
+      _buildActionTile(
+        context,
+        icon: Icons.directions_bus,
+        iconColor: Colors.orange,
+        title: 'Buses',
+        onTap: () async {
+          if(role == 'transporter'){
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => OfficesPage(userId: userId, companyId: companyId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, role: role),
+              ),
+            );
+          } else if (role == 'transport_office_attendant') {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => FindBusRoutesPage(userId: userId, officeId: officeId, companyId: companyId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, role: role),
+              ),
+            );
+          } else {
+            _showBusesDialog2(context);
+          }
         },
       ),
     ];
@@ -982,7 +1090,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
     
     return Scaffold(
       appBar: AppBar(
-        title: Text('My Profile', style: TextStyle(fontWeight: FontWeight.normal)),
+        title: Text(AppLocalizations.of(context)!.myProfile, style: TextStyle(fontWeight: FontWeight.normal)),
         centerTitle: false, 
         backgroundColor: const Color.fromARGB(255, 240, 244, 247),
         actions: [

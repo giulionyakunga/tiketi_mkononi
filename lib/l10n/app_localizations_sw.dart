@@ -21,6 +21,51 @@ class AppLocalizationsSw extends AppLocalizations {
   String get profile => 'Wasifu';
 
   @override
+  String get myProfile => 'Wasifu Wangu';
+
+  @override
+  String get searchEvents => 'Tafuta tukio';
+
+  @override
+  String get featuredEvents => 'Matukio Maarufu';
+
+  @override
+  String get seeAll => 'Ona Yote';
+
+  @override
+  String get categories => 'Kategoria';
+
+  @override
+  String get concerts => 'Matamasha';
+
+  @override
+  String get buses => 'Mabasi';
+
+  @override
+  String get cargo => 'Mizigo';
+
+  @override
+  String get sports => 'Michazo';
+
+  @override
+  String get comedy => 'Komedi Vichekesho';
+
+  @override
+  String get fun => 'Burudani';
+
+  @override
+  String get barsAndGrills => 'Baa na Grili';
+
+  @override
+  String get training => 'Mafunzo';
+
+  @override
+  String get theater => 'Sinema';
+
+  @override
+  String get wedding => 'Harusi';
+
+  @override
   String get addParcel => 'Ongeza Kifurushi';
 
   @override
@@ -49,6 +94,12 @@ class AppLocalizationsSw extends AppLocalizations {
 
   @override
   String get to => 'Kwenda';
+
+  @override
+  String get startingPoint => 'Kituo cha kuanzia';
+
+  @override
+  String get finalPoint => 'Kituo cha mwisho';
 
   @override
   String get receiverName => 'Jina la Mpokeaji';
@@ -124,7 +175,7 @@ class AppLocalizationsSw extends AppLocalizations {
       'Namba ya simu ya mtumaji lazima iwe herufi 15 au chini';
 
   @override
-  String get pleaseEnterOrigin => 'Tafadhali ingiza eneo la chanzo';
+  String get pleaseEnterOrigin => 'Tafadhali ingiza sehemu ya mwanzo';
 
   @override
   String get originMaxLength => 'Jina la chanzo lazima iwe herufi 100 au chini';
@@ -573,4 +624,33 @@ class AppLocalizationsSw extends AppLocalizations {
 
   @override
   String get selectConsignment => 'Chagua shehena kuona maelezo';
+
+  @override
+  String get officeInformation => 'Taarifa za ofisi';
+
+  @override
+  String get addANewOfficeLocation =>
+      'Ongeza ofisi mpya ya kampuni yako ya usafirishaji';
+
+  @override
+  String get officeName => 'Jina la ofisi';
+
+  @override
+  String get officeLocation => 'Mahali ilipo ofisi';
+
+  @override
+  String get pleaseEnterOfficeLocation => 'Tafadhali weka mahali ilipo ofisi';
+
+  @override
+  String get addOffice => 'Ongeza Ofisi';
+
+  @override
+  String get myOffices => 'Ofisi Zangu';
+
+  @override
+  String get pleaseEnterBusRegistrationNumber =>
+      'Tafadhali weka namba ya usajiri ya basi';
+
+  @override
+  String get pleaseEnterBusName => 'Tafadhali weka jina la basi';
 }

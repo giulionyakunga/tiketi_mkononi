@@ -2,8 +2,8 @@ class ServerMetrics {
   final String timestamp;
   final int requestCount;
   final int dailyActiveUsers;
-  final double monthyTotalTransactions;
-  final double lastMonthyTotalTransactions;
+  final int monthyTotalTransactions;
+  final int lastMonthyTotalTransactions;
   final String avgRequestDurationMs;
   final int errorCount;
   final MemoryUsage memoryUsageMB;
@@ -34,8 +34,8 @@ class ServerMetrics {
       timestamp: json['timestamp'],
       requestCount: json['requestCount'],
       dailyActiveUsers: json['daily_active_users'],
-      monthyTotalTransactions: json['monthy_total_transactions'] ?? 0.0,
-      lastMonthyTotalTransactions: json['last_monthy_total_transactions'] ?? 0.0,
+      monthyTotalTransactions: json['monthy_total_transactions'] ?? 0,
+      lastMonthyTotalTransactions: json['last_monthy_total_transactions'] ?? 0,
       avgRequestDurationMs: json['avgRequestDurationMs'],
       errorCount: json['errorCount'],
       memoryUsageMB: MemoryUsage.fromJson(json['memoryUsageMB']),

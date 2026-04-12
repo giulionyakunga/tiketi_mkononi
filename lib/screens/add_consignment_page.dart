@@ -1786,7 +1786,6 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     await _selectPrinterDialog();
   }
 
-  
   Future<void> _printBluetoothTestReceipt() async {
     selectedPrinter = null;
     await clearSelectedPrinter();

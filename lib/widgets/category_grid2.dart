@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:tiketi_mkononi/l10n/app_localizations.dart';
+import 'package:tiketi_mkononi/models/category.dart';
 import 'package:tiketi_mkononi/models/event.dart';
 import 'package:tiketi_mkononi/screens/add_consignment_page.dart';
 import 'package:tiketi_mkononi/screens/apply_to_be_cargo_transporter_page.dart';
@@ -7,14 +9,6 @@ import 'package:tiketi_mkononi/screens/auth/login_screen.dart';
 import 'package:tiketi_mkononi/screens/category_events_page.dart';
 import 'package:tiketi_mkononi/screens/find_bus_routes_page.dart';
 import 'package:tiketi_mkononi/screens/offices_page.dart';
-
-class Category {
-  final String name;
-  final IconData icon;
-  final Color color;
-
-  Category({required this.name, required this.icon, required this.color});
-}
 
 class CategoryGrid2 extends StatelessWidget {
   final List<Event> events;
@@ -113,56 +107,19 @@ class CategoryGrid2 extends StatelessWidget {
     final isLargeScreen = MediaQuery.of(context).size.width > 768;
 
     final List<Category> categories = [
-      Category(
-        name: 'Concerts', 
-        icon: Icons.music_note, 
-        color: Colors.blue.shade700,
-      ),
-      // Category(
-      //   name: 'Buses', 
-      //   icon: Icons.directions_bus, 
-      //   color: Colors.orange
-      // ),
-      Category(
-        name: 'Sports', 
-        icon: Icons.sports_soccer, 
-        color: Colors.red.shade700,
-      ),
-      Category(
-        name: 'Cargo', icon: 
-        Icons.local_shipping, 
-        color: Colors.teal
-      ),
-      Category(
-        name: 'Comedy', 
-        icon: Icons.theater_comedy, 
-        color: Colors.brown.shade700,
-      ),
-      Category(
-        name: 'Fun', 
-        icon: Icons.emoji_emotions, 
-        color: Colors.amber.shade700,
-      ),
-      Category(
-        name: 'Bars & Grills', 
-        icon: Icons.local_bar, 
-        color: Colors.pink.shade600,
-      ),
-      Category(
-        name: 'Training', 
-        icon: Icons.school, 
-        color: Colors.green.shade700,
-      ),
-      Category(
-        name: 'Theater', 
-        icon: Icons.theaters, 
-        color: Colors.deepPurple.shade700,
-      ),
-      Category(
-        name: 'Wedding', 
-        icon: Icons.favorite, 
-        color: Colors.red
-      ),
+      Category(name: AppLocalizations.of(context)!.concerts, value: 'Concerts', icon: Icons.music_note, color: Colors.blue),
+      if ((role == 'transporter') || (role == 'transport_office_attendant'))
+      Category(name: AppLocalizations.of(context)!.buses, value: 'Buses', icon: Icons.directions_bus, color: Colors.teal),
+      if ((role == 'transporter') || (role == 'cargo_transporter') || (role == 'transport_office_attendant') || (role == 'cargo_office_attendant'))
+      Category(name: AppLocalizations.of(context)!.cargo, value: 'Cargo', icon: Icons.local_shipping, color: Colors.teal),
+      Category(name: AppLocalizations.of(context)!.sports, value: 'Sports', icon: Icons.sports_basketball, color: Colors.red),
+      Category(name: AppLocalizations.of(context)!.comedy, value: 'Comedy', icon: Icons.theater_comedy, color: Colors.brown),
+      Category(name: AppLocalizations.of(context)!.fun, value: 'Fun', icon: Icons.beach_access, color: Colors.amber[500]!),
+      // Category(name: AppLocalizations.of(context)!.festivals, value: 'Festivals', icon: Icons.festival, color: Colors.blue),
+      Category(name: AppLocalizations.of(context)!.barsAndGrills, value: 'Bars & Grills', icon: Icons.wine_bar, color: Colors.pink),
+      Category(name: AppLocalizations.of(context)!.training, value: 'Training', icon: Icons.cast_for_education, color: Colors.green[600]!),
+      Category(name: AppLocalizations.of(context)!.theater, value: 'Theater', icon: Icons.theaters, color: Colors.black),
+      Category(name: AppLocalizations.of(context)!.wedding, value: 'Wedding', icon: Icons.favorite, color: Colors.red),
     ];
 
     // Calculate event counts for each category
@@ -204,37 +161,25 @@ class CategoryGrid2 extends StatelessWidget {
               child: InkWell(
                 borderRadius: BorderRadius.circular(12),
                 onTap: () async {
-                  if(categories[index].name == 'Cargo'){
-                    if(!(userId > 0)) {
+                  if(categories[index].value == 'Cargo'){
+                    if((role == 'transport_office_attendant') || (role == 'cargo_office_attendant')){
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => LoginScreen(),
+                          builder: (context) => AddConsignmentPage(userId: userId, companyId: companyId, companyName:companyName, officeId: officeId, userName: userName, userPhoneNumber: userPhoneNumber, isReplacableScreen: false),
                         ),
                       );
-                    } else {
-                      if((role == 'transporter_office_attendant') || (role == 'cargo_office_attendant')){
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => AddConsignmentPage(userId: userId, companyId: companyId, companyName:companyName, officeId: officeId, userName: userName, userPhoneNumber: userPhoneNumber, isReplacableScreen: false),
-                          ),
-                        );
-                      } else if((role == 'transporter') || (role == 'cargo_transporter')){
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => OfficesPage(userId: userId, companyId: companyId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, role: role),
-                          ),
-                        );
+                    } else if((role == 'transporter') || (role == 'cargo_transporter')){
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => OfficesPage(userId: userId, companyId: companyId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, role: role),
+                        ),
+                      );
 
-                        refreshMethod();
-
-                      } else {
-                        _showCargoDialog(context);
-                      }
+                      refreshMethod();
                     }
-                  } else if(categories[index].name == 'Buses'){
+                  } else if(categories[index].value == 'Buses'){
                     if(!(userId > 0)) {
                       Navigator.push(
                         context,
@@ -253,11 +198,10 @@ class CategoryGrid2 extends StatelessWidget {
 
                         refreshMethod();
                       } else {
-                        // _showBusesDialog2(context);
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => FindBusRoutesPage(userId: userId, officeId: 0, companyId: companyId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, role: role),
+                            builder: (context) => FindBusRoutesPage(userId: userId, officeId: officeId, companyId: companyId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, role: role),
                           ),
                         );
                       }
@@ -267,7 +211,7 @@ class CategoryGrid2 extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (context) => CategoryEventsPage(
-                          category: category.name,
+                          category: category.value,
                           userId: userId,
                         ),
                       ),

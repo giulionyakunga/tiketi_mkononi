@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:tiketi_mkononi/l10n/app_localizations.dart';
 import 'package:tiketi_mkononi/models/bus.dart';
 import 'package:tiketi_mkononi/models/bus_route.dart';
+import 'package:tiketi_mkononi/screens/add_office_page.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
 import 'package:tiketi_mkononi/utils/extensions/list_extensions.dart';
 
@@ -36,6 +37,8 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
   final _fromController = TextEditingController();
   final _toController = TextEditingController();
   final _ticketPriceController = TextEditingController();
+  final _startingPointController = TextEditingController();
+  final _finalPointController = TextEditingController();
 
   int busId = 0;
   final _busNameController = TextEditingController();
@@ -45,14 +48,20 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
   final _toiletAtRowNumberController = TextEditingController();
   bool isHavingToilet = true;
   bool isToiletAtLeftSide = true;
+  int numberOfRowsThatToiletSpans = 2;
 
-  List<String> officeNames = [];
+  List<String> regions = [];
+  List<String> offices = [];
   
   DateTime? _selectedDepartureDate;
   TimeOfDay? _selectedDepartureTime;
 
   DateTime? _selectedArrivalDate;
   TimeOfDay? _selectedArrivalTime;
+  bool _isDateError = false;
+  bool _isDateError2 = false;
+  bool _isTimeError = false;
+  bool _isTimeError2 = false;
 
   bool _isLoading = false;
 
@@ -64,6 +73,8 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
   @override
   void initState() {
     super.initState();
+    _seatsPerRowController.text = '4';
+    _toiletAtRowNumberController.text = '7';
     _initializeServices();
   }
 
@@ -95,7 +106,6 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
     }
   }
 
-  
   Future<void> getCompanyOffices({bool useDNS = true}) async {
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/company_offices/${widget.companyId}') // Original URL 
     : Uri.parse('${backend_url_with_fallback_ip}company_offices/${widget.companyId}'); // Use IP
@@ -106,20 +116,35 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
         debugPrint("response.body : ${response.body}");
 
         final responseData = jsonDecode(response.body); // This is a List<dynamic>
+        
 
-        List<String> officeNames2 = [];
+        List<String> regionsList = [];
+        List<String> officesList = [];
 
         // Loop through each office
         for (var office in responseData) {
-          // Add name to officeNames
-          officeNames2.add(office['name']);
+          // Add name to regionsList
+          regionsList.add(office['name']);
+
+          // If this office's id matches widget.officeId, set from
+          if (office['company_id'] == widget.companyId) {
+            officesList.add(office['name']);
+          }
         }
 
-        if(officeNames2.length > 0) {
+        if(regionsList.isNotEmpty) {
           setState(() {
-            officeNames = officeNames2;
+            regions = regionsList;
           });
-        }        
+        }
+
+        if(officesList.length > 1) {
+          setState(() {
+            offices = officesList;
+          });
+        } else {
+          _showRequiredOfficeDialog();
+        }
       }
     } on SocketException catch (e) {
       debugPrint('Network error occurred:');
@@ -150,6 +175,52 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
       debugPrint('Process finished');
     }
   }
+
+  void _showRequiredOfficeDialog() {
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      title: Row(
+        children: [
+          Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700, size: 28),
+          const SizedBox(width: 4),
+          const Expanded(
+            child: Text(
+              'Offices Required',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+      content: const Text(
+        'You must have at least two offices to continue. Please add an office now.',
+        style: TextStyle(fontSize: 14),
+      ),
+      actions: [
+        ElevatedButton(
+          onPressed: () async {
+            Navigator.pop(context);
+            await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => AddOfficePage(userId: widget.userId, companyId: widget.companyId,)),
+            );
+            getCompanyOffices();
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.teal.shade700,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          child: const Text('ADD OFFICE'),
+        ),
+      ],
+    ),
+  );
+}
 
   Future<void> getUserRole({bool useDNS = true}) async {
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/get_user_role/$userId') // Original URL 
@@ -283,11 +354,89 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
       return;
     }
 
+    if (_startingPointController.text.trim().toLowerCase() == _finalPointController.text.trim().toLowerCase()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Starting and final point cannot be the same location.')),
+      );
+      return;
+    }
+
+    if (_selectedDepartureDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Departure date is required'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      setState(() {
+        _isDateError = true;
+      });
+      return;
+    } else {
+      setState(() {
+        _isDateError = false;
+      });
+    }
+
+    if (_selectedDepartureTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Departure time is required'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      setState(() {
+        _isTimeError = true;
+      });
+      return;
+    } else {
+      setState(() {
+        _isTimeError = false;
+      });
+
+    }
+
+    if (_selectedArrivalDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Arrival date is required'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      setState(() {
+        _isDateError2 = true;
+      });
+      return;
+    } else {
+      setState(() {
+        _isDateError2 = false;
+      });
+    }
+
+    if (_selectedArrivalTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Arrival time is required'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      setState(() {
+        _isTimeError2 = true;
+      });
+      return;
+    } else {
+      setState(() {
+        _isTimeError2 = false;
+      });
+    }
+
     final Map<String, dynamic> requestBody = {
       'user_id': userId,
       'company_id': widget.companyId,
-      'to': _toController.text.trim().toUpperCase(),
       'from': _fromController.text.trim().toUpperCase(),
+      'to': _toController.text.trim().toUpperCase(),
+      'starting_point': _startingPointController.text.trim().toUpperCase(),
+      'final_point': _finalPointController.text.trim().toUpperCase(),
       'ticket_price': _ticketPriceController.text.trim(),
       'bus_name': _busNameController.text.trim().toUpperCase(),
       'bus_registration_number': _busRegistrationNumberController.text.trim().toUpperCase(),
@@ -296,6 +445,7 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
       'is_having_toilet': isHavingToilet,
       'is_toilet_at_left_side': isToiletAtLeftSide,
       'toilet_at_row_number': int.tryParse(_toiletAtRowNumberController.text.trim()) ?? 0,
+      'number_of_rows_that_toilet_spans': numberOfRowsThatToiletSpans,
       'departure_date': _selectedDepartureDate?.toIso8601String(),
       'departure_time': '${_selectedDepartureTime!.hour}:${_selectedDepartureTime!.minute}',
       'arrival_date': _selectedArrivalDate ?.toIso8601String(),
@@ -505,6 +655,8 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
     _routeNameController.dispose();
     _toController.dispose();
     _fromController.dispose();
+    _startingPointController.dispose();
+    _finalPointController.dispose();
     _ticketPriceController.dispose();
     _busNameController.dispose();
     _busRegistrationNumberController.dispose();
@@ -537,7 +689,7 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
       ),
       filled: true,
       fillColor: Colors.grey[200],
-      contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+      contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
     );
   }
 
@@ -559,6 +711,22 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
             const SizedBox(width: 16),
             Expanded(child: _buildTimePicker()),
           ],
+        ),
+        if (_isDateError)
+        const Padding(
+          padding: EdgeInsets.only(left: 12, top: 4),
+          child: Text(
+            'Please select departure date',
+            style: TextStyle(color: Colors.red, fontSize: 12),
+          ),
+        ),
+        if (_isTimeError)
+        const Padding(
+          padding: EdgeInsets.only(left: 12, top: 4),
+          child: Text(
+            'Please select departure time',
+            style: TextStyle(color: Colors.red, fontSize: 12),
+          ),
         ),
       ],
     );
@@ -583,6 +751,22 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
             Expanded(child: _buildTimePicker2()),
           ],
         ),
+        if (_isDateError2)
+        const Padding(
+          padding: EdgeInsets.only(left: 12, top: 4),
+          child: Text(
+            'Please select arrival date',
+            style: TextStyle(color: Colors.red, fontSize: 12),
+          ),
+        ),
+        if (_isTimeError2)
+        const Padding(
+          padding: EdgeInsets.only(left: 12, top: 4),
+          child: Text(
+            'Please select arrival time',
+            style: TextStyle(color: Colors.red, fontSize: 12),
+          ),
+        ),
       ],
     );
   }
@@ -596,17 +780,17 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
             ? 'Select Date'
             : '${_selectedDepartureDate!.day}/${_selectedDepartureDate!.month}/${_selectedDepartureDate!.year}',
         style: TextStyle(
-          color: _selectedDepartureDate == null ? Colors.grey[600] : Colors.black,
+          color: _isDateError ? Colors.red : (_selectedDepartureDate == null ? Colors.grey[600] : Colors.black),
           fontWeight: FontWeight.w500,
         ),
       ),
       style: TextButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.symmetric(vertical: 8),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
         ),
         side: BorderSide(
-          color: _selectedDepartureDate == null ? Colors.grey[400]! : Colors.teal[800]!,
+          color: _isDateError ? Colors.red : (_selectedDepartureDate == null ? Colors.grey[400]! : Colors.teal[800]!),
           width: 1.5,
         ),
         backgroundColor: Colors.grey[200],
@@ -628,7 +812,7 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
         ),
       ),
       style: TextButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.symmetric(vertical: 8),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
         ),
@@ -650,17 +834,17 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
             ? 'Select Date'
             : '${_selectedArrivalDate!.day}/${_selectedArrivalDate!.month}/${_selectedArrivalDate!.year}',
         style: TextStyle(
-          color: _selectedArrivalDate == null ? Colors.grey[600] : Colors.black,
+          color: _isDateError2 ? Colors.red : (_selectedArrivalDate == null ? Colors.grey[600] : Colors.black),
           fontWeight: FontWeight.w500,
         ),
       ),
       style: TextButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.symmetric(vertical: 8),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
         ),
         side: BorderSide(
-          color: _selectedArrivalDate == null ? Colors.grey[400]! : Colors.teal[800]!,
+          color: _isDateError2 ? Colors.red : (_selectedArrivalDate == null ? Colors.grey[400]! : Colors.teal[800]!),
           width: 1.5,
         ),
         backgroundColor: Colors.grey[200],
@@ -682,7 +866,7 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
         ),
       ),
       style: TextButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.symmetric(vertical: 8),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
         ),
@@ -743,7 +927,7 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
     return TextFormField(
       controller: _numberOfSeatRowsController,
       enabled: busId == 0, // Disable if a bus is selected
-      decoration: _buildInputDecoration('Number of Seat Rows', prefixIcon: Icons.chair),
+      decoration: _buildInputDecoration('No of Seat Rows', prefixIcon: Icons.chair),
       keyboardType: TextInputType.number,
       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
       style: const TextStyle(fontSize: 14),
@@ -758,6 +942,15 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
       keyboardType: TextInputType.number,
       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
       style: const TextStyle(fontSize: 14),
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Please enter seats per row';
+        }
+        if (value.trim() != '4') {
+          return 'Only 4 seats per row allowed';
+        }
+        return null;
+      },
     );
   }
 
@@ -978,7 +1171,7 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
                                                   borderRadius: BorderRadius.circular(4),
                                                 ),
                                                 child: Text(
-                                                  'After which row?',
+                                                  'At which row?',
                                                   style: TextStyle(
                                                     fontSize: 10,
                                                     color: Colors.orange[800],
@@ -999,7 +1192,7 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
                                                   keyboardType: TextInputType.number,
                                                   enabled: busId == 0, // Disable if a bus is selected
                                                   decoration: InputDecoration(
-                                                    hintText: 'Enter row number',
+                                                    hintText: 'Row number',
                                                     prefixIcon: Icon(Icons.numbers, size: 16, color: Colors.teal[400]),
                                                     border: OutlineInputBorder(
                                                       borderRadius: BorderRadius.circular(10),
@@ -1015,7 +1208,7 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
                                                     ),
                                                     filled: true,
                                                     fillColor: Colors.grey[50],
-                                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                                    contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                                                   ),
                                                   onChanged: (value) {
                                                     setState(() {
@@ -1035,37 +1228,56 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
                                                   },
                                                 ),
                                               ),
-                                              const SizedBox(width: 12),
+                                              const SizedBox(width: 4),
                                               Expanded(
-                                                flex: 1,
-                                                child: Container(
-                                                  padding: const EdgeInsets.all(6),
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.teal[50],
-                                                    borderRadius: BorderRadius.circular(10),
-                                                    border: Border.all(color: Colors.teal[200]!),
+                                                flex: 2,
+                                                child: DropdownButtonFormField<int>(
+                                                  value: numberOfRowsThatToiletSpans,
+                                                  decoration: InputDecoration( 
+                                                    hintText: 'Select number of rows',
+                                                    prefixIcon: Icon(Icons.table_rows, size: 16, color: Colors.teal[400]),
+                                                    border: OutlineInputBorder(
+                                                      borderRadius: BorderRadius.circular(10),
+                                                      borderSide: BorderSide(color: Colors.grey[300]!),
+                                                    ),
+                                                    enabledBorder: OutlineInputBorder(
+                                                      borderRadius: BorderRadius.circular(10),
+                                                      borderSide: BorderSide(color: Colors.grey[300]!),
+                                                    ),
+                                                    focusedBorder: OutlineInputBorder(
+                                                      borderRadius: BorderRadius.circular(10),
+                                                      borderSide: const BorderSide(color: Colors.teal),
+                                                    ),
+                                                    filled: true,
+                                                    fillColor: Colors.grey[50],
+                                                    contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                                                   ),
-                                                  child: Column(
-                                                    children: [
-                                                      Text(
-                                                        'Row Info',
-                                                        style: TextStyle(
-                                                          fontSize: 10,
-                                                          fontWeight: FontWeight.w600,
-                                                          color: Colors.teal[700],
-                                                        ),
-                                                      ),
-                                                      const SizedBox(height: 2),
-                                                      Text(
-                                                        'Max: ${getNumberOfSeatRows(_numberOfSeatRowsController.text)}',
-                                                        style: TextStyle(
-                                                          fontSize: 11,
-                                                          color: Colors.teal[600],
-                                                          fontWeight: FontWeight.bold,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
+                                                  items: (busId == 0) ? const [
+                                                    DropdownMenuItem<int>(
+                                                      value: 2,
+                                                      child: Text('2 rows'),
+                                                    ),
+                                                    DropdownMenuItem<int>(
+                                                      value: 3,
+                                                      child: Text('3 rows'),
+                                                    ),
+                                                  ] : [
+                                                    DropdownMenuItem<int>(
+                                                      value: numberOfRowsThatToiletSpans,
+                                                      child: Text('$numberOfRowsThatToiletSpans row'),
+                                                    ),
+                                                  ],
+                                                  onChanged: (busId == 0) ? (int? newValue) {
+                                                    setState(() {
+                                                      numberOfRowsThatToiletSpans = newValue!;
+                                                    });
+                                                  } : null, // Disable if a bus is selected
+                                                  validator: (value) {
+                                                    if (value == null) {
+                                                      return 'Please select number of rows the toilet spans';
+                                                    }
+                                                    return null;
+                                                  },
                                                 ),
                                               ),
                                             ],
@@ -1280,29 +1492,7 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
                       ),
                     ],
                   ),
-                ),
-                
-                const SizedBox(height: 12),
-                
-                // Reset to default button
-                if (isHavingToilet != true || isToiletAtLeftSide != true)
-                  SizedBox(
-                    width: double.infinity,
-                    child: TextButton.icon(
-                      onPressed: (busId == 0) ? () {
-                        setState(() {
-                          isHavingToilet = true;
-                          isToiletAtLeftSide = true;
-                        });
-                      } : null,
-                      icon: const Icon(Icons.restore, size: 16),
-                      label: const Text('Reset to Default Configuration'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.teal[700],
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
+                ),                
               ],
             ),
           ),
@@ -1450,6 +1640,12 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
 
                         _fromController.text = selectedBusRoute.from;
                         _toController.text = selectedBusRoute.to;
+                        if(_startingPointController.text.isEmpty) {
+                          _startingPointController.text = selectedBusRoute.from;
+                        }
+                        if(_finalPointController.text.isEmpty) {
+                          _finalPointController.text = selectedBusRoute.to;
+                        }
                         _ticketPriceController.text = selectedBusRoute.ticketPrice.toString();
                       }
                     },
@@ -1477,14 +1673,21 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
 
                             _fromController.text = selectedBusRoute.from;
                             _toController.text = selectedBusRoute.to;
+                            if(_startingPointController.text.isEmpty) {
+                              _startingPointController.text = selectedBusRoute.from;
+                            }
+                            if(_finalPointController.text.isEmpty) {
+                              _finalPointController.text = selectedBusRoute.to;
+                            }
                             _ticketPriceController.text = selectedBusRoute.ticketPrice.toString();
                           } else {
                             setState(() {
                               routeId = 0;
                             });
 
-                            _toController.text = '';
                             _fromController.text = '';
+                            _toController.text = '';
+                            
                             _ticketPriceController.text = '';
                           }
                         },
@@ -1524,15 +1727,14 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
                   ),
                   const SizedBox(height: 16),
 
-                  
                   Autocomplete<String>(
                     initialValue: TextEditingValue(text: _fromController.text),
 
                     optionsBuilder: (TextEditingValue textEditingValue) {
                       if (textEditingValue.text.isEmpty) {
-                        return officeNames;
+                        return regions;
                       }
-                      return officeNames.where((office) =>
+                      return regions.where((office) =>
                           office.toLowerCase().contains(textEditingValue.text.toLowerCase()));
                     },
 
@@ -1595,9 +1797,9 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
 
                     optionsBuilder: (TextEditingValue textEditingValue) {
                       if (textEditingValue.text.isEmpty) {
-                        return officeNames;
+                        return regions;
                       }
-                      return officeNames.where((office) =>
+                      return regions.where((office) =>
                           office.toLowerCase().contains(textEditingValue.text.toLowerCase()));
                     },
 
@@ -1612,7 +1814,7 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
                         controller: controller,
                         focusNode: focusNode,
                         decoration: _buildInputDecoration(
-                          AppLocalizations.of(context)!.to,
+                          AppLocalizations.of(context)!.to2,
                           prefixIcon: Icons.business,
                         ),
                         onChanged: (value) {
@@ -1655,6 +1857,137 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
                     },
                   ),
                   
+                  const SizedBox(height: 16),
+                  
+                  Autocomplete<String>(
+                    initialValue: TextEditingValue(text: _startingPointController.text),
+
+                    optionsBuilder: (TextEditingValue textEditingValue) {
+                      if (textEditingValue.text.isEmpty) {
+                        return offices;
+                      }
+                      return offices.where((office) =>
+                          office.toLowerCase().contains(textEditingValue.text.toLowerCase()));
+                    },
+
+                    onSelected: (String selection) {
+                      _startingPointController.text = selection;
+                    },
+
+                    fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
+                      controller.text = _startingPointController.text;
+
+                      return TextFormField(
+                        controller: controller,
+                        focusNode: focusNode,
+                        decoration: _buildInputDecoration(
+                          AppLocalizations.of(context)!.startingPoint,
+                          prefixIcon: Icons.location_on_outlined,
+                        ),
+                        onChanged: (value) {
+                          _startingPointController.text = value;
+                        },
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return AppLocalizations.of(context)!.pleaseEnterOrigin;
+                          }
+                          return null;
+                        },
+                      );
+                    },
+
+                    // 👇 THIS CONTROLS HEIGHT
+                    optionsViewBuilder: (context, onSelected, options) {
+                      return Align(
+                        alignment: Alignment.topLeft,
+                        child: Material(
+                          elevation: 4,
+                          child: SizedBox(
+                            height: 300, // 👈 🔥 increase this (e.g. 400, 500)
+                            width: MediaQuery.of(context).size.width * 0.9,
+                            child: ListView.builder(
+                              padding: EdgeInsets.zero,
+                              itemCount: options.length,
+                              itemBuilder: (context, index) {
+                                final option = options.elementAt(index);
+
+                                return ListTile(
+                                  dense: true, // 👈 reduces item height
+                                  title: Text(option),
+                                  onTap: () => onSelected(option),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Autocomplete<String>(
+                    initialValue: TextEditingValue(text: _finalPointController.text),
+
+                    optionsBuilder: (TextEditingValue textEditingValue) {
+                      if (textEditingValue.text.isEmpty) {
+                        return offices;
+                      }
+                      return offices.where((office) =>
+                          office.toLowerCase().contains(textEditingValue.text.toLowerCase()));
+                    },
+
+                    onSelected: (String selection) {
+                      _finalPointController.text = selection;
+                    },
+
+                    fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
+                      controller.text = _finalPointController.text;
+
+                      return TextFormField(
+                        controller: controller,
+                        focusNode: focusNode,
+                        decoration: _buildInputDecoration(
+                          AppLocalizations.of(context)!.finalPoint,
+                          prefixIcon: Icons.location_on_outlined,
+                        ),
+                        onChanged: (value) {
+                          _finalPointController.text = value;
+                        },
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return AppLocalizations.of(context)!.pleaseEnterDestination;
+                          }
+                          return null;
+                        },
+                      );
+                    },
+
+                    // 👇 THIS CONTROLS HEIGHT
+                    optionsViewBuilder: (context, onSelected, options) {
+                      return Align(
+                        alignment: Alignment.topLeft,
+                        child: Material(
+                          elevation: 4,
+                          child: SizedBox(
+                            height: 300, // 👈 🔥 increase this (e.g. 400, 500)
+                            width: MediaQuery.of(context).size.width * 0.9,
+                            child: ListView.builder(
+                              padding: EdgeInsets.zero,
+                              itemCount: options.length,
+                              itemBuilder: (context, index) {
+                                final option = options.elementAt(index);
+
+                                return ListTile(
+                                  dense: true, // 👈 reduces item height
+                                  title: Text(option),
+                                  onTap: () => onSelected(option),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
 
                   const SizedBox(height: 16),
                   TextFormField(
@@ -1671,6 +2004,12 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
                   ),
                 
                   const SizedBox(height: 24),
+
+                  _buildDateTimePickers(isLargeScreen),
+                  const SizedBox(height: 16),
+                  _buildDateTimePickers2(isLargeScreen),
+
+                  const SizedBox(height: 16),
 
                   const Text(
                     'Bus Information',
@@ -1697,20 +2036,21 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
                       _busRegistrationNumberController.text = selection;
                       Bus? selectedBus = buses.firstWhereOrNull((r) => r.registrationNumber == selection);
 
-                      debugPrint("Selected bus name: $selection");
+                      debugPrint("Bus registration number: $selection");
                       debugPrint("Selected route: ${selectedBus?.registrationNumber} - ${selectedBus?.name}");
 
                       if (selectedBus != null) {
                         debugPrint("Selected bus ID: ${selectedBus.id}");
                         setState(() {
                           busId = selectedBus.id;
+                          isHavingToilet = selectedBus.isHavingToilet;
+                          isToiletAtLeftSide = selectedBus.isToiletAtLeftSide;
+                          numberOfRowsThatToiletSpans = selectedBus.numberOfRowsThatToiletSpans;
                         });
                         _busNameController.text = selectedBus.name.toString();
                         _numberOfSeatRowsController.text = selectedBus.numberOfSeatRows.toString();
                         _seatsPerRowController.text = selectedBus.seatsPerRow.toString();
                         _toiletAtRowNumberController.text = selectedBus.toiletAtRowNumber.toString();
-                        isHavingToilet = selectedBus.isHavingToilet;
-                        isToiletAtLeftSide = selectedBus.isToiletAtLeftSide;                        
                       }
                     },
 
@@ -1732,29 +2072,31 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
                           if (selectedBus != null) {
                             setState(() {
                               busId = selectedBus.id;
+                              isHavingToilet = selectedBus.isHavingToilet;
+                              isToiletAtLeftSide = selectedBus.isToiletAtLeftSide;
+                              numberOfRowsThatToiletSpans = selectedBus.numberOfRowsThatToiletSpans;
                             });
 
                             _busNameController.text = selectedBus.name.toString();
                             _numberOfSeatRowsController.text = selectedBus.numberOfSeatRows.toString();
                             _seatsPerRowController.text = selectedBus.seatsPerRow.toString();
                             _toiletAtRowNumberController.text = selectedBus.toiletAtRowNumber.toString();
-                            isHavingToilet = selectedBus.isHavingToilet;
-                            isToiletAtLeftSide = selectedBus.isToiletAtLeftSide;
                           } else {
                             setState(() {
                               busId = 0;
+                              isHavingToilet = true;
+                              isToiletAtLeftSide = true;
+                              numberOfRowsThatToiletSpans = 2;
                             });
                             _busNameController.text = '';
                             _numberOfSeatRowsController.text = '';
                             _seatsPerRowController.text = '';
                             _toiletAtRowNumberController.text = '';
-                            isHavingToilet = true;
-                            isToiletAtLeftSide = true; 
                           }
                         },
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return AppLocalizations.of(context)!.pleaseEnterDestination;
+                            return AppLocalizations.of(context)!.pleaseEnterBusRegistrationNumber;
                           }
                           return null;
                         },
@@ -1793,11 +2135,11 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
                   TextFormField(
                     controller: _busNameController,
                     maxLength: 100,
-                    decoration: _buildInputDecoration('Bus Name', prefixIcon: Icons.bus_alert),
+                    decoration: _buildInputDecoration('Bus Name', prefixIcon: Icons.directions_bus),
                     style: const TextStyle(fontSize: 16),
                     enabled: busId == 0, // Disable if a bus is selected
                     validator: (value) {
-                      if (value == null || value.isEmpty) return 'Please enter bus name';
+                      if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseEnterBusName;
                       if (value.length > 100) return 'Bus name must be 100 characters or less';
                       return null;
                     },
@@ -1806,12 +2148,6 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
 
                   _buildRowsAndSeatsField(),
                   
-                  const SizedBox(height: 16),
-
-                  const SizedBox(height: 16),
-                  _buildDateTimePickers(isLargeScreen),
-                  const SizedBox(height: 16),
-                  _buildDateTimePickers2(isLargeScreen),
                   const SizedBox(height: 16),
                   SizedBox(
                     width: isLargeScreen ? 400 : double.infinity,

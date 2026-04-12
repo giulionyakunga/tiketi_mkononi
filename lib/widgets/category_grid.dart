@@ -1,19 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:tiketi_mkononi/l10n/app_localizations.dart';
+import 'package:tiketi_mkononi/models/category.dart';
 import 'package:tiketi_mkononi/screens/add_consignment_page.dart';
-import 'package:tiketi_mkononi/screens/apply_to_be_cargo_transporter_page.dart';
-import 'package:tiketi_mkononi/screens/apply_to_be_transporter_page.dart';
 import 'package:tiketi_mkononi/screens/auth/login_screen.dart';
 import 'package:tiketi_mkononi/screens/category_events_page.dart';
 import 'package:tiketi_mkononi/screens/find_bus_routes_page.dart';
 import 'package:tiketi_mkononi/screens/offices_page.dart';
-
-class Category {
-  final String name;
-  final IconData icon;
-  final Color color; // Add color parameter
-
-  Category({required this.name, required this.icon, required this.color});
-}
 
 class CategoryGrid extends StatelessWidget {
   final int userId;
@@ -27,97 +19,23 @@ class CategoryGrid extends StatelessWidget {
 
   const CategoryGrid({super.key, required this.userId, required this.role, required this.companyId,  required this.officeId,  required this.companyName,  required this.userName, required this.userPhoneNumber, required this.refreshMethod});
   
-  void _showCargoDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Access Restricted'),
-        content: const Text(
-          'This feature is available only to registered Tiketi Mkononi cargo transporters. '
-          'If you would like to offer cargo transportation services, please submit an application to become an approved transporter.'
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(15),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) =>
-                      ApplyToBeCargoTransporterPage(userId: userId),
-                ),
-              );
-            },
-            child: const Text(
-              'Apply Now',
-              style: TextStyle(color: Colors.green),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showBusesDialog2(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Access Restricted'),
-        content: const Text(
-          'This feature is available only to registered Tiketi Mkononi transporters. '
-          'If you would like to offer transportation services, please submit an application to become an approved transporter.'
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(15),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) =>
-                      ApplyToBeTransporterPage(userId: userId),
-                ),
-              );
-            },
-            child: const Text(
-              'Apply Now',
-              style: TextStyle(color: Colors.green),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
 
     final List<Category> categories = [
-      Category(name: 'Concerts', icon: Icons.music_note, color: Colors.blue),
-      Category(name: 'Buses', icon: Icons.directions_bus, color: Colors.orange),
-      Category(name: 'Cargo', icon: Icons.local_shipping, color: Colors.teal),
-      Category(name: 'Sports', icon: Icons.sports_basketball, color: Colors.red),
-      Category(name: 'Comedy', icon: Icons.theater_comedy, color: Colors.brown),
-      Category(name: 'Fun', icon: Icons.beach_access, color: Colors.amber[500]!),
-      // Category(name: 'Festivals', icon: Icons.festival, color: Colors.blue),
-      Category(name: 'Bars & Grills', icon: Icons.wine_bar, color: Colors.pink),
-      Category(name: 'Training', icon: Icons.cast_for_education, color: Colors.green[600]!),
-      Category(name: 'Theater', icon: Icons.theaters, color: Colors.black),
-      Category(name: 'Wedding', icon: Icons.favorite, color: Colors.red),
+      Category(name: AppLocalizations.of(context)!.concerts, value: 'Concerts', icon: Icons.music_note, color: Colors.blue),
+      if ((role == 'transporter') || (role == 'transport_office_attendant'))
+      Category(name: AppLocalizations.of(context)!.buses, value: 'Buses', icon: Icons.directions_bus, color: Colors.teal),
+      if ((role == 'transporter') || (role == 'cargo_transporter') || (role == 'transport_office_attendant') || (role == 'cargo_office_attendant'))
+      Category(name: AppLocalizations.of(context)!.cargo, value: 'Cargo', icon: Icons.local_shipping, color: Colors.teal),
+      Category(name: AppLocalizations.of(context)!.sports, value: 'Sporte', icon: Icons.sports_basketball, color: Colors.red),
+      Category(name: AppLocalizations.of(context)!.comedy, value: 'Comedy', icon: Icons.theater_comedy, color: Colors.brown),
+      Category(name: AppLocalizations.of(context)!.fun, value: 'fun', icon: Icons.beach_access, color: Colors.amber[500]!),
+      // Category(name: AppLocalizations.of(context)!.festivals, value: 'Festival', icon: Icons.festival, color: Colors.blue),
+      Category(name: AppLocalizations.of(context)!.barsAndGrills, value: 'Bars & Grills', icon: Icons.wine_bar, color: Colors.pink),
+      Category(name: AppLocalizations.of(context)!.training, value: 'Training', icon: Icons.cast_for_education, color: Colors.green[600]!),
+      Category(name: AppLocalizations.of(context)!.theater, value: 'Theater', icon: Icons.theaters, color: Colors.black),
+      Category(name: AppLocalizations.of(context)!.wedding, value: 'Wedding', icon: Icons.favorite, color: Colors.red),
     ];
 
     return GridView.builder(
@@ -135,36 +53,26 @@ class CategoryGrid extends StatelessWidget {
           // color: Colors.transparent, // same as parent
           child: InkWell(
             onTap: () async {
-              if(categories[index].name == 'Cargo'){
-                if(!(userId > 0)) {
+              
+              if(categories[index].value == 'Cargo'){
+                if((role == 'transport_office_attendant') || (role == 'cargo_office_attendant')){
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => LoginScreen(),
+                      builder: (context) => AddConsignmentPage(userId: userId, companyId: companyId, companyName: companyName, officeId: officeId, userName: userName, userPhoneNumber: userPhoneNumber, isReplacableScreen: false),
                     ),
                   );
-                } else {
-                  if((role == 'transporter_office_attendant') || (role == 'cargo_office_attendant')){
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => AddConsignmentPage(userId: userId, companyId: companyId, companyName:companyName, officeId: officeId, userName: userName, userPhoneNumber: userPhoneNumber, isReplacableScreen: false),
-                      ),
-                    );
-                  } else if((role == 'transporter') || (role == 'cargo_transporter')){
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => OfficesPage(userId: userId, companyId: companyId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, role: role),
-                      ),
-                    );
+                } else if((role == 'transporter') || (role == 'cargo_transporter')){
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => OfficesPage(userId: userId, companyId: companyId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, role: role),
+                    ),
+                  );
 
-                    refreshMethod();
-                  } else {
-                    _showCargoDialog(context);
-                  }
+                  refreshMethod();
                 }
-              } else if(categories[index].name == 'Buses'){
+              } else if(categories[index].value == 'Buses'){
                 if(!(userId > 0)) {
                   Navigator.push(
                     context,
@@ -183,7 +91,6 @@ class CategoryGrid extends StatelessWidget {
 
                     refreshMethod();
                   } else {
-                    // _showBusesDialog2(context);
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -197,7 +104,7 @@ class CategoryGrid extends StatelessWidget {
                   context,
                   MaterialPageRoute(
                     builder: (context) => CategoryEventsPage(
-                      category: categories[index].name, userId: userId, 
+                      category: categories[index].value, userId: userId, 
                     ),
                   ),
                 );

@@ -1,6 +1,6 @@
 class UserProfile {
   final int id;
-  final int companyId;
+  int companyId;
   final int officeId;
   final int shopId;
   String companyName;

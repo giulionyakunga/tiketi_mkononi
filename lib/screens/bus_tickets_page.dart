@@ -11,9 +11,10 @@ import 'package:tiketi_mkononi/services/storage_service.dart';
 import 'package:tiketi_mkononi/widgets/bus_ticket_card.dart';
 
 class BusTicketsPage extends StatefulWidget {
+  final int userId;
   final BusRoute busRoute;
   
-  const BusTicketsPage({super.key, required this.busRoute});
+  const BusTicketsPage({super.key, required this.userId, required this.busRoute});
 
   @override
   State<BusTicketsPage> createState() => _BusTicketsPageState();
@@ -63,24 +64,31 @@ class _BusTicketsPageState extends State<BusTicketsPage> with WidgetsBindingObse
     String? cachedData = prefs.getString('cached_bus_tickets_${widget.busRoute.id}');
 
     if (cachedData != null) {
-      List<dynamic> dataList = jsonDecode(cachedData);
-      setState(() {
-        ticketsList = dataList.map((json) => BusTicket.fromJson(json)).toList();
-        _filterTicketsByStatus(ticketsList);
-        _isLoading = false;
-      });
+      try {
+        List<dynamic> dataList = jsonDecode(cachedData);
+        setState(() {
+          ticketsList = dataList.map((json) => BusTicket.fromJson(json)).toList();
+          _filterTicketsByStatus(ticketsList);
+          _isLoading = false;
+        });
+      } catch (e) {
+        debugPrint('Error loading cached tickets: $e');
+      }
     }
   }
 
   /// Filter tickets based on status
   void _filterTicketsByStatus(List<BusTicket> tickets) {    
+    // FIXED: Include 'paid' and 'booked' statuses as active tickets
     activeTicketsList = tickets.where((ticket) {
-      return ticket.status == 'booked';
+      return ticket.status == 'booked' || ticket.status == 'paid' || ticket.status == 'confirmed';
     }).toList();
     
     cancelledTicketsList = tickets.where((ticket) {
-      return ticket.status == 'cancelled';
+      return ticket.status == 'cancelled' || ticket.status == 'refunded';
     }).toList();
+    
+    debugPrint('Active tickets: ${activeTicketsList.length}, Cancelled tickets: ${cancelledTicketsList.length}');
   }
 
   /// Fetch tickets from backend based on bus route ID and cache them
@@ -92,15 +100,21 @@ class _BusTicketsPageState extends State<BusTicketsPage> with WidgetsBindingObse
     });
 
     final Uri uri = useDNS 
-        ? Uri.parse('${backend_url}api/bus_route_tickets/${widget.busRoute.id}')
-        : Uri.parse('${backend_url_with_fallback_ip}bus_route_tickets/${widget.busRoute.id}');
+        ? Uri.parse('${backend_url}api/bus_route_tickets/${widget.userId}/${widget.busRoute.id}') 
+        : Uri.parse('${backend_url_with_fallback_ip}bus_route_tickets/${widget.userId}/${widget.busRoute.id}');
 
     try {
       final response = await http.get(uri);
 
+      debugPrint(" >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Response status: ${response.statusCode}");
+      debugPrint(" >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Response body: ${response.body}");
+
       if (response.statusCode == 200) {
         List<dynamic> dataList = jsonDecode(response.body);
+        debugPrint(" >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> dataList length: ${dataList.length}");
+        
         List<BusTicket> tickets = dataList.map((json) => BusTicket.fromJson(json)).toList();
+        debugPrint(" >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> tickets count: ${tickets.length}");
 
         setState(() {
           ticketsList = tickets;
@@ -112,12 +126,19 @@ class _BusTicketsPageState extends State<BusTicketsPage> with WidgetsBindingObse
         // Cache the data locally
         SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setString('cached_bus_tickets_${widget.busRoute.id}', jsonEncode(dataList));
+        
+        // Show success message if tickets found
+        if (tickets.isEmpty) {
+          _showSnackBar('No tickets found for this route');
+        } else {
+          _showSnackBar('Loaded ${tickets.length} tickets');
+        }
       } else if (response.statusCode == 302) {
         if (_isReloading) {
           _handleHTTPRedirect();
         }
       } else {
-        throw Exception('Failed to load bus tickets');
+        throw Exception('Failed to load bus tickets: ${response.statusCode}');
       }
     } on SocketException catch (e) {
       debugPrint('Network error occurred:');
@@ -128,7 +149,7 @@ class _BusTicketsPageState extends State<BusTicketsPage> with WidgetsBindingObse
         debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
         debugPrint('  - OS message: ${e.osError!.message}');
         debugPrint('  - errorCode: ${e.osError!.errorCode}');
-        debugPrint('  - useDNS: ${useDNS}');
+        debugPrint('  - useDNS: $useDNS');
 
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
@@ -140,13 +161,10 @@ class _BusTicketsPageState extends State<BusTicketsPage> with WidgetsBindingObse
 
       _handleSocketException(e);
 
-      if (_isReloading) {
-        _handleSocketException(e);
-        setState(() {
-          _isReloading = false;
-          _isLoading = false;
-        });
-      }
+      setState(() {
+        _isReloading = false;
+        _isLoading = false;
+      });
     } catch (e) {
       debugPrint('An error occurred: $e');
       _showSnackBar('An error occurred: $e');
@@ -200,6 +218,7 @@ class _BusTicketsPageState extends State<BusTicketsPage> with WidgetsBindingObse
   }
 
   void _showSnackBar(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -207,6 +226,7 @@ class _BusTicketsPageState extends State<BusTicketsPage> with WidgetsBindingObse
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
         ),
+        duration: const Duration(seconds: 2),
       ),
     );
   }
@@ -259,7 +279,7 @@ class _BusTicketsPageState extends State<BusTicketsPage> with WidgetsBindingObse
       return _buildEmptyState(
         isCancelled 
           ? 'No cancelled bus tickets found for this route' 
-          : 'No Booked bus tickets found for this route'
+          : 'No active bus tickets found for this route'
       );
     }
 
@@ -339,7 +359,7 @@ class _BusTicketsPageState extends State<BusTicketsPage> with WidgetsBindingObse
           elevation: 0,
           bottom: const TabBar(
             tabs: [
-              Tab(text: 'Upcoming'),
+              Tab(text: 'Active'),
               Tab(text: 'Cancelled'),
             ],
             indicatorColor: Colors.orange,
@@ -353,10 +373,10 @@ class _BusTicketsPageState extends State<BusTicketsPage> with WidgetsBindingObse
             ? _buildEmptyState('No bus tickets found for this route')
             : TabBarView(
                 children: [
-                  // Upcoming Tickets
+                  // Active Tickets (booked, paid, confirmed)
                   _buildTicketList(activeTicketsList),
                   
-                  // Cancelled Tickets
+                  // Cancelled Tickets (cancelled, refunded)
                   _buildTicketList(cancelledTicketsList, isCancelled: true),
                 ],
               ),

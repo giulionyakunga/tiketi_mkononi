@@ -554,14 +554,11 @@ class _BusesPageState extends State<BusesPage> {
 
   Widget _buildBusCard(Bus bus, bool isSelected, bool isLargeScreen) {
     return Card(
-      elevation: isSelected ? 6 : 4,
-      margin: const EdgeInsets.only(bottom: 12),
-      shadowColor: isSelected ? Colors.teal.withOpacity(0.3) : Colors.black.withOpacity(0.1),
+      elevation: isSelected ? 6 : 2,
+      margin: const EdgeInsets.only(bottom: 6),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: isSelected
-            ? BorderSide(color: Colors.teal.shade400, width: 2.5)
-            : BorderSide.none,
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide.none,
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20),

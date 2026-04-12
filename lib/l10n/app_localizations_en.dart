@@ -21,6 +21,51 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profile => 'Profile';
 
   @override
+  String get myProfile => 'My Profile';
+
+  @override
+  String get searchEvents => 'searchEvents';
+
+  @override
+  String get featuredEvents => 'Featured Events';
+
+  @override
+  String get seeAll => 'See All';
+
+  @override
+  String get categories => 'Categories';
+
+  @override
+  String get concerts => 'Concerts';
+
+  @override
+  String get buses => 'Buses';
+
+  @override
+  String get cargo => 'Cargo';
+
+  @override
+  String get sports => 'Sports';
+
+  @override
+  String get comedy => 'Comedy';
+
+  @override
+  String get fun => 'Fun';
+
+  @override
+  String get barsAndGrills => 'Bars & Grills';
+
+  @override
+  String get training => 'Training';
+
+  @override
+  String get theater => 'Theater';
+
+  @override
+  String get wedding => 'Wedding';
+
+  @override
   String get addParcel => 'Add Parcel';
 
   @override
@@ -49,6 +94,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get to => 'Destination';
+
+  @override
+  String get startingPoint => 'Starting point';
+
+  @override
+  String get finalPoint => 'Final point';
 
   @override
   String get receiverName => 'Receiver Name';
@@ -566,4 +617,33 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get selectConsignment => 'Select a consignment to view details';
+
+  @override
+  String get officeInformation => 'Office Information';
+
+  @override
+  String get addANewOfficeLocation =>
+      'Add a new office location for your transport company.';
+
+  @override
+  String get officeName => 'Office Name';
+
+  @override
+  String get officeLocation => 'Office Location';
+
+  @override
+  String get pleaseEnterOfficeLocation => 'Please enter office location';
+
+  @override
+  String get addOffice => 'Add Office';
+
+  @override
+  String get myOffices => 'My Offices';
+
+  @override
+  String get pleaseEnterBusRegistrationNumber =>
+      'Please enter bus registration number';
+
+  @override
+  String get pleaseEnterBusName => 'Please enter bus name';
 }

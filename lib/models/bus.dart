@@ -8,6 +8,7 @@ class Bus {
   int seatsPerRow;
   bool isHavingToilet;
   int toiletAtRowNumber;
+  int numberOfRowsThatToiletSpans;
   bool isToiletAtLeftSide;
   final String status;
 
@@ -21,6 +22,7 @@ class Bus {
     required this.seatsPerRow,
     required this.isHavingToilet,
     required this.toiletAtRowNumber,
+    required this.numberOfRowsThatToiletSpans,
     required this.isToiletAtLeftSide,
     required this.status,
   });
@@ -37,6 +39,7 @@ class Bus {
       seatsPerRow: json['seats_per_row'] ?? 0,
       isHavingToilet: json['is_having_toilet'] ?? true,
       toiletAtRowNumber: json['toilet_at_row_number'] ?? 7,
+      numberOfRowsThatToiletSpans: json['number_of_rows_that_toilet_spans'] ?? 7,
       isToiletAtLeftSide: json['is_toilet_at_left_side'] ?? true,
       status: json['status'] ?? '',
     );

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
+import 'package:tiketi_mkononi/l10n/app_localizations.dart';
 import 'package:tiketi_mkononi/screens/events_page.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
 import 'package:tiketi_mkononi/widgets/category_grid.dart';
@@ -63,6 +64,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void _loadUserProfile() {
     final profile = _storageService.getUserProfile();
     if (profile != null) {
+
       setState(() {
         userId = profile.id;
         role = profile.role;
@@ -131,6 +133,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body);
         debugPrint('response.body : ${response.body}');
+        
         setState(() {
           companyId = responseData['company_id'] ?? 0;
           officeId = responseData['office_id'] ?? 0;
@@ -142,6 +145,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         });
         var profile = _storageService.getUserProfile();
         profile!.role =  responseData['role'];
+        profile.companyId =  responseData['company_id']  ?? 0;
         profile.companyName =  responseData['company_name']  ?? '';
         await _storageService.saveUserProfile(profile);
       }
@@ -560,7 +564,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       ),
       child: SearchBar(
         controller: _searchController,
-        hintText: 'Search events...',
+        hintText: '${AppLocalizations.of(context)!.searchEvents}...',
         hintStyle: WidgetStateTextStyle.resolveWith(
           (states) => TextStyle(
             color: isDarkMode ? Colors.white70 : Colors.grey[600],
@@ -613,7 +617,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Featured Events',
+                AppLocalizations.of(context)!.featuredEvents,
                 style: TextStyle(
                   fontSize: isWideScreen ? 24 : 20,
                   fontWeight: FontWeight.bold,
@@ -630,7 +634,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   );
                 },
                 child: Text(
-                  'See All',
+                  AppLocalizations.of(context)!.seeAll,
                   style: TextStyle(
                     fontSize: isWideScreen ? 18 : null,
                     color: isDarkMode ? Colors.purpleAccent : Colors.orange[800],
@@ -659,7 +663,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: Text(
-            'Categories',
+            AppLocalizations.of(context)!.categories,
             style: TextStyle(
               fontSize: isWideScreen ? 24 : 20,
               fontWeight: FontWeight.bold,
