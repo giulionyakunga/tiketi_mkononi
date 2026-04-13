@@ -16,6 +16,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:tiketi_mkononi/l10n/app_localizations.dart';
 import 'package:tiketi_mkononi/screens/add_consignment_page.dart';
 import 'package:tiketi_mkononi/services/SimpleCodec.dart';
 import 'package:excel/excel.dart' hide Border;
@@ -48,7 +49,6 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
   DateTime _selectedDate = DateTime.now();
   BluetoothInfo? selectedPrinter;
   Printer? selectedCablePrinter;
-  String _appbarLabel = 'Consignments';
   String _typeFilter = 'all'; // all | parcel | consignment
   String _paymentFilter = 'all'; // all | parcel | consignment
   
@@ -179,12 +179,18 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
         _selectedConsignment = null;
       });
 
-      final uri = useDNS ? Uri.parse('$backend_url/api/consignments/${widget.userId}/${widget.role}/${widget.officeId}/${widget.companyId}/${DateFormat('d-M-yyyy').format(_selectedDate)}')
+      final uri = useDNS ? Uri.parse('${backend_url}api/consignments/${widget.userId}/${widget.role}/${widget.officeId}/${widget.companyId}/${DateFormat('d-M-yyyy').format(_selectedDate)}')
       : Uri.parse('${backend_url_with_fallback_ip}consignments/${widget.userId}/${widget.role}/${widget.officeId}/${widget.companyId}/${DateFormat('d-M-yyyy').format(_selectedDate)}');
+      
+      debugPrint('Fetching consignments from: $uri');
+
+      // Fetching consignments from: https://tiketimkononi.telabs.co.tz//api/consignments/105/transporter/161/57/13-4-2026
+
+      // Fetching consignments from: https://tiketimkononi.telabs.co.tz//api/consignments/3/cargo_transporter/1/1/13-4-2026
+
 
       final response = await http.get(uri);
 
-      debugPrint('Fetching consignments from: $uri');
 
       if (response.statusCode == 200) {
         final dynamic responseData = jsonDecode(response.body);
@@ -292,7 +298,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          (widget.officeId > 0) ? '${widget.officeName} $_appbarLabel' : '$_appbarLabel',
+          (widget.officeId > 0) ? AppLocalizations.of(context)!.officeCargos(widget.officeName) : AppLocalizations.of(context)!.cargos,
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600
@@ -485,14 +491,12 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
           setState(() {
             _paymentFilter = 'all';
             _typeFilter = value;
-            _appbarLabel = '${value[0].toUpperCase() + value.substring(1)}';
           });
         }
         if((value == 'parcels') || (value == 'consignments')) {
           setState(() {
             _paymentFilter = 'all';
             _typeFilter = value;
-            _appbarLabel = '${value[0].toUpperCase() + value.substring(1)}';
           });
         } else if (value == 'unpaid') {
           setState(() {
@@ -912,8 +916,8 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
               ),
             ),
             const SizedBox(height: 24),
-            const Text(
-              'No Consignments Yet',
+            Text(
+              AppLocalizations.of(context)!.noCargosYet,
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -921,8 +925,8 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
-              'Consignments you create will appear here',
+            Text(
+              AppLocalizations.of(context)!.cargosYouAddWillAppearHere,
               style: TextStyle(fontSize: 16, color: Colors.grey),
             ),
           ],

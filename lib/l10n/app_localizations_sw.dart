@@ -45,10 +45,24 @@ class AppLocalizationsSw extends AppLocalizations {
   String get cargo => 'Mizigo';
 
   @override
+  String get cargos => 'Mizigo';
+
+  @override
+  String officeCargos(Object officeName) {
+    return 'Mizigo ya $officeName';
+  }
+
+  @override
+  String get cargosYouAddWillAppearHere => 'Mizigo unayoweka itaonekana hapa';
+
+  @override
+  String get noCargosYet => 'Bado hakuna mizigo';
+
+  @override
   String get sports => 'Michazo';
 
   @override
-  String get comedy => 'Komedi Vichekesho';
+  String get comedy => 'Komedi';
 
   @override
   String get fun => 'Burudani';
@@ -96,10 +110,31 @@ class AppLocalizationsSw extends AppLocalizations {
   String get to => 'Kwenda';
 
   @override
+  String get passingThrough => 'Kupitia';
+
+  @override
   String get startingPoint => 'Kituo cha kuanzia';
 
   @override
   String get finalPoint => 'Kituo cha mwisho';
+
+  @override
+  String get availableSeats => 'Siti Zilizopo';
+
+  @override
+  String get pricePerSeat => 'Bei ya tiketi';
+
+  @override
+  String get departure => 'kuondoka';
+
+  @override
+  String get arrival => 'kufika';
+
+  @override
+  String get deleteRoute => 'Futa Ruti';
+
+  @override
+  String get searchRouteByName => 'Tafuta ruti kwa jina...';
 
   @override
   String get receiverName => 'Jina la Mpokeaji';

@@ -40,7 +40,10 @@ class _FindBusRoutesPageState extends State<FindBusRoutesPage> {
   void initState() {
     super.initState();
     getRegions();
-    String dateStr = DateFormat('d-M-yyyy').format(DateTime.now());
+
+    // Add 1 day to current date, then format and parse
+    DateTime tomorrow = DateTime.now().add(Duration(days: 1));
+    String dateStr = DateFormat('d-M-yyyy').format(tomorrow);
     _selectedDate = DateFormat('d-M-yyyy').parse(dateStr);
   }
 
@@ -632,7 +635,7 @@ class _FindBusRoutesPageState extends State<FindBusRoutesPage> {
         child: Column(
           children: [
             _buildLocationSelectionWidget(),
-            _isLoading ? const Center(child: CircularProgressIndicator())
+            (_isLoading && _busRoutes.isEmpty) ? const Center(child: CircularProgressIndicator())
             : _error != null
             ? Center(
                 child: Column(
@@ -734,7 +737,6 @@ class _FindBusRoutesPageState extends State<FindBusRoutesPage> {
     }
   }
 
-  // Alternative version with more detailed formatting
   String calculateDurationDetailed({
     required String departureDate,
     required String departureTime,
@@ -811,27 +813,33 @@ class _FindBusRoutesPageState extends State<FindBusRoutesPage> {
     }
   }
 
-  // Helper function to detect time period (NIGHT, EARLY MORNING, etc.)
-  String getTimePeriod(String time) {
-    try {
-      List<String> timeParts = time.split(':');
-      int hour = int.parse(timeParts[0]);
-      
-      if (hour >= 0 && hour < 4) {
-        return "LATE NIGHT";
-      } else if (hour >= 4 && hour < 6) {
-        return "EARLY MORNING";
-      } else if (hour >= 6 && hour < 12) {
-        return "MORNING";
-      } else if (hour >= 12 && hour < 17) {
-        return "AFTERNOON";
-      } else if (hour >= 17 && hour < 20) {
-        return "EVENING";
-      } else {
-        return "NIGHT";
-      }
-    } catch (e) {
-      return "";
+  String getTimeOfDay(String time24) {
+    // Parse "HH:mm"
+    final parts = time24.split(':');
+    if (parts.length != 2) return "Invalid time format";
+
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+
+    // Validate
+    if (hour == null ||
+        minute == null ||
+        hour < 0 ||
+        hour > 23 || 
+        minute < 0 ||
+        minute > 59) {
+      return "Invalid time format";
+    }
+
+    // Determine time of day
+    if (hour >= 5 && hour < 12) {
+      return "Asubuhi"; // Morning
+    } else if (hour >= 12 && hour < 17) {
+      return "Mchana"; // Afternoon
+    } else if (hour >= 17 && hour < 21) {
+      return "Jioni"; // Evening
+    } else {
+      return "Usiku"; // Night (21:00–04:59)
     }
   }
 
@@ -889,9 +897,9 @@ class _FindBusRoutesPageState extends State<FindBusRoutesPage> {
               child: Material(
                 color: Colors.white,
                 child: InkWell(
-                  onTap: () {
+                  onTap: () async {
                     debugPrint('Selected route: ${route.from} → ${route.to}');
-                    Navigator.push(
+                    await Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => BusTicketsCheckoutPage(
@@ -904,6 +912,8 @@ class _FindBusRoutesPageState extends State<FindBusRoutesPage> {
                         ),
                       )
                     );
+                    
+                    _findBusRoutes();
                   },
                   splashColor: Colors.teal.withOpacity(0.1),
                   highlightColor: Colors.teal.withOpacity(0.05),
@@ -1075,7 +1085,7 @@ class _FindBusRoutesPageState extends State<FindBusRoutesPage> {
                                     Row(
                                       children: [
                                         Icon(Icons.departure_board, size: 16, color: Colors.teal.shade700),
-                                        const SizedBox(width: 6),
+                                        const SizedBox(width: 3),
                                         Text(
                                           "DEPARTURE",
                                           style: TextStyle(
@@ -1097,6 +1107,13 @@ class _FindBusRoutesPageState extends State<FindBusRoutesPage> {
                                       ),
                                     ),
                                     Text(
+                                      '(${getTimeOfDay(route.departureTime)})',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                    Text(
                                       route.departureDate,
                                       style: TextStyle(
                                         fontSize: 10,
@@ -1110,7 +1127,14 @@ class _FindBusRoutesPageState extends State<FindBusRoutesPage> {
                                 margin: const EdgeInsets.symmetric(horizontal: 8),
                                 child: Column(
                                   children: [
-                                    Icon(Icons.arrow_forward, size: 20, color: Colors.grey.shade400),
+                                    Text(
+                                      'VIA ${route.via}',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        color: Colors.green.shade600,
+                                        fontWeight: FontWeight.w500
+                                      ),
+                                    ),
                                     const SizedBox(height: 4),
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -1147,7 +1171,7 @@ class _FindBusRoutesPageState extends State<FindBusRoutesPage> {
                                             letterSpacing: 0.5,
                                           ),
                                         ),
-                                        const SizedBox(width: 6),
+                                        const SizedBox(width: 3),
                                         Icon(Icons.flag, size: 16, color: Colors.teal.shade700),
                                       ],
                                     ),
@@ -1158,6 +1182,13 @@ class _FindBusRoutesPageState extends State<FindBusRoutesPage> {
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,
                                         color: Colors.teal.shade800,
+                                      ),
+                                    ),
+                                    Text(
+                                      '(${getTimeOfDay(route.arrivalTime)})',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.grey.shade600,
                                       ),
                                     ),
                                     Text(

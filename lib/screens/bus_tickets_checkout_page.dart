@@ -67,7 +67,7 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
   List<String> _bookedSeats = [];
   List<String> _allSeats = [];
   List<BusTicket> busTickets = [];
-  int _maxSelectableSeats = 1;
+  int _maxSelectableSeats = 2;
 
   List<dynamic> receiptPackages = [];
   int receiptsBalance = 0;
@@ -129,16 +129,28 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
 
   void _initializeSeats() {
     List<String> letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
+    List<int> numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26];
     _allSeats = [];
     
     int rows = widget.busRoute.bus?.numberOfSeatRows ?? 14;
     int seatsPerRow = widget.busRoute.bus?.seatsPerRow ?? 4;
 
-    for (int row = 0; row < rows; row++) {
-      for (int col = seatsPerRow - 1; col >= 0; col--) {
-        _allSeats.add('${letters[row]}${col + 1}');
+    if(widget.busRoute.bus!.isLetteredSeats) {
+      for (int row = 0; row < rows; row++) {
+        for (int col = seatsPerRow - 1; col >= 0; col--) {
+          _allSeats.add('${letters[row]}${col + 1}');
+        }
+      } 
+    } else {
+      for (int row = 0; row < rows; row++) {
+        for (int col = seatsPerRow; col >= 1; col--) {
+          _allSeats.add(
+            ('${letters[row]}${((numbers[row] - 1) * 4) + col}')
+          );
+        }
       }
     }
+
   }
 
   void _startFetchingBookedSeats() {
@@ -833,7 +845,12 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Bus Ticket Checkout'),
+        title: const Text(
+          'Bus Ticket Checkout',
+          style: TextStyle(
+            fontSize: 16,
+          ),
+        ),
         backgroundColor: const Color.fromARGB(255, 240, 244, 247),
         actions: [
           PopupMenuButton<String>(
@@ -853,7 +870,7 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => BusTicketsPage(userId: widget.userId, busRoute: widget.busRoute),
+                    builder: (context) => BusTicketsPage(userId: widget.userId, busRoute: widget.busRoute, printTickets: _printBluetoothReceipt),
                   ),
                 );
               } else if (value == 'reprint_receipt') {
@@ -873,7 +890,7 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
             },
             itemBuilder: (context) => [    
               _buildMenuItem(
-                icon: Icons.print,
+                icon: Icons.confirmation_number,
                 text: 'My Tickets',
                 value: 'my_tickets',
               ),          
@@ -955,9 +972,11 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
             const SizedBox(height: 12),
             _buildDetailRow('🚌', 'Bus:', widget.busRoute.bus!.name),
             _buildDetailRow('🏢', 'Company:', widget.busRoute.company!.name),
-            _buildDetailRow('⏰', 'Departure:', widget.busRoute.departureTime),
-            _buildDetailRow('📅', 'Date:', widget.busRoute.departureDate),
-            _buildDetailRow('💺', 'Available Seats:', '${_allSeats.length - _bookedSeats.length}'),
+            _buildDetailRow('📅', 'Departure Date:', widget.busRoute.departureDate),
+            _buildDetailRow('⏰', 'Departure Time:', widget.busRoute.departureTime),
+            _buildDetailRow('📅', 'Arrival Date:', widget.busRoute.arrivalDate),
+            _buildDetailRow('⏰', 'Arrival Time:', widget.busRoute.arrivalTime),
+            _buildDetailRow('💺', 'Available Seats:', '${widget.busRoute.availableSeats}'),
             _buildDetailRow('💰', 'Price:', 'TSh ${NumberFormat('#,##0').format(ticketPrice.toInt())}'),
           ],
         ),
@@ -1654,9 +1673,7 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
   }
 
   // Build the front row with driver and staff area
-  Widget _buildFrontRow() {
-    final bool isToiletOnLeft = widget.busRoute.bus?.isToiletAtLeftSide ?? true;
-    
+  Widget _buildFrontRow() {    
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: Row(
@@ -1761,6 +1778,7 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
             } else {
               if (_selectedSeats.length < _maxSelectableSeats) {
                 _selectedSeats.add(seat);
+                _getBookedSeats();
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('Maximum $_maxSelectableSeats seat${_maxSelectableSeats != 1 ? 's' : ''} can be selected')),
@@ -1786,6 +1804,23 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                 fontSize: 12,
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Build individual seat widget
+  Widget _buildEmptySeatWidget(String seat, bool isBooked, bool isSelected) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8.0),
+      child: GestureDetector(
+        onTap: isBooked ? null : () {},
+        child: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color:Colors.transparent,
           ),
         ),
       ),
@@ -1871,6 +1906,8 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                         final totalRows = widget.busRoute.bus?.numberOfSeatRows ?? 0;
                         
                         // Row checks
+                        final bool isFirstRow = rowNumber == 1;
+                        final bool isThreeSeatsAtFistRow = widget.busRoute.bus?.isThreeSeatsAtFistRow ?? true;
                         final bool isLastRow = rowNumber == totalRows;
                         final bool isToiletRow = widget.busRoute.bus?.isHavingToilet == true && (rowNumber == widget.busRoute.bus?.toiletAtRowNumber);
                         final bool isToiletNextRow = widget.busRoute.bus?.isHavingToilet == true && (rowNumber == (widget.busRoute.bus?.toiletAtRowNumber ?? 0) + 1); // Toilet spans 2 rows
@@ -1954,13 +1991,17 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                                       ),
                                     );
                                   }
-                                  
-                                  return _buildSeatWidget(seat, isBooked, isSelected);
+
+                                  if(isFirstRow && isThreeSeatsAtFistRow && index == 1) {
+                                    return _buildEmptySeatWidget(seat, false, false); // Render empty space for missing seat
+                                  } else {
+                                    return _buildSeatWidget(seat, isBooked, isSelected);
+                                  }
                                 }),
                               ),
                               
                               // Conditional rendering: Corridor for non-last rows
-                              (!isLastRow) ?
+                              (!isLastRow || (isLastRow && (isToiletRow || isToiletNextRow || isToiletNextNextRow))) ?
                                 Container(
                                   width: 24,
                                   height: 36,
@@ -1971,7 +2012,7 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                                   ),
                                   child: const Center(
                                     child: Icon(
-                                      Icons.arrow_forward,
+                                      Icons.arrow_back,
                                       size: 16,
                                       color: Colors.grey,
                                     ),
@@ -1995,6 +2036,7 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                                               } else {
                                                 if (_selectedSeats.length < _maxSelectableSeats) {
                                                   _selectedSeats.add(seat);
+                                                  _getBookedSeats();
                                                 } else {
                                                   ScaffoldMessenger.of(context).showSnackBar(
                                                     SnackBar(content: Text('Maximum $_maxSelectableSeats seat${_maxSelectableSeats != 1 ? 's' : ''} can be selected')),
@@ -2269,6 +2311,42 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                   const TextSpan(text: 'Route: ', style: TextStyle(color: Colors.grey)),
                   TextSpan(
                     text: '${widget.busRoute.from} → ${widget.busRoute.to}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            RichText(
+              text: TextSpan(
+                children: [
+                  const TextSpan(text: 'Via: ', style: TextStyle(color: Colors.grey)),
+                  TextSpan(
+                    text: widget.busRoute.via,
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            RichText(
+              text: TextSpan(
+                children: [
+                  const TextSpan(text: 'Pickup: ', style: TextStyle(color: Colors.grey)),
+                  TextSpan(
+                    text: pickupLocation,
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            RichText(
+              text: TextSpan(
+                children: [
+                  const TextSpan(text: 'Dropoff: ', style: TextStyle(color: Colors.grey)),
+                  TextSpan(
+                    text: dropoffLocation,
                     style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
                   ),
                 ],
@@ -2744,7 +2822,7 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
 
     bytes += generator.row([
       PosColumn(text: "Receipt Date", width: 6),
-      PosColumn(text: '$day-$month-$year $hour:$minute:$second', width: 6),
+      PosColumn(text: '$day-$month-$year', width: 6),
     ]);
 
     bytes += generator.row([

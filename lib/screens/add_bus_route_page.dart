@@ -39,6 +39,7 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
   final _ticketPriceController = TextEditingController();
   final _startingPointController = TextEditingController();
   final _finalPointController = TextEditingController();
+  final _viaController = TextEditingController();
 
   int busId = 0;
   final _busNameController = TextEditingController();
@@ -49,6 +50,8 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
   bool isHavingToilet = true;
   bool isToiletAtLeftSide = true;
   int numberOfRowsThatToiletSpans = 2;
+  bool isLetteredSeats = true;
+  bool isThreeSeatsAtFistRow = true;
 
   List<String> regions = [];
   List<String> offices = [];
@@ -69,12 +72,12 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
 
   List<Bus> buses = [];
   List<BusRoute> busRoutes = [];
+  List<String> popularRoutes = [];
 
   @override
   void initState() {
     super.initState();
     _seatsPerRowController.text = '4';
-    _toiletAtRowNumberController.text = '7';
     _initializeServices();
   }
 
@@ -103,6 +106,7 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
       getCompanyOffices();
       getBuses();
       getBusRoutes();
+      getPopularRoutes();
     }
   }
 
@@ -123,12 +127,12 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
 
         // Loop through each office
         for (var office in responseData) {
-          // Add name to regionsList
-          regionsList.add(office['name']);
-
           // If this office's id matches widget.officeId, set from
           if (office['company_id'] == widget.companyId) {
             officesList.add(office['name']);
+          } else {
+            // Add name to regionsList
+            regionsList.add(office['name']);
           }
         }
 
@@ -171,6 +175,61 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
       _handleSocketException(e);
     } catch (e) {
       debugPrint('Error getting offices: $e');
+    } finally {
+      debugPrint('Process finished');
+    }
+  }
+
+  Future<void> getPopularRoutes({bool useDNS = true}) async {
+    final Uri uri = useDNS
+        ? Uri.parse('${backend_url}api/popular_routes') // your endpoint
+        : Uri.parse('${backend_url_with_fallback_ip}popular_routes');
+
+    try {
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        debugPrint("response.body : ${response.body}");
+
+        // Decode JSON → List<dynamic>
+        final List<dynamic> responseData = jsonDecode(response.body);
+
+        // Convert to List<String>
+        List<String> routesList =
+            responseData.map((route) => route.toString()).toList();
+
+        if (routesList.isNotEmpty) {
+          setState(() {
+            popularRoutes = routesList;
+          });
+        }
+      } else {
+        debugPrint('Failed with status: ${response.statusCode}');
+      }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - useDNS: $useDNS');
+
+        // Retry with IP if DNS fails
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP...');
+          await getPopularRoutes(useDNS: false);
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
+          return;
+        }
+      }
+
+      _handleSocketException(e);
+    } catch (e) {
+      debugPrint('Error getting popular routes: $e');
     } finally {
       debugPrint('Process finished');
     }
@@ -437,11 +496,14 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
       'to': _toController.text.trim().toUpperCase(),
       'starting_point': _startingPointController.text.trim().toUpperCase(),
       'final_point': _finalPointController.text.trim().toUpperCase(),
+      'via': _viaController.text.trim().toUpperCase(),
       'ticket_price': _ticketPriceController.text.trim(),
       'bus_name': _busNameController.text.trim().toUpperCase(),
       'bus_registration_number': _busRegistrationNumberController.text.trim().toUpperCase(),
       'number_of_seat_rows': int.tryParse(_numberOfSeatRowsController.text.trim()) ?? 0,
-      'seats_per_row': int.tryParse(_seatsPerRowController.text.trim()) ?? 0,
+      'seats_per_row': int.tryParse(_seatsPerRowController.text.trim()) ?? 4,
+      'is_three_seats_at_first_row': isThreeSeatsAtFistRow,
+      'is_lettered_seats': isLetteredSeats,
       'is_having_toilet': isHavingToilet,
       'is_toilet_at_left_side': isToiletAtLeftSide,
       'toilet_at_row_number': int.tryParse(_toiletAtRowNumberController.text.trim()) ?? 0,
@@ -465,12 +527,14 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
       );
 
       if (response.statusCode == 200) {
-        if (response.body == "Bus route added successfully!") {
-          widget.refreshMethod();
-        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(response.body)),
         );
+
+        if (response.body == "Bus route added successfully!") {
+          widget.refreshMethod();
+          Navigator.pop(context);
+        }
       } else if (response.statusCode == 302) {
         _handleHTTPRedirect();
       } else {
@@ -657,6 +721,7 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
     _fromController.dispose();
     _startingPointController.dispose();
     _finalPointController.dispose();
+    _viaController.dispose();
     _ticketPriceController.dispose();
     _busNameController.dispose();
     _busRegistrationNumberController.dispose();
@@ -1035,6 +1100,130 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
+                // Seat Numbering
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[200]!),
+                  ),
+                  child: Column(
+                    children: [
+                      // Seat Numbering switch
+                      SwitchListTile(
+                        value: isLetteredSeats,
+                        onChanged: (busId == 0) ? (bool value) {
+                          setState(() {
+                            isLetteredSeats = value;
+                            // If toilet is disabled, also disable side selection
+                            if (!value) {
+                              isToiletAtLeftSide = true;
+                            }
+                          });
+                        } : null,
+                        title: Row(
+                          children: [
+                            Icon(
+                              Icons.event_seat,
+                              color: isLetteredSeats ? Colors.blue[700] : Colors.grey,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              isLetteredSeats ? 'Lettered Seats' : 'Numbered Seats',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        subtitle: Text(
+                          isLetteredSeats ? 'Seats are lettered on this bus' : 'Seats are numbered on this bus',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isLetteredSeats ? Colors.green[700] : Colors.grey,
+                          ),
+                        ),
+                        activeColor: Colors.teal[700],
+                        secondary: isLetteredSeats
+                        ? Icon(Icons.text_fields_outlined, color: Colors.green[400], size: 20)
+                        : Icon(Icons.numbers_outlined, color: Colors.red[400], size: 20),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                const SizedBox(height: 16),
+
+                // First Row Configuration
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[200]!),
+                  ),
+                  child: Column(
+                    children: [
+                      // First Row switch
+                      SwitchListTile(
+                        value: isThreeSeatsAtFistRow,
+                        onChanged: (busId == 0) ? (bool value) {
+                          setState(() {
+                            isThreeSeatsAtFistRow = value;
+                            // If toilet is disabled, also disable side selection
+                            if (!value) {
+                              isToiletAtLeftSide = true;
+                            }
+                          });
+                        } : null,
+                        title: Row(
+                          children: [
+                            Icon(
+                              Icons.event_seat,
+                              color: isThreeSeatsAtFistRow ? Colors.blue[700] : Colors.grey,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              isThreeSeatsAtFistRow ? '3 Seats in First Row' : '4 Seats in First Row',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        subtitle: Text(
+                          isThreeSeatsAtFistRow ? 'First row has 3 seats' : 'First row has 4 seats',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isThreeSeatsAtFistRow ? Colors.green[700] : Colors.grey,
+                          ),
+                        ),
+                        activeColor: Colors.teal[700],
+                        secondary: isThreeSeatsAtFistRow ? 
+                        Text(
+                          '3',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ) : 
+                        Text(
+                          '4',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        )
+                      ),
+                    ],
+                  ),
+                ),
+                
+                const SizedBox(height: 16),
+
                 // Toilet availability section
                 Container(
                   decoration: BoxDecoration(
@@ -1064,8 +1253,8 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
                               size: 20,
                             ),
                             const SizedBox(width: 8),
-                            const Text(
-                              'Toilet Available',
+                            Text(
+                              isHavingToilet ? 'Toilet Available' : 'Toilet Not Available',
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
@@ -1221,8 +1410,8 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
                                                     }
                                                     int? rowNum = int.tryParse(value);
                                                     int totalRows = getNumberOfSeatRows(_numberOfSeatRowsController.text);
-                                                    if (rowNum == null || rowNum < 1 || rowNum > totalRows - 1) {
-                                                      return 'Row must be between 1 and ${totalRows - 1}';
+                                                    if (rowNum == null || rowNum < 1 || rowNum > totalRows) {
+                                                      return 'Row must be between 1 and $totalRows';
                                                     }
                                                     return null;
                                                   },
@@ -1253,6 +1442,10 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
                                                     contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                                                   ),
                                                   items: (busId == 0) ? const [
+                                                    DropdownMenuItem<int>(
+                                                      value: 1,
+                                                      child: Text('1 rows'),
+                                                    ),
                                                     DropdownMenuItem<int>(
                                                       value: 2,
                                                       child: Text('2 rows'),
@@ -1640,6 +1833,7 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
 
                         _fromController.text = selectedBusRoute.from;
                         _toController.text = selectedBusRoute.to;
+                        _viaController.text = selectedBusRoute.via;
                         if(_startingPointController.text.isEmpty) {
                           _startingPointController.text = selectedBusRoute.from;
                         }
@@ -1656,8 +1850,9 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
                       return TextFormField(
                         controller: controller,
                         focusNode: focusNode,
+                        maxLength: 9,
                         decoration: _buildInputDecoration(
-                          'Route Name',
+                          AppLocalizations.of(context)!.searchRouteByName,
                           hintText: 'Dar - Dom',
                           prefixIcon: Icons.directions_bus,
                         ),
@@ -1673,6 +1868,7 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
 
                             _fromController.text = selectedBusRoute.from;
                             _toController.text = selectedBusRoute.to;
+                            _viaController.text = selectedBusRoute.via;
                             if(_startingPointController.text.isEmpty) {
                               _startingPointController.text = selectedBusRoute.from;
                             }
@@ -1687,11 +1883,10 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
 
                             _fromController.text = '';
                             _toController.text = '';
-                            
+                            _viaController.text = '';
                             _ticketPriceController.text = '';
                           }
                         },
-                        maxLength: 100,
                         validator: (value) {
                           return null;
                         },
@@ -1823,6 +2018,8 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return AppLocalizations.of(context)!.pleaseEnterDestination;
+                          } else if (_fromController.text.trim().toLowerCase() == _toController.text.trim().toLowerCase()) {
+                            return 'Origin and destination cannot be the same location.';
                           }
                           return null;
                         },
@@ -1859,6 +2056,73 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
                   
                   const SizedBox(height: 16),
                   
+                  Autocomplete<String>(
+                    initialValue: TextEditingValue(text: _viaController.text),
+
+                    optionsBuilder: (TextEditingValue textEditingValue) {
+                      if (textEditingValue.text.isEmpty) {
+                        return popularRoutes;
+                      }
+                      return popularRoutes.where(
+                        (route) => route.toLowerCase().contains(
+                          textEditingValue.text.toLowerCase(),
+                        ),
+                      );
+                    },
+
+                    onSelected: (String selection) {
+                      _viaController.text = selection;
+                    },
+
+                    fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
+                      controller.text = _viaController.text;
+
+                      return TextFormField(
+                        controller: controller,
+                        focusNode: focusNode,
+                        decoration: _buildInputDecoration(
+                          AppLocalizations.of(context)!.passingThrough,
+                          prefixIcon: Icons.business,
+                        ),
+                        onChanged: (value) {
+                          _viaController.text = value;
+                        },
+                        validator: (value) {
+                          return null;
+                        },
+                      );
+                    },
+
+                    // 👇 THIS CONTROLS HEIGHT
+                    optionsViewBuilder: (context, onSelected, options) {
+                      return Align(
+                        alignment: Alignment.topLeft,
+                        child: Material(
+                          elevation: 4,
+                          child: SizedBox(
+                            height: 300, // 👈 🔥 increase this (e.g. 400, 500)
+                            width: MediaQuery.of(context).size.width * 0.9,
+                            child: ListView.builder(
+                              padding: EdgeInsets.zero,
+                              itemCount: options.length,
+                              itemBuilder: (context, index) {
+                                final option = options.elementAt(index);
+
+                                return ListTile(
+                                  dense: true, // 👈 reduces item height
+                                  title: Text(option),
+                                  onTap: () => onSelected(option),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  
+                  const SizedBox(height: 16),
+
                   Autocomplete<String>(
                     initialValue: TextEditingValue(text: _startingPointController.text),
 
@@ -1955,7 +2219,10 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return AppLocalizations.of(context)!.pleaseEnterDestination;
+                          } else if (_startingPointController.text.trim().toLowerCase() == _finalPointController.text.trim().toLowerCase()) {
+                            return 'Starting and final point cannot be the same location.';
                           }
+                          
                           return null;
                         },
                       );
@@ -2046,6 +2313,8 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
                           isHavingToilet = selectedBus.isHavingToilet;
                           isToiletAtLeftSide = selectedBus.isToiletAtLeftSide;
                           numberOfRowsThatToiletSpans = selectedBus.numberOfRowsThatToiletSpans;
+                          isLetteredSeats = selectedBus.isLetteredSeats;
+                          isThreeSeatsAtFistRow = selectedBus.isThreeSeatsAtFistRow;
                         });
                         _busNameController.text = selectedBus.name.toString();
                         _numberOfSeatRowsController.text = selectedBus.numberOfSeatRows.toString();
@@ -2060,6 +2329,7 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
                       return TextFormField(
                         controller: controller,
                         focusNode: focusNode,
+                        maxLength: 9,
                         decoration: _buildInputDecoration(
                           'Bus Registration Number',
                           prefixIcon: Icons.confirmation_number,
@@ -2075,6 +2345,8 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
                               isHavingToilet = selectedBus.isHavingToilet;
                               isToiletAtLeftSide = selectedBus.isToiletAtLeftSide;
                               numberOfRowsThatToiletSpans = selectedBus.numberOfRowsThatToiletSpans;
+                              isLetteredSeats = selectedBus.isLetteredSeats;
+                              isThreeSeatsAtFistRow = selectedBus.isThreeSeatsAtFistRow;
                             });
 
                             _busNameController.text = selectedBus.name.toString();
@@ -2084,20 +2356,13 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
                           } else {
                             setState(() {
                               busId = 0;
-                              isHavingToilet = true;
-                              isToiletAtLeftSide = true;
-                              numberOfRowsThatToiletSpans = 2;
                             });
-                            _busNameController.text = '';
-                            _numberOfSeatRowsController.text = '';
-                            _seatsPerRowController.text = '';
-                            _toiletAtRowNumberController.text = '';
                           }
                         },
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return AppLocalizations.of(context)!.pleaseEnterBusRegistrationNumber;
-                          }
+                          } else if (value.length > 9) return 'Bus Registration Number must be 9 characters or less';
                           return null;
                         },
                       );
@@ -2134,13 +2399,13 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
 
                   TextFormField(
                     controller: _busNameController,
-                    maxLength: 100,
+                    maxLength: 30,
                     decoration: _buildInputDecoration('Bus Name', prefixIcon: Icons.directions_bus),
                     style: const TextStyle(fontSize: 16),
                     enabled: busId == 0, // Disable if a bus is selected
                     validator: (value) {
                       if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseEnterBusName;
-                      if (value.length > 100) return 'Bus name must be 100 characters or less';
+                      if (value.length > 100) return 'Bus name must be 30 characters or less';
                       return null;
                     },
                   ),

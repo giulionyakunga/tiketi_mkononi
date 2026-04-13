@@ -6,6 +6,8 @@ class Bus {
   String registrationNumber;
   int numberOfSeatRows;
   int seatsPerRow;
+  bool isThreeSeatsAtFistRow;
+  bool isLetteredSeats;
   bool isHavingToilet;
   int toiletAtRowNumber;
   int numberOfRowsThatToiletSpans;
@@ -20,6 +22,8 @@ class Bus {
     required this.registrationNumber,
     required this.numberOfSeatRows,
     required this.seatsPerRow,
+    required this.isThreeSeatsAtFistRow,
+    required this.isLetteredSeats,
     required this.isHavingToilet,
     required this.toiletAtRowNumber,
     required this.numberOfRowsThatToiletSpans,
@@ -37,6 +41,8 @@ class Bus {
       registrationNumber: json['registration_number'] ?? '',
       numberOfSeatRows: json['number_of_seat_rows'] ?? 0,
       seatsPerRow: json['seats_per_row'] ?? 0,
+      isThreeSeatsAtFistRow: json['is_three_seats_at_first_row'] ?? true,
+      isLetteredSeats: json['is_lettered_seats'] ?? false,
       isHavingToilet: json['is_having_toilet'] ?? true,
       toiletAtRowNumber: json['toilet_at_row_number'] ?? 7,
       numberOfRowsThatToiletSpans: json['number_of_rows_that_toilet_spans'] ?? 7,

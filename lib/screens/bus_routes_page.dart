@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import 'package:tiketi_mkononi/env.dart';
+import 'package:tiketi_mkononi/l10n/app_localizations.dart';
 import 'package:tiketi_mkononi/models/bus_route.dart';
 import 'package:tiketi_mkononi/screens/add_bus_route_page.dart';
 import 'package:tiketi_mkononi/screens/bus_tickets_checkout_page.dart';
@@ -353,7 +354,7 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            _isLoading ? const Center(
+            (_isLoading && _busRoutes.isEmpty) ? const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -526,7 +527,6 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
     );
   }
   
-  // Alternative version with more detailed formatting
   String calculateDurationDetailed({
     required String departureDate,
     required String departureTime,
@@ -603,6 +603,36 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
     }
   }
 
+  String getTimeOfDay(String time24) {
+    // Parse "HH:mm"
+    final parts = time24.split(':');
+    if (parts.length != 2) return "Invalid time format";
+
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+
+    // Validate
+    if (hour == null ||
+        minute == null ||
+        hour < 0 ||
+        hour > 23 || 
+        minute < 0 ||
+        minute > 59) {
+      return "Invalid time format";
+    }
+
+    // Determine time of day
+    if (hour >= 5 && hour < 12) {
+      return "Asubuhi"; // Morning
+    } else if (hour >= 12 && hour < 17) {
+      return "Mchana"; // Afternoon
+    } else if (hour >= 17 && hour < 21) {
+      return "Jioni"; // Evening
+    } else {
+      return "Usiku"; // Night (21:00–04:59)
+    }
+  }
+
   Widget _buildRoutesList() {
     var filteredBusRoutes = _busRoutes.where((r) {
       if (_typeFilter == 'all') return true;
@@ -664,9 +694,9 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
               child: Material(
                 color: Colors.white,
                 child: InkWell(
-                  onTap: () {
+                  onTap: () async {
                     debugPrint('Selected route: ${route.from} → ${route.to}');
-                    Navigator.push(
+                    await Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => BusTicketsCheckoutPage(
@@ -679,6 +709,7 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
                         ),
                       )
                     );
+                    _fetchBusRoutes();
                   },
                   splashColor: Colors.teal.withOpacity(0.1),
                   highlightColor: Colors.teal.withOpacity(0.05),
@@ -852,7 +883,7 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
                                         Icon(Icons.departure_board, size: 16, color: Colors.teal.shade700),
                                         const SizedBox(width: 4),
                                         Text(
-                                          "DEPARTURE",
+                                          AppLocalizations.of(context)!.departure.toUpperCase(),
                                           style: TextStyle(
                                             fontSize: 10,
                                             fontWeight: FontWeight.w600,
@@ -872,6 +903,13 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
                                       ),
                                     ),
                                     Text(
+                                      '(${getTimeOfDay(route.departureTime)})',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                    Text(
                                       route.departureDate,
                                       style: TextStyle(
                                         fontSize: 10,
@@ -885,7 +923,14 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
                                 margin: const EdgeInsets.symmetric(horizontal: 8),
                                 child: Column(
                                   children: [
-                                    Icon(Icons.arrow_forward, size: 20, color: Colors.grey.shade400),
+                                    Text(
+                                      'VIA ${route.via}',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        color: Colors.green.shade600,
+                                        fontWeight: FontWeight.w500
+                                      ),
+                                    ),
                                     const SizedBox(height: 4),
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -914,7 +959,7 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
                                       mainAxisAlignment: MainAxisAlignment.end,
                                       children: [
                                         Text(
-                                          "ARRIVAL",
+                                          AppLocalizations.of(context)!.arrival.toUpperCase(),
                                           style: TextStyle(
                                             fontSize: 10,
                                             fontWeight: FontWeight.w600,
@@ -933,6 +978,13 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,
                                         color: Colors.teal.shade800,
+                                      ),
+                                    ),
+                                    Text(
+                                      '(${getTimeOfDay(route.arrivalTime)})',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.grey.shade600,
                                       ),
                                     ),
                                     Text(
@@ -976,7 +1028,7 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            "Available Seats",
+                                            AppLocalizations.of(context)!.availableSeats,
                                             style: TextStyle( 
                                               fontSize: 10,
                                               color: Colors.grey.shade600,
@@ -1019,7 +1071,7 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            "Price per seat",
+                                            AppLocalizations.of(context)!.pricePerSeat,
                                             style: TextStyle(
                                               fontSize: 10,
                                               color: Colors.teal.shade600,
@@ -1198,7 +1250,7 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
                                     Icon(Icons.delete_outline, color: Colors.red.shade700, size: 18),
                                     const SizedBox(width: 4),
                                     Text(
-                                      'Delete Route',
+                                      AppLocalizations.of(context)!.deleteRoute,
                                       style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,

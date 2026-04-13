@@ -45,6 +45,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cargo => 'Cargo';
 
   @override
+  String get cargos => 'Cargos';
+
+  @override
+  String officeCargos(Object officeName) {
+    return '$officeName Cargos';
+  }
+
+  @override
+  String get cargosYouAddWillAppearHere => 'Cargos you add will appear here';
+
+  @override
+  String get noCargosYet => 'No Cargos Yet';
+
+  @override
   String get sports => 'Sports';
 
   @override
@@ -96,10 +110,31 @@ class AppLocalizationsEn extends AppLocalizations {
   String get to => 'Destination';
 
   @override
+  String get passingThrough => 'Passing Through';
+
+  @override
   String get startingPoint => 'Starting point';
 
   @override
   String get finalPoint => 'Final point';
+
+  @override
+  String get availableSeats => 'Available Seats';
+
+  @override
+  String get pricePerSeat => 'Price per seat';
+
+  @override
+  String get departure => 'departure';
+
+  @override
+  String get arrival => 'arrival';
+
+  @override
+  String get deleteRoute => 'Delete Route';
+
+  @override
+  String get searchRouteByName => 'Search route by name...';
 
   @override
   String get receiverName => 'Receiver Name';

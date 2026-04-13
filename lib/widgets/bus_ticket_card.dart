@@ -7,14 +7,14 @@ import 'package:tiketi_mkononi/models/bus_route.dart';
 class BusTicketCard extends StatelessWidget {
   final BusTicket ticket;
   final BusRoute busRoute;
-  final VoidCallback fetchTickets;
+  final Function(BusTicket) printTickets;
   final bool isCancelled;
 
   const BusTicketCard({
     super.key,
     required this.ticket,
     required this.busRoute,
-    required this.fetchTickets,
+    required this.printTickets,
     required this.isCancelled,
   });
 
@@ -68,18 +68,6 @@ class BusTicketCard extends StatelessWidget {
                 ],
               ),
               const Divider(),
-              // Bus company
-              Row(
-                children: [
-                  const Icon(Icons.business, size: 16, color: Colors.grey),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Bus Company Name',
-                    style: const TextStyle(fontSize: 14, color: Colors.grey),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
               // Departure and arrival times
               Row(
                 children: [
@@ -150,6 +138,34 @@ class BusTicketCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Passenger Name', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      Text(
+                        ticket.passengerName,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text('Phone Number', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      Text(
+                        ticket.phoneNumber,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Payment
+              const SizedBox(height: 12),
               // Payment method
               Row(
                 children: [
@@ -193,21 +209,26 @@ class BusTicketCard extends StatelessWidget {
               _buildDetailRow('Route', '${busRoute.from} → ${busRoute.to}'),
               const Divider(),
               _buildDetailRow('Bus', busRoute.bus?.name ?? 'Standard Bus'),
-              _buildDetailRow('Company', 'Bus Company Name'),
               _buildDetailRow('Departure Date', busRoute.departureDate),
               _buildDetailRow('Departure Time', busRoute.departureTime),
               _buildDetailRow('Arrival Date', busRoute.arrivalDate),
               _buildDetailRow('Arrival Time', busRoute.arrivalTime),
               const Divider(),
               _buildDetailRow('Seats', ticket.seatNumber),
+              _buildDetailRow('Passenger Name', ticket.passengerName),
+              _buildDetailRow('Phone Number', ticket.phoneNumber),
               _buildDetailRow('Total Price', 'TSh ${NumberFormat('#,##0').format(busRoute.ticketPrice.toInt())}'),
               _buildDetailRow('Payment Method', ticket.paymentMethod),
               _buildDetailRow('Booking Date', DateFormat('MMM dd, yyyy - HH:mm').format(ticket.createdAt)),
-              _buildDetailRow('Status', _getTicketStatus()),
+              _buildDetailRow('Status', ticket.status), 
             ],
           ),
         ),
         actions: [
+          TextButton(
+            onPressed: () => printTickets(ticket),
+            child: const Text('Print'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Close'),
@@ -215,23 +236,6 @@ class BusTicketCard extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  String _getTicketStatus() {
-    try {
-      // Parse departure date and time
-      final departureDateTime = DateTime.parse('${busRoute.departureDate} ${busRoute.departureTime}');
-      final now = DateTime.now();
-      
-      if (departureDateTime.isBefore(now)) {
-        return 'Completed';
-      } else {
-        return 'Upcoming';
-      }
-    } catch (e) {
-      // Fallback if parsing fails
-      return 'Unknown';
-    }
   }
 
   Widget _buildDetailRow(String label, String value) {

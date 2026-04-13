@@ -9,6 +9,7 @@ class BusRoute {
   String to;
   String startingPoint;
   String finalPoint;
+  String via;
   final String departureDate;
   String departureTime;
   final String arrivalDate;
@@ -29,6 +30,7 @@ class BusRoute {
     required this.to,
     required this.startingPoint,
     required this.finalPoint,
+    required this.via,
     required this.departureDate,
     required this.departureTime,
     required this.arrivalDate,
@@ -51,6 +53,7 @@ class BusRoute {
       to: json['to'] ?? '',
       startingPoint: json['starting_point'] ?? '',
       finalPoint: json['final_point'] ?? '',
+      via: json['via'] ?? '',
       departureDate: json['departure_date'] ?? '',
       departureTime: json['departure_time'] ?? '',
       arrivalDate: json['arrival_date'] ?? '',

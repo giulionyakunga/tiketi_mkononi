@@ -170,6 +170,30 @@ abstract class AppLocalizations {
   /// **'Cargo'**
   String get cargo;
 
+  /// No description provided for @cargos.
+  ///
+  /// In en, this message translates to:
+  /// **'Cargos'**
+  String get cargos;
+
+  /// No description provided for @officeCargos.
+  ///
+  /// In en, this message translates to:
+  /// **'{officeName} Cargos'**
+  String officeCargos(Object officeName);
+
+  /// No description provided for @cargosYouAddWillAppearHere.
+  ///
+  /// In en, this message translates to:
+  /// **'Cargos you add will appear here'**
+  String get cargosYouAddWillAppearHere;
+
+  /// No description provided for @noCargosYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No Cargos Yet'**
+  String get noCargosYet;
+
   /// No description provided for @sports.
   ///
   /// In en, this message translates to:
@@ -272,6 +296,12 @@ abstract class AppLocalizations {
   /// **'Destination'**
   String get to;
 
+  /// No description provided for @passingThrough.
+  ///
+  /// In en, this message translates to:
+  /// **'Passing Through'**
+  String get passingThrough;
+
   /// No description provided for @startingPoint.
   ///
   /// In en, this message translates to:
@@ -283,6 +313,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Final point'**
   String get finalPoint;
+
+  /// No description provided for @availableSeats.
+  ///
+  /// In en, this message translates to:
+  /// **'Available Seats'**
+  String get availableSeats;
+
+  /// No description provided for @pricePerSeat.
+  ///
+  /// In en, this message translates to:
+  /// **'Price per seat'**
+  String get pricePerSeat;
+
+  /// No description provided for @departure.
+  ///
+  /// In en, this message translates to:
+  /// **'departure'**
+  String get departure;
+
+  /// No description provided for @arrival.
+  ///
+  /// In en, this message translates to:
+  /// **'arrival'**
+  String get arrival;
+
+  /// No description provided for @deleteRoute.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Route'**
+  String get deleteRoute;
+
+  /// No description provided for @searchRouteByName.
+  ///
+  /// In en, this message translates to:
+  /// **'Search route by name...'**
+  String get searchRouteByName;
 
   /// No description provided for @receiverName.
   ///
