@@ -362,6 +362,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void showNewUpdateAvailableDialog() {
      showDialog(
         context: context,
+        barrierDismissible: false,
         builder: (context) => AlertDialog(
           title: const Text("Update Available"),
           content: const Text("A new version of the app is available. Please update to enjoy the latest features."),

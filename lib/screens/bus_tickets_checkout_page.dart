@@ -59,6 +59,7 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
   bool _isAppActive = true;
   final _formKey = GlobalKey<FormState>();
   final _formKey2 = GlobalKey<FormState>();
+  final _formKey3 = GlobalKey<FormState>();
 
   String pickupLocation = '';
   String dropoffLocation = '';
@@ -429,8 +430,8 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
   Future<void> _handlePayment({bool useDNS = true}) async {
     if (_isLoading) return;
 
-    if (_formKey2.currentState!.validate() && _formKey.currentState!.validate() && checkNumberTickets()) {
-      String selectedPaymentMethod2 = '';
+    if (_formKey2.currentState!.validate() && _formKey.currentState!.validate() && _formKey3.currentState!.validate() && checkNumberTickets()) {
+      String selectedPaymentMethod2 = ''; 
       switch (selectedPaymentMethod) {
         case 'M-PESA':
           selectedPaymentMethod2 = 'Mpesa';
@@ -1483,47 +1484,50 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: TextFormField(
-                            controller: _manualPriceController,
-                            focusNode: _priceFocusNode,
-                            keyboardType: TextInputType.number,
-                            decoration: InputDecoration(
-                              hintText: 'Enter custom price',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.grey[300]!),
+                          child: Form(
+                            key: _formKey3,
+                            child: TextFormField(
+                              controller: _manualPriceController,
+                              focusNode: _priceFocusNode,
+                              keyboardType: TextInputType.number,
+                              decoration: InputDecoration(
+                                hintText: 'Enter custom price',
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(color: Colors.grey[300]!),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(color: Colors.grey[300]!),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(color: Colors.orange),
+                                ),
+                                filled: true,
+                                fillColor: Colors.white,
+                                suffixText: 'TZS',
+                                suffixStyle: const TextStyle(color: Colors.grey),
                               ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.grey[300]!),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(color: Colors.orange),
-                              ),
-                              filled: true,
-                              fillColor: Colors.white,
-                              suffixText: 'TZS',
-                              suffixStyle: const TextStyle(color: Colors.grey),
-                            ),
-                            onChanged: (value) {
-                              if (value.isNotEmpty) {
-                                double? price = double.tryParse(value);
-                                if (price != null && price > 0) {
-                                  setState(() {
-                                    customTicketPrice = price;
-                                    ticketPrice = price;
-                                    totalPrice = ticketPrice * _selectedSeats.length;
-                                  });
+                              onChanged: (value) {
+                                if (value.isNotEmpty) {
+                                  double? price = double.tryParse(value);
+                                  if (price != null && price > 0) {
+                                    setState(() {
+                                      customTicketPrice = price;
+                                      ticketPrice = price;
+                                      totalPrice = ticketPrice * _selectedSeats.length;
+                                    });
+                                  }
                                 }
-                              }
-                            },
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter price';
-                              }
-                              return null;
-                            },
+                              },
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Please enter price';
+                                }
+                                return null;
+                              },
+                            ),
                           ),
                         ),
                       ],
