@@ -49,6 +49,7 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
   final List<String> paymentMethods = ['CASH','MIXX BY YAS', 'M-PESA', 'AIRTEL MONEY', 'HALOPESA', 'AZAMPESA'];
   final TextEditingController _phoneNumberController = TextEditingController();
   final TextEditingController _manualPriceController = TextEditingController();
+  final FocusNode _priceFocusNode = FocusNode();
   final TextEditingController _passengerNameController = TextEditingController();
   String issuedBy = '';
   bool _isLoading = false;
@@ -452,7 +453,7 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
       bool isPickupDifferent = pickupLocation != widget.busRoute.startingPoint;
       bool isDropoffDifferent = dropoffLocation != widget.busRoute.finalPoint;
       
-      if (isPickupDifferent || isDropoffDifferent) {
+      if ((isPickupDifferent || isDropoffDifferent) && (ticketPrice == widget.busRoute.ticketPrice.toString())  ) {
         bool isValidPrice = await _showCustomRouteDialog();
         if(isValidPrice) {
           return;
@@ -671,13 +672,14 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
               Navigator.pop(context, false);
             },
             child: const Text(
-              'OK',
+              'Proceed',
               style: TextStyle(color: Colors.grey),
             ),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context, true);
+              FocusScope.of(context).requestFocus(_priceFocusNode);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.orange,
@@ -803,6 +805,7 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
     _phoneNumberController.dispose();
     _manualPriceController.dispose();
     _passengerNameController.dispose();
+    _priceFocusNode.dispose();
     super.dispose();
   }
 
@@ -956,6 +959,32 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
     );
   }
 
+  String getAmPm(String time24) {
+    // Parse "HH:mm"
+    final parts = time24.split(':');
+    if (parts.length != 2) return "Invalid time format";
+
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+
+    // Validate
+    if (hour == null ||
+        minute == null ||
+        hour < 0 ||
+        hour > 23 ||
+        minute < 0 ||
+        minute > 59) {
+      return "Invalid time format";
+    }
+
+    // AM / PM logic
+    if (hour < 12) {
+      return "$time24 AM";
+    } else {
+      return "$time24 PM";
+    }
+  }
+
   Widget _buildRouteDetailsCard() {
     return Card(
       elevation: 3,
@@ -973,9 +1002,9 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
             _buildDetailRow('🚌', 'Bus:', widget.busRoute.bus!.name),
             _buildDetailRow('🏢', 'Company:', widget.busRoute.company!.name),
             _buildDetailRow('📅', 'Departure Date:', widget.busRoute.departureDate),
-            _buildDetailRow('⏰', 'Departure Time:', widget.busRoute.departureTime),
+            _buildDetailRow('⏰', 'Departure Time:', getAmPm(widget.busRoute.departureTime)),
             _buildDetailRow('📅', 'Arrival Date:', widget.busRoute.arrivalDate),
-            _buildDetailRow('⏰', 'Arrival Time:', widget.busRoute.arrivalTime),
+            _buildDetailRow('⏰', 'Arrival Time:', getAmPm(widget.busRoute.arrivalTime)),
             _buildDetailRow('💺', 'Available Seats:', '${widget.busRoute.availableSeats}'),
             _buildDetailRow('💰', 'Price:', 'TSh ${NumberFormat('#,##0').format(ticketPrice.toInt())}'),
           ],
@@ -1456,6 +1485,7 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                         Expanded(
                           child: TextFormField(
                             controller: _manualPriceController,
+                            focusNode: _priceFocusNode,
                             keyboardType: TextInputType.number,
                             decoration: InputDecoration(
                               hintText: 'Enter custom price',
@@ -2730,12 +2760,12 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
 
     bytes += generator.row([
       PosColumn(text: "Reporting Time:", width: 6),
-      PosColumn(text: getTime30MinBefore(widget.busRoute.departureTime), width: 6),
+      PosColumn(text: getAmPm(getTime30MinBefore(widget.busRoute.departureTime)), width: 6),
     ]);
 
     bytes += generator.row([
       PosColumn(text: "Departure Time:", width: 6),
-      PosColumn(text: widget.busRoute.departureTime, width: 6),
+      PosColumn(text: getAmPm(widget.busRoute.departureTime), width: 6),
     ]);
 
     bytes += generator.row([
@@ -2750,7 +2780,7 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
 
     bytes += generator.row([
       PosColumn(text: "Arrival Time:", width: 6),
-      PosColumn(text: widget.busRoute.arrivalTime, width: 6),
+      PosColumn(text: getAmPm(widget.busRoute.arrivalTime), width: 6),
     ]);
 
     bytes += generator.row([
