@@ -595,7 +595,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
       sheet.appendRow([
         consignment['package_name'],
-        consignment['id'],
+        consignment['package_id'],
         consignment['sender_name'],
         consignment['sender_phone_number'],
         consignment['from'],
@@ -693,7 +693,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
       sheet.appendRow([
         consignment['package_name'],
-        consignment['id'],
+        consignment['package_id'],
         consignment['sender_name'],
         consignment['sender_phone_number'],
         consignment['from'],
@@ -788,7 +788,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
       sheet.appendRow([
         consignment['package_name'],
-        consignment['id'],
+        consignment['package_id'],
         consignment['sender_name'],
         consignment['sender_phone_number'],
         consignment['from'],
@@ -1264,7 +1264,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
-                                    'Package No: ${consignment['id']}',
+                                    'Package No: ${consignment['package_id']}', 
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w500,
@@ -1546,7 +1546,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     );
 
     bytes += generator.text(
-      "Package No: ${consignment['id']}",
+      "Package No: ${consignment['package_id']}",
       styles: const PosStyles(align: PosAlign.center),
     );
 
@@ -1747,7 +1747,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     );
 
     bytes += generator.text(
-      "PKG No: ${consignment['id']}",
+      "PKG No: ${consignment['package_id']}",
       styles: const PosStyles(
         align: PosAlign.center,
         height: PosTextSize.size2,
@@ -1903,7 +1903,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
                 /// PACKAGE INFO
                 pw.Text(
-                  "Package No: ${consignment['id']}",
+                  "Package No: ${consignment['package_id']}",
                   style: pw.TextStyle(font: customFont, fontSize: 9),
                 ),
 
@@ -2321,7 +2321,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
               pw.Center(
                 child: pw.Text(
-                  "  Package No: ${consignment['id']}",
+                  "  Package No: ${consignment['package_id']}",
                   style: pw.TextStyle(
                     fontSize: 8,
                     fontWeight: pw.FontWeight.bold,
@@ -2584,7 +2584,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                     title: 'Package Information',
                     icon: Icons.inventory,
                     children: [
-                      _buildDetailRow('Package No', '${consignment['id']}'),
+                      _buildDetailRow('Package No', '${consignment['package_id']}'),
                       _buildDetailRow('Package Name', consignment['package_name']),
                       _buildDetailRow('Package Value', 'TZS${NumberFormat('#,##0').format(  (consignment['package_value'] ?? 0).toInt())}'),
                       _buildDetailRow('Paid Amount', 'TZS${NumberFormat('#,##0').format(  (consignment['paid_amount'] ?? 0).toInt())}'),
