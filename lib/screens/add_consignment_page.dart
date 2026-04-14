@@ -86,6 +86,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
   int receiptsBalance = 0;
   int packageId = 0;
+  String packageId2 = '';
   List<dynamic> receiptPackages = [];
 
   int _consignmentItemsVersion = 0;
@@ -466,9 +467,11 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
           debugPrint('responseData : $responseData');
           packageId = responseData['id'];
+          packageId2 = responseData['package_id'];
           debugPrint('responseData2 : $responseData');
           setState(() {
             packageId = responseData['id'];
+            packageId2 = responseData['package_id'];
             receiptFooter = responseData['receipt_footer'];
           });
 
@@ -1893,7 +1896,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     );
 
     bytes += generator.text(
-      "Package No: $packageId",
+      "Package No: $packageId2",
       styles: const PosStyles(align: PosAlign.center),
     );
 
@@ -2094,7 +2097,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     );
 
     bytes += generator.text(
-      "PKG No: $packageId",
+      "PKG No: $packageId2",
       styles: const PosStyles(
         align: PosAlign.center,
         height: PosTextSize.size2,
@@ -2238,7 +2241,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
                 /// PACKAGE INFO
                 pw.Text(
-                  "Package No: ${packageId}",
+                  "Package No: ${packageId2}",
                   style: pw.TextStyle(font: customFont),
                 ),
 

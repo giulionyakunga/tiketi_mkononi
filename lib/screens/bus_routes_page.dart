@@ -31,7 +31,6 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
   bool _isLoading = true;
   String _error = '';
   List<BusRoute> _busRoutes = [];
-  BusRoute? _selectedBusRoute;
   int numberOfRoutes = 0;
   DateTime _selectedDate = DateTime.now();
   BluetoothInfo? selectedPrinter;
@@ -171,7 +170,6 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
         _isLoading = true;
         _error = '';
         _showDetails = false;
-        _selectedBusRoute = null;
       });
 
       final uri = useDNS ? Uri.parse('$backend_url/api/scheduled_bus_routes/${widget.companyId}/${DateFormat('d-M-yyyy').format(_selectedDate)}')
@@ -216,7 +214,6 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
         _isLoading = true;
         _error = '';
         _showDetails = false;
-        _selectedBusRoute = null;
       });
 
       final uri = useDNS ? Uri.parse('$backend_url/api/delete_bus_route/${widget.userId}/$routeId')
@@ -338,23 +335,13 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
             padding: const EdgeInsets.only(left: 4),
             child: _buildDatePicker(),
           ),
-          if (_selectedBusRoute != null)
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: () {
-                setState(() {
-                  _showDetails = false;
-                  _selectedBusRoute = null;
-                });
-              },
-            ),
         ],
       ),
 
       body: SingleChildScrollView(
         child: Column(
           children: [
-            (_isLoading && _busRoutes.isEmpty) ? const Center(
+            _isLoading ? const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -1102,6 +1089,20 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
+                            IconButton(
+                              icon: Icon(Icons.info, color: Colors.teal, size: 20),
+                              onPressed: () {
+                                showModalBottomSheet(
+                                  context: context,
+                                  isScrollControlled: true,
+                                  shape: const RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+                                  ),
+                                  builder: (context) => _buildDetailsPanel(route), 
+                                );
+                              },
+                            ),
+
                             InkWell(
                               onTap: () {
                                 // Check if booking has started
@@ -1276,9 +1277,8 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
     );
   }
 
-  Widget _buildDetailsPanel() {
-    final route = _selectedBusRoute;
-    if (route == null) return const SizedBox();
+  Widget _buildDetailsPanel(BusRoute busRoute) {
+    final route = busRoute;
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.7,
@@ -1338,6 +1338,24 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
 
+                  /// FINANCIALS
+                  _buildDetailSection(
+                    title: 'Pricing',
+                    icon: Icons.attach_money,
+                    children: [
+                      _buildDetailRow(
+                        'Ticket Price',
+                        "TZS ${NumberFormat('#,##0').format(route.ticketPrice)}",
+                      ),
+                      _buildDetailRow(
+                        'Total Collection',
+                        "TZS ${NumberFormat('#,##0').format(route.totalCollection)}",
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
                   /// BUS INFO
                   _buildDetailSection(
                     title: 'Bus Information',
@@ -1375,24 +1393,6 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
                       _buildDetailRow('Departure Time', route.departureTime),
                       _buildDetailRow('Arrival Date', route.arrivalDate),
                       _buildDetailRow('Arrival Time', route.arrivalTime),
-                    ],
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  /// FINANCIALS
-                  _buildDetailSection(
-                    title: 'Pricing',
-                    icon: Icons.attach_money,
-                    children: [
-                      _buildDetailRow(
-                        'Ticket Price',
-                        "TZS ${NumberFormat('#,##0').format(route.ticketPrice)}",
-                      ),
-                      _buildDetailRow(
-                        'Total Collection',
-                        "TZS ${NumberFormat('#,##0').format(route.totalCollection)}",
-                      ),
                     ],
                   ),
 
@@ -1656,7 +1656,6 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
       ),
     );
   }
-
 
   Widget _buildDetailSection({
     required String title,

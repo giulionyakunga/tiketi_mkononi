@@ -43,13 +43,14 @@ class BusTicketCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '${busRoute.from} → ${busRoute.to}',
+                      ticket.passengerName,
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
-                    ),
+                    ), 
                   ),
+                  if (isCancelled)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
@@ -57,7 +58,7 @@ class BusTicketCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      isCancelled ? 'Past' : 'Upcoming',
+                      'Cancelled',
                       style: TextStyle(
                         fontSize: 12,
                         color: isCancelled ? Colors.grey[700] : Colors.green[800],
@@ -107,6 +108,33 @@ class BusTicketCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
+              // Pickup and dropoff
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Pickup', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      Text(
+                        ticket.pickupLocation,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Dropoff', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      Text(
+                        ticket.dropoffLocation,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
               // Seats and price
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -126,7 +154,7 @@ class BusTicketCard extends StatelessWidget {
                     children: [
                       const Text('Total Price', style: TextStyle(fontSize: 12, color: Colors.grey)),
                       Text(
-                        'TSh ${NumberFormat('#,##0').format(busRoute.ticketPrice.toInt())}',
+                        'TSh ${NumberFormat('#,##0').format(ticket.ticketPrice.toInt())}',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,

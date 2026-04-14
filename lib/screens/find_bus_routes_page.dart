@@ -635,7 +635,7 @@ class _FindBusRoutesPageState extends State<FindBusRoutesPage> {
         child: Column(
           children: [
             _buildLocationSelectionWidget(),
-            (_isLoading && _busRoutes.isEmpty) ? const Center(child: CircularProgressIndicator())
+            _isLoading ? const Center(child: CircularProgressIndicator())
             : _error != null
             ? Center(
                 child: Column(

@@ -24,7 +24,7 @@ class BusTicketsPage extends StatefulWidget {
 class _BusTicketsPageState extends State<BusTicketsPage> with WidgetsBindingObserver {
   late final StorageService _storageService;
   List<BusTicket> ticketsList = [];
-  List<BusTicket> activeTicketsList = [];
+  List<BusTicket> bookedTicketsList = [];
   List<BusTicket> cancelledTicketsList = [];
   bool _isAppActive = true;
   bool _isReloading = false;
@@ -80,16 +80,13 @@ class _BusTicketsPageState extends State<BusTicketsPage> with WidgetsBindingObse
 
   /// Filter tickets based on status
   void _filterTicketsByStatus(List<BusTicket> tickets) {    
-    // FIXED: Include 'paid' and 'booked' statuses as active tickets
-    activeTicketsList = tickets.where((ticket) {
+    bookedTicketsList = tickets.where((ticket) {
       return ticket.status == 'booked' || ticket.status == 'paid' || ticket.status == 'confirmed';
     }).toList();
     
     cancelledTicketsList = tickets.where((ticket) {
       return ticket.status == 'cancelled' || ticket.status == 'refunded';
-    }).toList();
-    
-    debugPrint('Active tickets: ${activeTicketsList.length}, Cancelled tickets: ${cancelledTicketsList.length}');
+    }).toList();    
   }
 
   /// Fetch tickets from backend based on bus route ID and cache them
@@ -105,6 +102,9 @@ class _BusTicketsPageState extends State<BusTicketsPage> with WidgetsBindingObse
         : Uri.parse('${backend_url_with_fallback_ip}bus_route_tickets/${widget.userId}/${widget.busRoute.id}');
 
     try {
+
+      debugPrint(" >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Fetching Tickets at body: ${uri}");
+
       final response = await http.get(uri);
 
       debugPrint(" >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Response status: ${response.statusCode}");
@@ -278,9 +278,8 @@ class _BusTicketsPageState extends State<BusTicketsPage> with WidgetsBindingObse
   Widget _buildTicketList(List<BusTicket> tickets, {bool isCancelled = false}) {
     if (tickets.isEmpty) {
       return _buildEmptyState(
-        isCancelled 
-          ? 'No cancelled bus tickets found for this route' 
-          : 'No active bus tickets found for this route'
+        isCancelled ? 'No cancelled bus tickets found for this route' 
+        : 'No booked bus tickets found for this route'
       );
     }
 
@@ -360,7 +359,7 @@ class _BusTicketsPageState extends State<BusTicketsPage> with WidgetsBindingObse
           elevation: 0,
           bottom: const TabBar(
             tabs: [
-              Tab(text: 'Active'),
+              Tab(text: 'Booked'),
               Tab(text: 'Cancelled'),
             ],
             indicatorColor: Colors.orange,
@@ -374,8 +373,8 @@ class _BusTicketsPageState extends State<BusTicketsPage> with WidgetsBindingObse
             ? _buildEmptyState('No bus tickets found for this route')
             : TabBarView(
                 children: [
-                  // Active Tickets (booked, paid, confirmed)
-                  _buildTicketList(activeTicketsList),
+                  // Booked Tickets (booked, paid, confirmed)
+                  _buildTicketList(bookedTicketsList),
                   
                   // Cancelled Tickets (cancelled, refunded)
                   _buildTicketList(cancelledTicketsList, isCancelled: true),

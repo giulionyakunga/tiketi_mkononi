@@ -45,8 +45,9 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
   int quantity = 1;
   double ticketPrice = 0.0;
   double totalPrice = 0.0;
-  String selectedPaymentMethod = 'CASH';
-  final List<String> paymentMethods = ['CASH','MIXX BY YAS', 'M-PESA', 'AIRTEL MONEY', 'HALOPESA', 'AZAMPESA'];
+  String selectedPaymentMethod = 'MIXX BY YAS';
+  final List<String> paymentMethods = ['MIXX BY YAS', 'M-PESA', 'AIRTEL MONEY', 'HALOPESA', 'AZAMPESA'];
+  String selectedTicketPaymentMethod = 'CASH';
   final TextEditingController _phoneNumberController = TextEditingController();
   final TextEditingController _manualPriceController = TextEditingController();
   final FocusNode _priceFocusNode = FocusNode();
@@ -430,23 +431,30 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
   Future<void> _handlePayment({bool useDNS = true}) async {
     if (_isLoading) return;
 
-    if (_formKey2.currentState!.validate() && _formKey.currentState!.validate() && _formKey3.currentState!.validate() && checkNumberTickets()) {
-      String selectedPaymentMethod2 = ''; 
-      switch (selectedPaymentMethod) {
+
+    if (_formKey3.currentState != null) {
+      if (!_formKey3.currentState!.validate()) {
+        return;
+      }
+    }
+
+    if (_formKey2.currentState!.validate() && _formKey.currentState!.validate() && checkNumberTickets()) {
+      String selectedTicketPaymentMethod2 = selectedTicketPaymentMethod; 
+      switch (selectedTicketPaymentMethod) {
         case 'M-PESA':
-          selectedPaymentMethod2 = 'Mpesa';
+          selectedTicketPaymentMethod2 = 'Mpesa';
           break;
         case 'MIXX BY YAS':
-          selectedPaymentMethod2 = 'Tigo';
+          selectedTicketPaymentMethod2 = 'Tigo';
           break;
         case 'AIRTEL MONEY':
-          selectedPaymentMethod2 = 'Airtel';
+          selectedTicketPaymentMethod2 = 'Airtel';
           break;
         case 'HALOPESA':
-          selectedPaymentMethod2 = 'Halopesa';
+          selectedTicketPaymentMethod2 = 'Halopesa';
           break;
         case 'AZAMPESA':
-          selectedPaymentMethod2 = 'Azampesa';
+          selectedTicketPaymentMethod2 = 'Azampesa';
           break;
       }
 
@@ -454,7 +462,7 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
       bool isPickupDifferent = pickupLocation != widget.busRoute.startingPoint;
       bool isDropoffDifferent = dropoffLocation != widget.busRoute.finalPoint;
       
-      if ((isPickupDifferent || isDropoffDifferent) && (ticketPrice == widget.busRoute.ticketPrice.toString())  ) {
+      if ((isPickupDifferent || isDropoffDifferent) && (ticketPrice == widget.busRoute.ticketPrice)  ) {
         bool isValidPrice = await _showCustomRouteDialog();
         if(isValidPrice) {
           return;
@@ -472,7 +480,7 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
         'passenger_name': (widget.companyId > 0) ? _passengerNameController.text.trim() : '',
         'phone_number': (widget.companyId > 0) ? formatPhoneNumber(_phoneNumberController.text) : '',
         'selected_seats': _selectedSeats,
-        'selected_payment_method': selectedPaymentMethod2,
+        'selected_payment_method': selectedTicketPaymentMethod2, 
       };
 
       try {
@@ -512,6 +520,13 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
             _saveReceiptsBalance(responseData['number_of_sms']);
             receiptFooter = responseData['receipt_footer'];
             _getBookedSeats();
+
+            pickupLocation = widget.busRoute.startingPoint;
+            dropoffLocation = widget.busRoute.finalPoint;
+            _setTicketPrice();
+            _phoneNumberController.text = '';
+            _manualPriceController.text = '';
+            _passengerNameController.text = '';
 
             debugPrint(' >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> responseData bus_tickets : ${responseData['bus_tickets']}');
 
@@ -564,6 +579,7 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
         setState(() => _isLoading = false);
       }
     }
+    
   }
 
   void _showSuccessDialog() {
@@ -1008,6 +1024,8 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
             _buildDetailRow('⏰', 'Arrival Time:', getAmPm(widget.busRoute.arrivalTime)),
             _buildDetailRow('💺', 'Available Seats:', '${widget.busRoute.availableSeats}'),
             _buildDetailRow('💰', 'Price:', 'TSh ${NumberFormat('#,##0').format(ticketPrice.toInt())}'),
+            if(widget.userId == widget.busRoute.userId)
+            _buildDetailRow('🎟️', 'Total Collection:', 'TSh ${NumberFormat('#,##0').format(widget.busRoute.totalCollection.toInt())}'),
           ],
         ),
       ),

@@ -1834,12 +1834,9 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
                         _fromController.text = selectedBusRoute.from;
                         _toController.text = selectedBusRoute.to;
                         _viaController.text = selectedBusRoute.via;
-                        if(_startingPointController.text.isEmpty) {
-                          _startingPointController.text = selectedBusRoute.from;
-                        }
-                        if(_finalPointController.text.isEmpty) {
-                          _finalPointController.text = selectedBusRoute.to;
-                        }
+                        _startingPointController.text = selectedBusRoute.startingPoint;
+                        _finalPointController.text = selectedBusRoute.finalPoint;
+                        
                         _ticketPriceController.text = selectedBusRoute.ticketPrice.toString();
                       }
                     },
@@ -1869,12 +1866,9 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
                             _fromController.text = selectedBusRoute.from;
                             _toController.text = selectedBusRoute.to;
                             _viaController.text = selectedBusRoute.via;
-                            if(_startingPointController.text.isEmpty) {
-                              _startingPointController.text = selectedBusRoute.from;
-                            }
-                            if(_finalPointController.text.isEmpty) {
-                              _finalPointController.text = selectedBusRoute.to;
-                            }
+                            _startingPointController.text = selectedBusRoute.startingPoint;
+                            _finalPointController.text = selectedBusRoute.finalPoint;
+                            
                             _ticketPriceController.text = selectedBusRoute.ticketPrice.toString();
                           } else {
                             setState(() {
