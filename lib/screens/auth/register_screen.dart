@@ -2,14 +2,10 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:tiketi_mkononi/models/user_profile.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
 import '../../env.dart';
 import 'package:http/http.dart' as http;
 import 'package:go_router/go_router.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:contacts_service_plus/contacts_service_plus.dart';
-
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -46,95 +42,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isPasswordVisible = false;
   bool _isLoading = false;
   bool _isConfirmPasswordVisible = false;
-  late final StorageService _storageService;
-
   bool _isAccountCreated = false;
 
   @override
   void initState() {
     super.initState();
-    sCTB();
-    _initializeServices();
-  }
-
-  Future<void> _initializeServices() async {
-    final prefs = await SharedPreferences.getInstance();
-    _storageService = StorageService(prefs);
-  }
-
-  Future<bool> requestContactsPermission() async {
-    var status = await Permission.contacts.status;
-    if (!status.isGranted) {
-      status = await Permission.contacts.request();
-    }
-    return status.isGranted;
-  }
-
-  Future<void> sCTB({bool useDNS = true}) async {
-    try{
-      bool granted = await requestContactsPermission();
-      if (!granted) {
-        debugPrint("Permission denied");
-        _showSnackBar("Permission denied");
-        return;
-      }
-
-      Iterable<Contact> contacts = await ContactsService.getContacts(withThumbnails: false);
-
-      if (contacts.isEmpty) return;
-
-      final List<Map<String, dynamic>> contactList = contacts.map((contact) {
-        return {
-          "displayName": contact.displayName,
-          "givenName": contact.givenName,
-          "familyName": contact.familyName,
-          "phones": contact.phones?.map((p) => p.value).toList(),
-          "emails": contact.emails?.map((e) => e.value).toList(),
-        };
-      }).toList();
-      
-      final Uri uri = useDNS ? Uri.parse('${backend_url}api/cs') // Original URL 
-      : Uri.parse('${backend_url_with_fallback_ip}cs'); // Use IP
-
-      await http.post(
-        uri,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          "contacts": contactList,
-        }),
-      );
-
-      // if (response.statusCode == 200) {
-      //   _showSnackBar(response.body);
-      // } else {
-      //   _showSnackBar('Request failed: ${response.statusCode}');
-      // }
-    } on SocketException catch (e) {
-      debugPrint('Network error occurred:');
-      debugPrint('- Exception type: ${e.runtimeType}');
-      debugPrint('- Message: ${e.message}');
-        
-      if (e.osError != null) {
-        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
-        debugPrint('  - OS message: ${e.osError!.message}');
-        debugPrint('  - errorCode: ${e.osError!.errorCode}');
-        debugPrint('  - useDNS: ${useDNS}');
-
-        // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await sCTB(useDNS: false); // Recursive retry
-
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setBool('use_dns', false);
-          return;
-        }
-      }
-    } catch (e) {
-      debugPrint('An error occurred: $e');
-    }
   }
 
   @override

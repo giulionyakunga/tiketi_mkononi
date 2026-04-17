@@ -486,7 +486,7 @@ class _PledgeSendPageState extends ConsumerState<PledgeSendPage> {
  
     String extractedName = getEventNameAfterPrefix(widget.event!.name);
 
-    String text = "${widget.event!.familyName} inayo furaha kukujulisha ${widget.pledge.fullName} kuwa kijana wao mpendwa ${extractedName}, anatarajia kufunga ndoa tarehe ${widget.event!.date}. Hivyo ukiwa kama ndugu, jamaa na rafiki wa karibu wa familia hii, tunaomba mchango wako wa hali na mali ili kufanikisha shughuli hii";
+    String text = "${widget.event!.familyName} inayo furaha kukujulisha ${widget.pledge.fullName} kuwa kijana wao mpendwa ${extractedName}, anatarajia kufunga ndoa tarehe ${widget.event!.date}. Hivyo ukiwa kama ndugu, jamaa na rafiki wa karibu wa familia hii, tunaomba mchango wako wa hali na mali ili kufanikisha shughuli hii\nMichango itumwe kwa:\n${widget.event!.networkNameAccountNumber1}\nJina:${widget.event!.accountName}\n\n${widget.event!.networkNameAccountNumber2}\nJina:${widget.event!.accountName2}";
     
     // await Clipboard.setData(ClipboardData(text: text));
     await Clipboard.setData(ClipboardData(text: contactName));
@@ -528,7 +528,7 @@ class _PledgeSendPageState extends ConsumerState<PledgeSendPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Send Pledge'),
+        title: const Text('Send Pledge Request'),
         backgroundColor: const Color.fromARGB(255, 240, 244, 247),
       ),
       body: Center(
@@ -562,7 +562,7 @@ class _PledgeSendPageState extends ConsumerState<PledgeSendPage> {
                                       ElevatedButton.icon(
                                         onPressed: _isCardGenerated ? _sendPledge : null,
                                         icon: const Icon(Icons.share),
-                                        label: const Text("Send Pledge"),
+                                        label: const Text("Send Request"),
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: Colors.blue,
                                           foregroundColor: Colors.white,
@@ -613,7 +613,7 @@ class _PledgeSendPageState extends ConsumerState<PledgeSendPage> {
                                 ElevatedButton.icon(
                                   onPressed: _isCardGenerated ? _sendPledge : null,
                                   icon: const Icon(Icons.share),
-                                  label: const Text("Send Pledge"),
+                                  label: const Text("Send Request"),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.blue,
                                     foregroundColor: Colors.white,
