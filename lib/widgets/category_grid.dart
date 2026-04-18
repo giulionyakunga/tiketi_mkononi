@@ -28,9 +28,9 @@ class CategoryGrid extends StatelessWidget {
       Category(name: AppLocalizations.of(context)!.buses, value: 'Buses', icon: Icons.directions_bus, color: Colors.teal),
       if ((role == 'transporter') || (role == 'cargo_transporter') || (role == 'transport_office_attendant') || (role == 'cargo_office_attendant'))
       Category(name: AppLocalizations.of(context)!.cargo, value: 'Cargo', icon: Icons.local_shipping, color: Colors.teal),
-      Category(name: AppLocalizations.of(context)!.sports, value: 'Sporte', icon: Icons.sports_basketball, color: Colors.red),
+      Category(name: AppLocalizations.of(context)!.sports, value: 'Sports', icon: Icons.sports_basketball, color: Colors.red),
       Category(name: AppLocalizations.of(context)!.comedy, value: 'Comedy', icon: Icons.theater_comedy, color: Colors.brown),
-      Category(name: AppLocalizations.of(context)!.fun, value: 'fun', icon: Icons.beach_access, color: Colors.amber[500]!),
+      Category(name: AppLocalizations.of(context)!.fun, value: 'Fun', icon: Icons.beach_access, color: Colors.amber[500]!),
       // Category(name: AppLocalizations.of(context)!.festivals, value: 'Festival', icon: Icons.festival, color: Colors.blue),
       Category(name: AppLocalizations.of(context)!.barsAndGrills, value: 'Bars & Grills', icon: Icons.wine_bar, color: Colors.pink),
       Category(name: AppLocalizations.of(context)!.training, value: 'Training', icon: Icons.cast_for_education, color: Colors.green[600]!),
