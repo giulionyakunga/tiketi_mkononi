@@ -301,7 +301,7 @@ class _EventPledgesPageState extends State<EventPledgesPage> {
       appBar: AppBar(
         title: _isSearchBarVisible 
             ? _buildSearchBar(isDarkMode, isLargeScreen) 
-            : const Text('Pledges'),
+            : const Text('Request Pledges'),
         backgroundColor: const Color.fromARGB(255, 240, 244, 247),
         actions: [
           IconButton(

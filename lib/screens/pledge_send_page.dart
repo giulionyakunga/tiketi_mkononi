@@ -561,10 +561,10 @@ class _PledgeSendPageState extends ConsumerState<PledgeSendPage> {
                                     children: [
                                       ElevatedButton.icon(
                                         onPressed: _isCardGenerated ? _sendPledge : null,
-                                        icon: const Icon(Icons.share),
+                                        icon: const Icon(Icons.send),
                                         label: const Text("Send Request"),
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.blue,
+                                          backgroundColor: Colors.green[700],
                                           foregroundColor: Colors.white,
                                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                                           shape: RoundedRectangleBorder(
@@ -612,10 +612,10 @@ class _PledgeSendPageState extends ConsumerState<PledgeSendPage> {
                               children: [
                                 ElevatedButton.icon(
                                   onPressed: _isCardGenerated ? _sendPledge : null,
-                                  icon: const Icon(Icons.share),
+                                  icon: const Icon(Icons.send),
                                   label: const Text("Send Request"),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.blue,
+                                    backgroundColor: Colors.green[700],
                                     foregroundColor: Colors.white,
                                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                                     shape: RoundedRectangleBorder(

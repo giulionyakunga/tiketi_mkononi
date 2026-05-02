@@ -80,7 +80,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           uri,
           headers: {'Content-Type': 'application/json; charset=UTF-8'},
           body: jsonEncode({
-            "email": _emailController.text,
+            "email": _emailController.text.trim(),
             "password": _passwordController.text
           }),
         );

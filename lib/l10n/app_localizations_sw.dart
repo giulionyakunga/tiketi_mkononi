@@ -59,7 +59,7 @@ class AppLocalizationsSw extends AppLocalizations {
   String get noCargosYet => 'Bado hakuna mizigo';
 
   @override
-  String get sports => 'Michazo';
+  String get sports => 'Michezo';
 
   @override
   String get comedy => 'Komedi';

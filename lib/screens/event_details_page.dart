@@ -362,6 +362,218 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
     );
   }
 
+
+  Future<void> _sendPromoMessages({bool useDNS = true}) async {
+    final Uri uri = useDNS 
+        ? Uri.parse('${backend_url}api/send_promo_messages/$userId/${widget.event.id}') // Original URL with userId and eventId
+        : Uri.parse('${backend_url_with_fallback_ip}send_promo_messages/$userId/${widget.event.id}'); // Use IP
+
+    try {
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        debugPrint('response.body: ${response.body}');
+
+        final responseData = jsonDecode(response.body);
+        debugPrint('response.body: ${response.body}');
+        
+        // Display the response data in a dialog
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: Row(
+                children: [
+                  Icon(
+                    (responseData['number_of_sms_sent'] > 0) ? Icons.check_circle : Icons.warning,
+                    color: (responseData['number_of_sms_sent'] > 0) ? Colors.green : Colors.red
+                  ),
+                  SizedBox(width: 12),
+                  Text( 
+                    ((responseData['number_of_sms_sent'] ?? 0) > 0) ? 'Promo Messages Sent' : 'Promo Messages Not Sent',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold
+                    ),
+                  ),
+
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildInfoRow(
+                    icon: Icons.confirmation_number,
+                    label: 'Tickets Count',
+                    value: responseData['tickets_count']?.toString() ?? 'N/A',
+                  ),
+                  const SizedBox(height: 12),
+                  _buildInfoRow(
+                    icon: Icons.message,
+                    label: 'SMS Sent',
+                    value: responseData['number_of_sms_sent']?.toString() ?? 'N/A',
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline, 
+                          size: 16, 
+                          color: (responseData['number_of_sms_sent'] > 0) ? Colors.green : Colors.red),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            responseData['description'] ?? 'N/A',
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Close'),
+                ),
+              ],
+            );
+          },
+        );
+        
+      } else {
+        // Handle non-200 responses
+        _showErrorDialog('Failed to send promo messages. Status code: ${response.statusCode}');
+      }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: $useDNS');
+
+        // Retry with IP if DNS fails (errno = 7 or 11001) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await _sendPromoMessages(useDNS: false); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
+          return;
+        }
+      }
+
+      _handleSocketException(e);
+    } catch (e) {
+      debugPrint('Error sending promo messages: $e');
+      _showErrorDialog('An error occurred while sending promo messages: $e');
+    }
+  }
+
+  // Helper method to build info rows in the dialog
+  Widget _buildInfoRow({required IconData icon, required String label, required String value}) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: Colors.grey.shade700),
+        const SizedBox(width: 12),
+        Text(
+          '$label:',
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          value,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+      ],
+    );
+  }
+
+  // Helper method to show error dialog
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.red),
+              SizedBox(width: 12),
+              Text('Error'),
+            ],
+          ),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Optional: Create a method that shows confirmation before sending
+  Future<void> _confirmAndSendPromoMessages() async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.campaign, color: Colors.orange),
+              SizedBox(width: 12),
+              Text(
+                'Send Promo Messages?',
+                style: const TextStyle(
+                  fontSize: 18,
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold
+                ),
+              ),
+            ],
+          ),
+          content: const Text(
+            'Are you sure you want to send promo messages to this events\' attendees?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton.icon(
+              onPressed: () => Navigator.of(context).pop(true),
+              icon: const Icon(Icons.send),
+              label: const Text('Send'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true) {
+      await _sendPromoMessages();
+    }
+  }
+
   Widget _buildCategoryChip(String category) {
     final Map<String, Color> categoryColors = {
       'CONCERTS': Colors.orange[800]!,
@@ -1170,7 +1382,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
 
                                   ),
                                 ),
-                                if ((role == 'admin') && (event.category.toUpperCase() == "WEDDING"))
+                                if ((userId == event.userId) && (role == 'admin') && (event.category.toUpperCase() == "WEDDING"))
                                 Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 8),
                                   child: TextButton(
@@ -1194,7 +1406,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                     ),
                                   ),
                                 ),
-                                if ((role == 'admin') && (event.category.toUpperCase() == "WEDDING"))
+                                if ((userId == event.userId) && (role == 'admin') && (event.category.toUpperCase() == "WEDDING"))
                                 Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 8),
                                   child: TextButton(
@@ -1480,7 +1692,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                         ),
 
                         // Admin reminder
-                        if ((role == 'admin') && (event.category.toUpperCase() == "WEDDING")) ...[
+                        if ((userId == event.userId) && (role == 'admin') && (event.category.toUpperCase() == "WEDDING")) ...[
                           const SizedBox(width: 10),
                           TextButton(
                             style: _compactBtnStyle,
@@ -1513,6 +1725,18 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                               Icons.volunteer_activism,
                               size: 18,
                               color: Colors.red,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          TextButton(
+                            style: _compactBtnStyle,
+                            onPressed: () {
+                              _confirmAndSendPromoMessages();
+                            },
+                            child: const Icon(
+                              Icons.campaign,
+                              size: 18,
+                              color:Colors.orange,
                             ),
                           ),
                         ],
