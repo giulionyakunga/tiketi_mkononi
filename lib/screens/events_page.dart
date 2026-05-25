@@ -41,6 +41,7 @@ class _EventsPageState extends State<EventsPage> {
     'Sports',
     'Training',
     'Wedding',
+    'Celebration',
     'My Events'
   ];
 
@@ -523,6 +524,11 @@ class _EventsPageState extends State<EventsPage> {
                               )
                             else if (category == 'Wedding')
                               Icon(Icons.favorite,
+                                size: 18, 
+                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                              )
+                            else if (category == 'Celebration')
+                              Icon(Icons.celebration,
                                 size: 18, 
                                 color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                               )

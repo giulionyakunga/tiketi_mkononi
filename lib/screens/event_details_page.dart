@@ -19,6 +19,7 @@ import 'package:tiketi_mkononi/screens/event_tickets_page.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tiketi_mkononi/screens/generate_cards_page.dart';
 import 'package:tiketi_mkononi/screens/qr_scanner_page.dart';
+import 'package:tiketi_mkononi/screens/send_pledge_requests_page.dart';
 import 'package:tiketi_mkononi/screens/send_reminder_messages_page.dart';
 import 'package:tiketi_mkononi/screens/set_scanner_page.dart';
 import 'package:tiketi_mkononi/screens/theater_checkout_page.dart';
@@ -575,30 +576,47 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
   }
 
   Widget _buildCategoryChip(String category) {
-    final Map<String, Color> categoryColors = {
-      'CONCERTS': Colors.orange[800]!,
-      'SPORTS': Colors.red,
-      'COMEDY': Colors.brown[600]!,
-      'FUN': Colors.amber[500]!,
-      'BARS & GRILLS': Colors.pink,
-      'TRAINING': Colors.green,
-      'THEATER': Colors.black,
-      'WEDDING': Colors.red,
-    };
-
-    return Chip(
-      labelPadding: const EdgeInsets.symmetric(horizontal: 4),
-      padding: const EdgeInsets.all(0),
-      label: Text(
+    final categoryStyle = _getCategoryStyle(category);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: categoryStyle.color,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
         category.toUpperCase(),
         style: const TextStyle(
-          fontSize: 10,
+          fontSize: 9,
           color: Colors.white,
+          fontWeight: FontWeight.bold,
         ),
       ),
-      backgroundColor: categoryColors[category.toUpperCase()] ?? Colors.grey,
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
     );
+  }
+
+  _CategoryStyle _getCategoryStyle(String category) {
+    switch (category.toUpperCase()) {
+      case "CONCERTS":
+        return _CategoryStyle(Colors.orange[800]!);
+      case "SPORTS":
+        return _CategoryStyle(Colors.red);
+      case "COMEDY":
+        return _CategoryStyle(Colors.brown[600]!);
+      case "FUN":
+        return _CategoryStyle(Colors.amber[500]!);
+      case "BARS & GRILLS":
+        return _CategoryStyle(Colors.pink);
+      case "TRAINING":
+        return _CategoryStyle(Colors.green);
+      case "THEATER":
+        return _CategoryStyle(Colors.black);
+      case "WEDDING":
+        return _CategoryStyle(Colors.red);
+      case "CELEBRATION":
+        return _CategoryStyle(Colors.yellow);
+      default:
+        return _CategoryStyle(Colors.grey);
+    }
   }
 
   Future<void> _launchPhoneCall(String phoneNumber) async {
@@ -1186,14 +1204,14 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                     ),
                                     child: (event.tickets.length > 1) ?
                                     Text(
-                                      (widget.event.category.toUpperCase() == "WEDDING") ? "View Cards" : "View Tickets",
+                                      ((widget.event.category.toUpperCase() == "WEDDING") || (widget.event.category.toUpperCase() == "CELEBRATION")) ? "View Cards" : "View Tickets",
                                       style: TextStyle(
                                         fontSize: 11, 
                                         color: Colors.green
                                       ),
                                     ) : 
                                     Text(
-                                       (widget.event.category.toUpperCase() == "WEDDING") ? "View Card" : "View Ticket",
+                                      ((widget.event.category.toUpperCase() == "WEDDING") || (widget.event.category.toUpperCase() == "CELEBRATION")) ? "View Card" : "View Ticket",
                                       style: TextStyle(
                                         fontSize: 11, 
                                         color: Colors.green
@@ -1325,7 +1343,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                     ),
                                   ),
                                 ),
-                                if ((userId == event.userId) && (event.category.toUpperCase() == "WEDDING"))
+                                if ((userId == event.userId) && ((event.category.toUpperCase() == "WEDDING") || (event.category.toUpperCase() == "CELEBRATION")))
                                 Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 8),
                                   child: TextButton(
@@ -1419,7 +1437,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
-                                          builder: (context) => EventPledgesPage(event: event),
+                                          builder: (context) => SendPledgeRequestsPage(event: event),
                                         ),
                                       );
                                     },
@@ -1530,10 +1548,10 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                             },
                             child: Text(
                               (event.tickets.length > 1)
-                                  ? (event.category.toUpperCase() == "WEDDING"
+                                  ? ((event.category.toUpperCase() == "WEDDING" || event.category.toUpperCase() == "CELEBRATION")
                                       ? "View Cards"
                                       : "View Tickets")
-                                  : (event.category.toUpperCase() == "WEDDING"
+                                  : ((event.category.toUpperCase() == "WEDDING" || event.category.toUpperCase() == "CELEBRATION")
                                       ? "View Card"
                                       : "View Ticket"),
                               style: const TextStyle(
@@ -1646,7 +1664,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                           const SizedBox(width: 10),
                         ],
                         // Generate cards (wedding)
-                        if ((userId == event.userId) && (event.category.toUpperCase() == "WEDDING")) ...[
+                        if ((userId == event.userId) && ((event.category.toUpperCase() == "WEDDING") || (event.category.toUpperCase() == "CELEBRATION"))) ...[
                           TextButton(
                             style: _compactBtnStyle,
                             onPressed: () {
@@ -1717,7 +1735,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => EventPledgesPage(event: event),
+                                  builder: (context) => SendPledgeRequestsPage(event: event),
                                 ),
                               );
                             },
@@ -1772,4 +1790,10 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
         ? _buildDesktopLayout(newEvent, context)
         : _buildMobileLayout(newEvent, context);
   }
+}
+
+class _CategoryStyle {
+  final Color color;
+
+  _CategoryStyle(this.color);
 }

@@ -238,7 +238,8 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
     // Apply search filter
     if (_searchQuery.isNotEmpty) {
       filtered = filtered.where((ticket) => 
-          ticket.userName.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+        ticket.userName.toLowerCase().contains(_searchQuery.toLowerCase()) || ticket.userPhoneNumber.toLowerCase().contains(_searchQuery.toLowerCase())   
+      ).toList();
     }
     return filtered;
   }
@@ -407,7 +408,7 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
         child: TextField(
           controller: _searchController,
           decoration: InputDecoration(
-            hintText: (widget.event.category.toUpperCase() == "WEDDING") ? 'Search card...' : 'Search ticket...',
+            hintText: ((widget.event.category.toUpperCase() == "WEDDING") || (widget.event.category.toUpperCase() == "CELEBRATION")) ? 'Search card...' : 'Search ticket...',
             hintStyle: TextStyle(
               fontSize: isLargeScreen ? 16 : 14,
               color: colorScheme.onSurface.withOpacity(0.6),
@@ -521,7 +522,7 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
         appBar: AppBar(
           title: // Search Bar
           _isSearchBarVisible ? _buildSearchBar(isDarkMode, isLargeScreen) 
-          : (widget.event.category.toUpperCase() == "WEDDING") ? const Text('Cards') :  const Text('Tickets'),
+          : ((widget.event.category.toUpperCase() == "WEDDING") || (widget.event.category.toUpperCase() == "CELEBRATION")) ? const Text('Cards') :  const Text('Tickets'),
           backgroundColor: const Color.fromARGB(255, 240, 244, 247),
           actions: [
             Padding(
@@ -1329,14 +1330,33 @@ class TicketCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     // Contact information
-                    _ContactButton(
-                      icon: Icons.phone,
-                      label: 'Phone:',
-                      value: ticket.userPhoneNumber,
-                      onPressed: () => _launchPhoneCall(context, ticket.userPhoneNumber),
-                      color: cardStyle.accentColor,
-                    ),
-                    const SizedBox(height: 8),
+                    // _ContactButton(
+                    //   icon: Icons.phone,
+                    //   label: 'Phone:',
+                    //   value: ticket.userPhoneNumber,
+                    //   onPressed: () => _launchPhoneCall(context, ticket.userPhoneNumber),
+                    //   color: cardStyle.accentColor,
+                    // ),
+                    // const SizedBox(height: 8),
+
+
+                    ...ticket.userPhoneNumber
+                    .split(',') // splits into list (works for one or many numbers)
+                    .map((phone) => phone.trim()) // remove spaces
+                    .where((phone) => phone.isNotEmpty) // ignore empty values
+                    .expand((phone) => [
+                          _ContactButton(
+                            icon: Icons.phone,
+                            label: 'Phone:',
+                            value: phone,
+                            onPressed: () => _launchPhoneCall(context, phone),
+                            color: cardStyle.accentColor,
+                          ),
+                          const SizedBox(height: 8),
+                        ])
+                    .toList(),
+
+
                     _ContactButton(
                       icon: Icons.email,
                       label: 'Email:',
@@ -1371,7 +1391,9 @@ class TicketCard extends StatelessWidget {
                             );
                           },
                           icon: const Icon(Icons.qr_code, size: 20),
-                          label: const Text('Show Ticket QR'),
+                          label: Text(
+                            ((event.category.toUpperCase() == "WEDDING") || (event.category.toUpperCase() == "CELEBRATION")) ? 'Show Card QR' : 'Show Ticket QR'
+                          ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: cardStyle.accentColor,
                             foregroundColor: Colors.white,

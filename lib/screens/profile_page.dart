@@ -32,6 +32,7 @@ import 'package:tiketi_mkononi/screens/requests_page.dart';
 import 'package:tiketi_mkononi/screens/sales_book_page.dart';
 import 'package:tiketi_mkononi/screens/shops_page.dart';
 import 'package:tiketi_mkononi/screens/system_users_page.dart';
+import 'package:tiketi_mkononi/screens/upload_pdf_file_to_print_page.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
 import 'package:http/http.dart' as http;
 
@@ -709,6 +710,20 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
             context,
             MaterialPageRoute(
               builder: (context) => BookOfAccountsPage(userId: userId),
+            ),
+          );
+        },
+      ),
+      _buildActionTile(
+        context,
+        icon: Icons.print,
+        iconColor: Colors.black,
+        title: 'Automatic Printing Machine',
+        onTap: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => UploadPDFFileToPrintPage(userId: userId),
             ),
           );
         },

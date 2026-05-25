@@ -126,7 +126,8 @@ flutter:
     - assets/fonts/poppins/Poppins-Regular.ttf
     - assets/sounds/error.mp3
     - assets/sounds/success.mp3
-
+    - assets/sample_doc.pdf
+    
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 

@@ -2726,9 +2726,12 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                       constraints: const BoxConstraints(),
                       visualDensity: VisualDensity.compact,
                       onPressed: () { 
-                        _printBluetoothReceipt(consignment);
                         if (Platform.isWindows) {
+                          debugPrint("Printing via cable...");
                           _printCableReceipt(consignment);
+                        } else {
+                          debugPrint("Printing via Bluetooth...");
+                          _printBluetoothReceipt(consignment);
                         }
                       },
                     ),
@@ -2742,7 +2745,15 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                       visualDensity: VisualDensity.compact,
-                      onPressed: () => _printBluetoothReceipt2(consignment),
+                      onPressed: () { 
+                        if (Platform.isWindows) {
+                          debugPrint("Printing via cable...");
+                          _printCableReceipt(consignment);
+                        } else {
+                          debugPrint("Printing via Bluetooth...");
+                          _printBluetoothReceipt2(consignment);
+                        }
+                      },
                     ),
                   ),
                 ],

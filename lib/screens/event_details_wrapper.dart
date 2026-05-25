@@ -7,12 +7,14 @@ import 'package:tiketi_mkononi/env.dart';
 import 'package:tiketi_mkononi/models/event.dart';
 import 'package:tiketi_mkononi/screens/confirm_attendance_page.dart';
 import 'package:tiketi_mkononi/screens/event_details_page.dart';
+import 'package:tiketi_mkononi/screens/pledge_page.dart';
 
 class EventDetailsWrapper extends StatefulWidget {
   final int eventId;
+  final bool? isPledge;  // Make nullable
   final String? ticketCode;  // Make nullable
 
-  const EventDetailsWrapper({super.key, required this.eventId, this.ticketCode});
+  const EventDetailsWrapper({super.key, required this.eventId, this.isPledge, this.ticketCode});
 
   @override
   State<EventDetailsWrapper> createState() => _EventDetailsWrapperState();
@@ -102,10 +104,16 @@ class _EventDetailsWrapperState extends State<EventDetailsWrapper> {
       );
     }
 
-    if(widget.ticketCode!.isNotEmpty){
+    if (widget.ticketCode?.isNotEmpty ?? false) {
       return ConfirmAttendancePage(
         event: event!,
         ticketCode: widget.ticketCode!,
+      );
+    }
+
+    if (widget.isPledge == true) {
+      return PledgePage(
+        event: event!,
       );
     }
 

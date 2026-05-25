@@ -89,7 +89,7 @@ class _EditEventPageState extends State<EditEventPage> {
 
   // Ticket type controllers
   final List<TicketType2> _ticketTypes = [];
-  final List<String> _predefinedTicketTypes = ['Regular', 'VIP', 'VVIP', 'Single', 'Double'];
+  final List<String> _predefinedTicketTypes = ['Regular', 'VIP', 'VVIP', 'Special', 'Single', 'Double'];
 
   final List<String> _categories = [
     'Music',
@@ -103,6 +103,7 @@ class _EditEventPageState extends State<EditEventPage> {
     'Festivals',
     'Training',
     'Wedding',
+    'Celebration',
   ];
 
   List<Venue> venueSuggestions = [];

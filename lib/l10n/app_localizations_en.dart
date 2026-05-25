@@ -80,6 +80,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wedding => 'Wedding';
 
   @override
+  String get celebration => 'Celebration';
+
+  @override
   String get addParcel => 'Add Parcel';
 
   @override

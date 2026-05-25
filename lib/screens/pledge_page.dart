@@ -10,26 +10,23 @@ import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'package:tiketi_mkononi/screens/event_providers.dart';
 import 'package:go_router/go_router.dart';
-import 'package:tiketi_mkononi/screens/tickets_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/foundation.dart';
 import 'package:share_plus/share_plus.dart';
 
-class ConfirmAttendancePage extends StatefulWidget {
+class PledgePage extends StatefulWidget {
   final Event event;
-  final String ticketCode;
 
-  const ConfirmAttendancePage({
+  const PledgePage({
     super.key,
     required this.event,
-    required this.ticketCode,
   });
 
   @override
-  State<ConfirmAttendancePage> createState() => _ConfirmAttendancePageState(); 
+  State<PledgePage> createState() => _PledgePageState(); 
 }
 
-class _ConfirmAttendancePageState extends State<ConfirmAttendancePage> {
+class _PledgePageState extends State<PledgePage> {
   Event? event2;
   double? _imageHeight;
   double? _imageWidth;
@@ -39,12 +36,16 @@ class _ConfirmAttendancePageState extends State<ConfirmAttendancePage> {
   int eventTicketsCount = 0;
   Map<String, dynamic> ticketTypesTicketsCount = {};
   bool isDeepLink = false;
-  bool isConfirmed = false;
+  bool isPledged = false;
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _phoneNumberController = TextEditingController();
+  final _amountController = TextEditingController();
+
 
   @override
   void initState() {
     super.initState();
-    getTicketsCount();
     fetchEvent();
     _loadImageDimensions();
   }
@@ -80,57 +81,14 @@ class _ConfirmAttendancePageState extends State<ConfirmAttendancePage> {
   void dispose() {
     final container = ProviderScope.containerOf(context);
     container.read(selectedEventProvider.notifier).state = null;
+    _nameController.dispose();
+    _phoneNumberController.dispose();
+    _amountController.dispose();
 
     super.dispose();
   }
 
-  Future<void> getTicketsCount({bool useDNS = true}) async {
-
-    final Uri uri = useDNS ? Uri.parse('${backend_url}api/event_tickets_count/${widget.event.id}') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}event_tickets_count/${widget.event.id}'); // Use IP
-
-    try {
-      final response = await http.get(uri);
-
-      if (response.statusCode == 200) {
-        final responseData = jsonDecode(response.body);
-
-        if((responseData['tickets_count']) != null){
-          setState(() {
-            eventTicketsCount = responseData['tickets_count'];
-            ticketTypesTicketsCount = responseData['ticket_types'];
-          });
-        }
-        
-      }
-    } on SocketException catch (e) {
-      debugPrint('Network error occurred:');
-      debugPrint('- Exception type: ${e.runtimeType}');
-      debugPrint('- Message: ${e.message}');
-      
-      if (e.osError != null) {
-        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
-        debugPrint('  - OS message: ${e.osError!.message}');
-        debugPrint('  - errorCode: ${e.osError!.errorCode}');
-        debugPrint('  - useDNS: ${useDNS}');
-
-        // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await getTicketsCount(useDNS: false); // Recursive retry
-
-          return;
-        }
-      }
-
-      _handleSocketException(e);
-
-    } catch (e) {
-      debugPrint('Error fetching check tickets scan status: $e');
-    }
-  }
-
-    void _showSnackBar(String message) {
+  void _showSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
@@ -151,18 +109,43 @@ class _ConfirmAttendancePageState extends State<ConfirmAttendancePage> {
     }
   }
 
-  Future<void> confirmAttendance({bool useDNS = true}) async {
+  void _scrollToFirstError() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Scrollable.ensureVisible(
+        _formKey.currentContext!,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
 
-    final Uri uri = useDNS ? Uri.parse('${backend_url}api/confirm_attendance/${widget.event.id}/${widget.ticketCode}') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}confirm_attendance/${widget.event.id}/${widget.ticketCode}'); // Use IP
+  Future<void> pledge({bool useDNS = true}) async {
+    if (!_formKey.currentState!.validate()) {
+      _scrollToFirstError();
+      return;
+    }
+
+    final requestBody = {
+      'name': _nameController.text.trim(),
+      'phone_number': _phoneNumberController.text.trim(),
+      'amount': _amountController.text.trim(),
+    };
+
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/pledge/${widget.event.id}') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}pledge/${widget.event.id}'); // Use IP
 
     try {
-      final response = await http.get(uri);
+
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(requestBody),
+      );
 
       if (response.statusCode == 200) {
-        if (response.body == "Attendance confirmed successfully!") {
+        if (response.body == "Pledge created successfully!") {
           setState(() {
-            isConfirmed = true;
+            isPledged = true;
           });
 
           ScaffoldMessenger.of(context).showSnackBar(
@@ -194,7 +177,7 @@ class _ConfirmAttendancePageState extends State<ConfirmAttendancePage> {
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await confirmAttendance(useDNS: false); // Recursive retry
+          await pledge(useDNS: false); // Recursive retry
 
           return;
         }
@@ -415,43 +398,6 @@ class _ConfirmAttendancePageState extends State<ConfirmAttendancePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            (event.daily_event == 'yes') ? Text('📅 Everyday') : Text('📅 ${_formatDate(event.date)}'),
-            (event.time.contains(":")) ? Text('⏰ ${event.time}') : Text('⏰ Everytime'),
-            Text('📍 ${event.venue}'),
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: () => _launchUrl(event.locationLink),                  
-              style: TextButton.styleFrom(
-                alignment: Alignment.centerLeft,
-                padding: EdgeInsets.zero,  // Removed vertical padding
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: RichText(
-                text: TextSpan(
-                  children: [
-                    TextSpan(
-                      text: 'Location ',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        color: Colors.black,
-                        fontWeight: FontWeight.bold
-                      ),
-                    ),
-                    TextSpan(
-                      text: 'link ->',
-                      style: TextStyle(
-                        fontSize: 18,
-                        color: Colors.blue,
-                        fontWeight: FontWeight.normal
-                      ),
-                    ),
-                  ]
-                )
-              ),
-            ),
-            
-            const SizedBox(height: 16),
             const Text(
               'Event Details',
               style: TextStyle(
@@ -462,27 +408,6 @@ class _ConfirmAttendancePageState extends State<ConfirmAttendancePage> {
             const SizedBox(height: 8),
             Text(event.description),
             const SizedBox(height: 8),
-            // Event Status Row
-            Row(
-              children: [
-                const Text(
-                  'Event Status: ',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '${event.status[0].toUpperCase()}${event.status.substring(1)}',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.normal,
-                    color: (event.status == 'active') ? Colors.green : Colors.red,
-                  ),
-                ),
-              ],
-            ),
-            
-            // Uniform spacing between all elements
-            const SizedBox(height: 4),  // Reduced from default 8 to 4
             // Organizer Name
             if(organiser_name != "")
             RichText(
@@ -550,40 +475,108 @@ class _ConfirmAttendancePageState extends State<ConfirmAttendancePage> {
     );
   }
 
-  Widget _buildActionButtons(Event event, BuildContext context) {
+  InputDecoration _buildInputDecoration(String label, {String? prefixText, IconData? prefixIcon}) {
+    return InputDecoration(
+      labelText: label,
+      prefixText: prefixText,
+      prefixIcon: (prefixIcon != null) ? Icon(
+        prefixIcon,
+        color: Colors.grey[600],
+      ) : null,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(color: Colors.grey[400]!),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(color: Colors.grey[400]!),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(color: Colors.orange[800]!, width: 2),
+      ),
+      filled: true,
+      fillColor: Colors.grey[200],
+      contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+    );
+  }
+
+  Widget _buildPledgeForm(Event event, BuildContext context) {
       return Column(
         children: [
-          
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton(
-              onPressed: 
-              () async {
-                confirmAttendance();
-              },
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                backgroundColor: isConfirmed ? Colors.orange[800] : Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              child: Text(
-                isConfirmed ? 'Confirmed' : 'Confirm',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: isConfirmed
-                      ? Colors.white
-                      : Colors.orange[800],
-                ),
-              ),
-            ),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextFormField(
+                    controller: _nameController,
+                    maxLength: 100,
+                    decoration: _buildInputDecoration('Jina Kamili', prefixIcon: Icons.person),
+                    style: const TextStyle(fontSize: 16),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) return 'Tafadhali jaza jina lako kamili';
+                      if (value.length > 100) return 'Jina kamili lazima liwe herufi 100 au chini';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _phoneNumberController,
+                    maxLength: 15,
+                    decoration: _buildInputDecoration('Nambari ya Simu', prefixIcon: Icons.phone),
+                    style: const TextStyle(fontSize: 16),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) return 'Tafadhali jaza nambari yako ya simu';
+                      if (value.length > 15) return 'Nambari ya simu lazima liwe herufi 15 au chini';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _amountController,
+                    decoration: _buildInputDecoration('Kiasi unachoahidi (Pledge)', prefixText: 'TSH '),
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(fontSize: 14),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) return 'Tafadhali ingiza Kiasi unachoahidi';
+                      if (value.length > 10) return 'Kiasi unachoahidi lazima liwe herufi 10 au chini';
+                      return null;
+                    },
+                  ),
+                  ElevatedButton(
+                    onPressed: 
+                    () async {
+                      await pledge();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      backgroundColor: isPledged ? Colors.orange[800] : Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: Text(
+                      isPledged ? 'Ahadi yako imepokelewa' : 'Toa ahadi yako',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: isPledged
+                            ? Colors.white
+                            : Colors.orange[800],
+                      ),
+                    ),
+                  ),
+                ]
+              )
+            )
           ),
           const SizedBox(height: 20),
 
           ElevatedButton.icon(
             icon: const Icon(Icons.logout),
-            label: Text('See Other Events', style: TextStyle(
+            label: Text('Tazama Matukio Mengine', style: TextStyle(
               fontSize: 14,
             )
             ),
@@ -676,15 +669,15 @@ class _ConfirmAttendancePageState extends State<ConfirmAttendancePage> {
                                   child: TextButton(
                                     onPressed: () async {
                                       final eventId = event.id;
-                                      final link = "https://tiketimkononi.telabs.co.tz/event/$eventId";
+                                      final link = "https://tiketimkononi.telabs.co.tz/pledge/$eventId";
 
                                       if (kIsWeb) {
-                                        await Clipboard.setData(ClipboardData(text: "Check out this event! 🎟️\n$link"));
+                                        await Clipboard.setData(ClipboardData(text: "Mpendwa, karibu kuweka ahadi yako kwa ajili ya ${event.name} 🎟️\n$link"));
                                         ScaffoldMessenger.of(context).showSnackBar(
                                           SnackBar(content: Text('Link copied to clipboard!')),
                                         );
                                       } else {
-                                        Share.share("Check out this event! 🎟️\n$link");
+                                        Share.share("Mpendwa, karibu kuweka ahadi yako kwa ajili ya ${event.name} 🎟️\n$link");
                                       }
                                     },
                                     child: const Icon(
@@ -692,28 +685,6 @@ class _ConfirmAttendancePageState extends State<ConfirmAttendancePage> {
                                       size: 18,
                                       color: Colors.blue,
                                     ),
-                                  ),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 12),
-                                  child: TextButton(
-                                    style: TextButton.styleFrom(
-                                      padding: EdgeInsets.zero,
-                                      minimumSize: Size.zero,
-                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                    ),
-                                    onPressed: null,
-                                    child: Text(
-                                      event.type == 'free'
-                                          ? '🎟️ $eventTicketsCount Confirmed'
-                                          : '🎟️ $eventTicketsCount Sold',
-                                      style: TextStyle(
-                                          fontSize: 11, 
-                                          color: Colors.orange[800],
-                                          overflow: TextOverflow.ellipsis
-                                        ),
-                                    ),
-
                                   ),
                                 ),
                               ],
@@ -730,7 +701,7 @@ class _ConfirmAttendancePageState extends State<ConfirmAttendancePage> {
                       child: Column(
                         children: [
                           const SizedBox(height: 8),
-                          _buildActionButtons(event, context),
+                          _buildPledgeForm(event, context),
                         ],
                       ),
                     ),
@@ -795,52 +766,19 @@ class _ConfirmAttendancePageState extends State<ConfirmAttendancePage> {
                           child: _buildCategoryChip(event.category),
                         ),
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 2),
-                          child: TextButton(
-                            style: TextButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            child: (event.tickets.length > 1) ?
-                            Text(
-                              "View Tickets",
-                              style: TextStyle(
-                                fontSize: 11, 
-                                color: Colors.green
-                              ),
-                            ) : 
-                            Text(
-                              "View Ticket",
-                              style: TextStyle(
-                                fontSize: 11, 
-                                color: Colors.green
-                              ),
-                            ),
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => TicketsPage(eventId: event.id),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                        Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                           child: TextButton(
                             onPressed: () async {
                               final eventId = event.id;
-                              final link = "https://tiketimkononi.telabs.co.tz/event/$eventId";
+                              final link = "https://tiketimkononi.telabs.co.tz/pledge/$eventId";
 
                               if (kIsWeb) {
-                                await Clipboard.setData(ClipboardData(text: "Check out this event! 🎟️\n$link"));
+                                await Clipboard.setData(ClipboardData(text: "Mpendwa, karibu kuweka ahadi yako kwa ajili ya ${event.name} 🎟️\n$link"));
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(content: Text('Link copied to clipboard!')),
                                 );
                               } else {
-                                Share.share("Check out this event! 🎟️\n$link");
+                                Share.share("Mpendwa, karibu kuweka ahadi yako kwa ajili ya ${event.name} 🎟️\n$link");
                               }
                             },
                             child: const Icon(
@@ -856,7 +794,7 @@ class _ConfirmAttendancePageState extends State<ConfirmAttendancePage> {
                   const SizedBox(height: 16),
                   _buildEventDetailsCard(event, context),
                   const SizedBox(height: 16),
-                  _buildActionButtons(event, context),
+                  _buildPledgeForm(event, context),
                 ],
               ),
             ),

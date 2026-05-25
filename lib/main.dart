@@ -77,6 +77,14 @@ class TiketiMkononiApp extends ConsumerWidget  {
           return EventDetailsWrapper(eventId: id, ticketCode:ticketCode);
         },
       ),
+      GoRoute(
+        path: '/pledge/:id',
+        builder: (context, state) {
+          final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+          final isPledge = true;
+          return EventDetailsWrapper(eventId: id, isPledge: isPledge);
+        },
+      ),
     ],
   );
 

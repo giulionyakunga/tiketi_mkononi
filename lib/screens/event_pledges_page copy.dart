@@ -1,12 +1,8 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:excel/excel.dart' hide Border;
 import 'package:file_picker/file_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:tiketi_mkononi/env.dart';
 import 'package:tiketi_mkononi/models/event.dart';
 import 'package:tiketi_mkononi/models/pledge.dart';
 import 'package:tiketi_mkononi/screens/pledge_send_page.dart';
@@ -31,8 +27,6 @@ class _EventPledgesPageState extends State<EventPledgesPage> {
   @override
   void initState() {
     super.initState();
-    fetchPledges();
-
     _searchController.addListener(_onSearchChanged);
   }
 
@@ -42,52 +36,6 @@ class _EventPledgesPageState extends State<EventPledgesPage> {
     _searchController.dispose();
     super.dispose();
   }
-
-  
-  Future<void> fetchPledges({bool useDNS = true}) async {
-    final Uri uri = useDNS ? Uri.parse('${backend_url}api/pledges/${widget.event.id}') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}pledges/${widget.event.id}'); // Use IP
-
-    try {
-      final response = await http.get(uri);
-
-      if (response.statusCode == 200) {
-        List<dynamic> dataList = jsonDecode(response.body)['tickets'];
-        List<Pledge> pledges = dataList.map((json) => Pledge.fromJson(json)).toList();
-
-        setState(() {
-          pledgesList = pledges;
-          pledgesList2 = pledges;
-        });
-      } else {
-        throw Exception('Failed to load tickets');
-      }
-    } on SocketException catch (e) {
-      debugPrint('Network error occurred:');
-      debugPrint('- Exception type: ${e.runtimeType}');
-      debugPrint('- Message: ${e.message}');
-      
-      if (e.osError != null) {
-        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
-        debugPrint('  - OS message: ${e.osError!.message}');
-        debugPrint('  - errorCode: ${e.osError!.errorCode}');
-        debugPrint('  - useDNS: ${useDNS}');
-
-        // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await fetchPledges(useDNS: false); // Recursive retry
-
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setBool('use_dns', false);
-          return;
-        }
-      }
-    } catch (e) {
-      debugPrint('Error fetching tickets: $e');
-    }
-  }
-
 
   void _onSearchChanged() {
     setState(() {
@@ -165,13 +113,8 @@ class _EventPledgesPageState extends State<EventPledgesPage> {
         
         if (fullName.isNotEmpty && phoneNumber.isNotEmpty) {
           pledges.add(Pledge(
-            id: 0, // Placeholder, as we don't have an ID from Excel
-            eventId: widget.event.id,
             fullName: fullName,
-            phoneNumber: phoneNumber,
-            amount: 0.0, // Placeholder, as we don't have an amount from Excel
-            createdAt: DateTime.now(),
-            updatedAt: DateTime.now(),
+            phoneNumber: phoneNumber, id: 0, eventId: widget.event.id, amount: 0.0, createdAt: DateTime.now(), updatedAt: DateTime.now(),
           ));
         }
       }
@@ -292,55 +235,61 @@ class _EventPledgesPageState extends State<EventPledgesPage> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    if (pledgesList.isEmpty)
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.people_outline,
-              size: 48,
-              color: colorScheme.primary.withOpacity(0.5),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No pledges loaded',
-              style: TextStyle(
-                fontSize: 18,
-                color: colorScheme.onSurface.withOpacity(0.7),
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Pledges'),
+        backgroundColor: const Color.fromARGB(255, 240, 244, 247),
+      ),
+      body: pledgesList.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.people_outline,
+                    size: 48,
+                    color: colorScheme.primary.withOpacity(0.5),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No pledges loaded',
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: colorScheme.onSurface.withOpacity(0.7),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Tap the upload button to load an Excel file',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: colorScheme.onSurface.withOpacity(0.5),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton.icon(
+                    onPressed: loadExcelDocument,
+                    icon: const Icon(Icons.upload_file),
+                    label: const Text('Load Excel File'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange[800],
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ],
               ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(16.0),
+              itemCount: pledgesList.length,
+              itemBuilder: (context, index) {
+                return PledgeCard(pledge: pledgesList[index], event: widget.event); 
+              },
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Tap the upload button to load an Excel file',
-              style: TextStyle(
-                fontSize: 14,
-                color: colorScheme.onSurface.withOpacity(0.5),
-              ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: loadExcelDocument,
-              icon: const Icon(Icons.upload_file),
-              label: const Text('Load Excel File'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange[800],
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    else return ListView.builder(
-      padding: const EdgeInsets.all(16.0),
-      itemCount: pledgesList.length,
-      itemBuilder: (context, index) {
-        return PledgeCard(pledge: pledgesList[index], event: widget.event); 
-      },
     );
   }
 

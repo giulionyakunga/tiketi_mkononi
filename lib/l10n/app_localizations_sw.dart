@@ -80,6 +80,9 @@ class AppLocalizationsSw extends AppLocalizations {
   String get wedding => 'Harusi';
 
   @override
+  String get celebration => 'Sherehe';
+
+  @override
   String get addParcel => 'Ongeza Kifurushi';
 
   @override

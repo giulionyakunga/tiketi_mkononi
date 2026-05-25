@@ -393,6 +393,8 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
   }
   
   Future<void> _submitConsignment({bool useDNS = true}) async {
+    _printCableFile();
+    
     if (!_formKey.currentState!.validate()) {
       _scrollToFirstError();
       return;
@@ -490,17 +492,17 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
             _addedConsignment = requestBody;
           });
 
-          _printBluetoothReceipt(requestBody);
-          
-          if(_selectedNumberofReceiptsToPrint == 2) {
-            _printBluetoothReceipt2(requestBody);
-
-            if (Platform.isWindows) {
-              _printCableReceipt(requestBody);
-            }
+          if (Platform.isWindows) {
+            _printCableReceipt(requestBody);
           } else {
+            _printBluetoothReceipt(requestBody);
+          }
+
+          if(_selectedNumberofReceiptsToPrint == 2) {
             if (Platform.isWindows) {
               _printCableReceipt(requestBody);
+            } else {
+              _printBluetoothReceipt2(requestBody);
             }
           }
 
@@ -1210,9 +1212,10 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                   _printBluetoothReceipt2(_addedConsignment);
                 }
               } else if (value == 'refresh_printers') {
-                _printBluetoothTestReceipt();
                 if (Platform.isWindows) {
                   _refreshCablePrinters();
+                } else {
+                  _printBluetoothTestReceipt();
                 }
               } else if (value == 'number_of_receipts_to_print') {
                 await _selectNumberofReceiptsToPrintDialog();
@@ -1790,6 +1793,8 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
   }
 
   Future<void> _printBluetoothTestReceipt() async {
+    debugPrint("Printing via Bluetooth...");
+
     selectedPrinter = null;
     await clearSelectedPrinter();
 
@@ -1843,6 +1848,8 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
   }
 
   Future<void> _printBluetoothReceipt(dynamic consignment) async {
+    debugPrint("Printing via Bluetooth...");
+
     if (selectedPrinter == null) {
       await _refreshBluetoothPrinters();
       if (selectedPrinter == null) return;
@@ -2045,6 +2052,8 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
   }
 
   Future<void> _printBluetoothReceipt2(dynamic consignment) async {
+    debugPrint("Printing via Bluetooth...");
+
     if (selectedPrinter == null) {
       await _refreshBluetoothPrinters();
       if (selectedPrinter == null) return;
@@ -2172,13 +2181,14 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
   }
 
   Future<void> _printCableReceipt(dynamic consignment) async {
+    debugPrint("Printing via cable...");
+
     final pdf = pw.Document();
 
     // final logoData = await rootBundle.load('assets/telabs_logo.png');
     // final logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
 
-    final fontData =
-        await rootBundle.load('assets/fonts/poppins/Poppins-Regular.ttf');
+    final fontData = await rootBundle.load('assets/fonts/poppins/Poppins-Regular.ttf');
     final customFont = pw.Font.ttf(fontData);
 
     const pageWidth = 226.0;
@@ -2438,6 +2448,38 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       );
     } else {
       await _selectCablePrinterDialog();
+    }
+  }
+
+  Future<void> _printCableFile() async {
+    debugPrint("Printing PDF file via cable...");
+
+    try {
+      // Load PDF file from assets
+      final pdfData = await rootBundle.load(
+        'assets/sample_doc.pdf',
+      );
+
+      final bytes = pdfData.buffer.asUint8List();
+
+      if (selectedCablePrinter != null) {
+        try {
+          await Printing.directPrintPdf(
+            printer: selectedCablePrinter!,
+            onLayout: (PdfPageFormat format) async => bytes,
+          );
+
+          debugPrint("Print success");
+        } catch (e, s) {
+          debugPrint("PRINT ERROR: $e");
+          debugPrint("$s");
+        }
+
+      } else {
+        await _selectCablePrinterDialog();
+      }
+    } catch (e) {
+      debugPrint("Print error: $e");
     }
   }
 

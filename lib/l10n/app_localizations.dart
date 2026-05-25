@@ -236,6 +236,12 @@ abstract class AppLocalizations {
   /// **'Wedding'**
   String get wedding;
 
+  /// No description provided for @celebration.
+  ///
+  /// In en, this message translates to:
+  /// **'Celebration'**
+  String get celebration;
+
   /// No description provided for @addParcel.
   ///
   /// In en, this message translates to:

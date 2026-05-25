@@ -334,7 +334,7 @@ class _EditTicketPageState extends State<EditTicketPage> {
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _phoneNumberController,
-                    maxLength: 15,
+                    maxLength: 31,
                     decoration: InputDecoration(
                       labelText: 'Ticket Holder\'s Phone Number',
                       labelStyle: TextStyle(
@@ -377,8 +377,8 @@ class _EditTicketPageState extends State<EditTicketPage> {
                       if (value == null || value.isEmpty) {
                         return 'Please enter ticket holder\'s phone number';
                       }
-                      if (value.length > 15) {
-                        return 'Holder\'s phone number must be 15 characters or less';
+                      if (value.length > 31) {
+                        return 'Holder\'s phone number must be 31 characters or less';
                       }
                       return null;
                     },

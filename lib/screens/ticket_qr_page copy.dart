@@ -550,52 +550,33 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
     
     // Check if phone number already exists
     Contact? matchingContact;
-    int contactIndex = 0;
-    String contactIndex2 = '';
-    
-    // Split phone numbers into list
-    final phoneNumbers = phoneNumber
-        .split(',')
-        .map((p) => p.trim())
-        .where((p) => p.isNotEmpty)
-        .toList();
-    
-    for (final pN in phoneNumbers) {
-      contactIndex++;
 
-      for (final c in contactsList) {
-        if (c.phones != null && c.phones!.any((p) => p.value == pN)) {
-          matchingContact = c;
-          break;
-        }
+    for (final c in contactsList) {
+      if (c.phones != null && c.phones!.any((p) => p.value == phoneNumber)) {
+        matchingContact = c;
+        break;
       }
-    
-      if (matchingContact != null && contactIndex == phoneNumbers.length) {
-        print('Phone belongs to: ${matchingContact.displayName}');
-
-        setState(() {
-          contactName = matchingContact!.displayName!;
-          _isContactSaved = true;
-        });
-
-        debugPrint("Contact '${matchingContact.displayName}' already exists!");
-        _showSnackBar("Contact '${matchingContact.displayName}' already exists!");
-        return;
-      } else if (matchingContact != null && contactIndex != phoneNumbers.length) {
-        matchingContact = null;
-      }
-
-      if(phoneNumbers.length > 1 && contactIndex > 1) {
-        contactIndex2 = '_$contactIndex';
-      }
-
-      Contact newContact = Contact(
-        givenName: '$givenName$contactIndex2',
-        phones: [Item(label: "mobile", value: pN)],
-      );
-
-      await ContactsService.addContact(newContact);
     }
+
+    if (matchingContact != null) {
+      print('Phone belongs to: ${matchingContact.displayName}');
+
+      setState(() {
+        contactName = matchingContact!.displayName!;
+        _isContactSaved = true;
+      });
+
+      debugPrint("Contact '${matchingContact.displayName}' already exists!");
+      _showSnackBar("Contact '${matchingContact.displayName}' already exists!");
+      return;
+    }
+
+    Contact newContact = Contact(
+      givenName: givenName,
+      phones: [Item(label: "mobile", value: phoneNumber)],
+    );
+
+    await ContactsService.addContact(newContact);
 
     setState(() {
       contactName = givenName;
@@ -608,7 +589,7 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
 
   String generateContactName(String eventName, String ticketId, { int maxWords = 3 }) {
     final ignoreWords = {
-      'ya', 'na', 'wa', 'and', 'of', 'the', '&', 'a', 'an'
+      'ya', 'na', 'and', 'of', 'the', '&', 'a', 'an'
     };
 
     // Normalize
@@ -1609,9 +1590,9 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
 
     if((widget.event!.category.toUpperCase() == "WEDDING") || (widget.event!.category.toUpperCase() == "CELEBRATION")){
       if (widget.ticket.venue.toLowerCase().contains('nyumbani') ) {
-        text = "Habari ${widget.ticket.userName},\nUmealikwa kwenye sherehe ya ${widget.ticket.eventName}, Itakayofanyika tarehe ${widget.ticket.date}, ${widget.ticket.venue}, kuanzia saa ${widget.ticket.time} ${getTimeOfDay(widget.ticket.time)}. Namba ya kadi yako ni: ${widget.ticket.ticketCode} (${widget.ticket.ticketType})${extraInfoText}. Hii ni kadi yako, fika nayo siku ya tukio.\nBofya kiungo hiki kuthibitisha uwepo wako -> https://tiketimkononi.telabs.co.tz/confirm/attendance/${widget.ticket.eventId}/${widget.ticket.ticketCode}\nKiungo cha mahali -> ${widget.ticket.locationLink}\nKwa msaada piga namba ${widget.event!.organizerPhoneNumber}.\n#TiketiMkononi";
+        text = "Habari ${widget.ticket.userName},\nUmealikwa kwenye sherehe ya ${widget.ticket.eventName}, Itakayofanyika tarehe ${widget.ticket.date}, ${widget.ticket.venue}, kuanzia saa ${widget.ticket.time} ${getTimeOfDay(widget.ticket.time)}. Namba ya kadi yako ni: ${widget.ticket.ticketCode} (${widget.ticket.ticketType})${extraInfoText}. Hii ni kadi yako, fika nayo siku ya tukio..\nBofya kiungo hiki kuthibitisha uwepo wako -> https://tiketimkononi.telabs.co.tz/confirm/attendance/${widget.ticket.eventId}/${widget.ticket.ticketCode}\nKiungo cha mahali -> ${widget.ticket.locationLink}\nKwa msaada piga namba ${widget.event!.organizerPhoneNumber}.\n#TiketiMkononi";
       } else {
-        text = "Habari ${widget.ticket.userName},\nUmealikwa kwenye sherehe ya ${widget.ticket.eventName}, Itakayofanyika tarehe ${widget.ticket.date}, katika ukumbi wa ${widget.ticket.venue}, kuanzia saa ${widget.ticket.time} ${getTimeOfDay(widget.ticket.time)}. Namba ya kadi yako ni: ${widget.ticket.ticketCode} (${widget.ticket.ticketType})${extraInfoText}. Hii ni kadi yako, fika nayo siku ya tukio.\nBofya kiungo hiki kuthibitisha uwepo wako -> https://tiketimkononi.telabs.co.tz/confirm/attendance/${widget.ticket.eventId}/${widget.ticket.ticketCode}\nKiungo cha mahali -> ${widget.ticket.locationLink}\nKwa msaada piga namba ${widget.event!.organizerPhoneNumber}.\n#TiketiMkononi";
+        text = "Habari ${widget.ticket.userName},\nUmealikwa kwenye sherehe ya ${widget.ticket.eventName}, Itakayofanyika tarehe ${widget.ticket.date}, katika ukumbi wa ${widget.ticket.venue}, kuanzia saa ${widget.ticket.time} ${getTimeOfDay(widget.ticket.time)}. Namba ya kadi yako ni: ${widget.ticket.ticketCode} (${widget.ticket.ticketType})${extraInfoText}. Hii ni kadi yako, fika nayo siku ya tukio..\nBofya kiungo hiki kuthibitisha uwepo wako -> https://tiketimkononi.telabs.co.tz/confirm/attendance/${widget.ticket.eventId}/${widget.ticket.ticketCode}\nKiungo cha mahali -> ${widget.ticket.locationLink}\nKwa msaada piga namba ${widget.event!.organizerPhoneNumber}.\n#TiketiMkononi";
       }
     } else {
       text = "Habari ${widget.ticket.userName},\n"

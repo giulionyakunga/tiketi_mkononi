@@ -468,6 +468,8 @@ class EventCard extends StatelessWidget {
         return _CategoryStyle(Colors.black);
       case "WEDDING":
         return _CategoryStyle(Colors.red);
+      case "CELEBRATION":
+        return _CategoryStyle(Colors.yellow);
       default:
         return _CategoryStyle(Colors.grey);
     }
