@@ -24,5 +24,6 @@ sudo chown -R www-data:www-data /var/www/tiketi_mkononi/web
 sudo chmod -R 755 /var/www/tiketi_mkononi/web
 
 
+
 Taking a MySQL database backup
 scp ubuntu@telabs.co.tz:"/home/ubuntu/backups/tiketi_mkononi_backup.sql" ./backups
