@@ -28,11 +28,6 @@ class PledgePage extends StatefulWidget {
 
 class _PledgePageState extends State<PledgePage> {
   Event? event2;
-  double? _imageHeight;
-  double? _imageWidth;
-  final double _defaultExpandedHeight = 360;
-  String organiser_name = "";
-  String organiser_phone_number = "";
   int eventTicketsCount = 0;
   Map<String, dynamic> ticketTypesTicketsCount = {};
   bool isDeepLink = false;
@@ -46,8 +41,7 @@ class _PledgePageState extends State<PledgePage> {
   @override
   void initState() {
     super.initState();
-    fetchEvent();
-    _loadImageDimensions();
+    event2 = widget.event;
   }
 
   @override
@@ -149,7 +143,15 @@ class _PledgePageState extends State<PledgePage> {
           });
 
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(response.body)),
+            SnackBar(
+              backgroundColor: Colors.green,
+              content: const Text(
+                'Your pledge is received successfully!',
+                style: TextStyle(
+                  color: Colors.white,
+                ),
+              ),
+            ),
           );
         } else {
           _showSnackBar('Request failed: ${response.body}');
@@ -210,53 +212,6 @@ class _PledgePageState extends State<PledgePage> {
     return 0;
   }
 
-  void fetchEvent({bool useDNS = true}) async {
-    if (!mounted) return;
-
-    try {
-      final Uri uri = useDNS ? Uri.parse('${backend_url}api/get_event/${widget.event.id}/0') // Original URL 
-      : Uri.parse('${backend_url_with_fallback_ip}get_event/${widget.event.id}/0'); // Use IP
-        
-      final response = await http.get(uri);
-
-      if (response.statusCode == 200) {
-        Map<String, dynamic> jsonResponse = jsonDecode(response.body);
-
-        setState(() {
-          event2 = Event.fromJson(jsonResponse);
-          organiser_name = jsonResponse['user']['first_name'] + " " + jsonResponse['user']['last_name'];
-          organiser_phone_number = jsonResponse['user']['phone_number'];
-        });
-      } else {
-        debugPrint('Failed to load event');
-      }
-    }on SocketException catch (e) {
-      debugPrint('Network error occurred:');
-      debugPrint('- Exception type: ${e.runtimeType}');
-      debugPrint('- Message: ${e.message}');
-      
-      if (e.osError != null) {
-        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
-        debugPrint('  - OS message: ${e.osError!.message}');
-        debugPrint('  - errorCode: ${e.osError!.errorCode}');
-        debugPrint('  - useDNS: ${useDNS}');
-
-        // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          fetchEvent(useDNS: false); // Recursive retry
-
-          return;
-        }
-      }
-
-      _handleSocketException(e);
-
-    } catch (e) {
-      debugPrint('Silent update error: $e');
-    }
-  }
-
   String _formatDate(String date) {
     try {
       final DateFormat inputFormat = DateFormat('dd-MM-yyyy');
@@ -278,39 +233,6 @@ class _PledgePageState extends State<PledgePage> {
     } else {
       return num.toString();
     }
-  }
-
-  void _loadImageDimensions() {
-    final imageProvider = CachedNetworkImageProvider(
-        '${backend_url}api/image/${widget.event.imageUrl}'
-      );
-    imageProvider.resolve(const ImageConfiguration()).addListener(
-      ImageStreamListener((info, _) {
-        if (mounted) {
-          setState(() {
-            _imageHeight = info.image.height.toDouble();
-            _imageWidth = info.image.width.toDouble();
-          });
-        }
-      }, onError: (_, __) {
-        if (mounted) {
-          setState(() {
-            _imageHeight = null;
-            _imageWidth = null;
-          });
-        }
-      }),
-    );
-  }
-
-  double _calculateExpandedHeight(BuildContext context) {
-    if (_imageWidth == null || _imageHeight == null) {
-      return _defaultExpandedHeight;
-    }
-
-    final screenWidth = MediaQuery.of(context).size.width;
-    final aspectRatio = _imageWidth! / _imageHeight!;
-    return screenWidth / aspectRatio;
   }
 
   bool existsTicketUpdatedAfterEvent(Event event) {
@@ -408,67 +330,6 @@ class _PledgePageState extends State<PledgePage> {
             const SizedBox(height: 8),
             Text(event.description),
             const SizedBox(height: 8),
-            // Organizer Name
-            if(organiser_name != "")
-            RichText(
-              text: TextSpan(
-                children: [
-                  TextSpan(
-                    text: 'Organized By: ',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      color: Colors.black,
-                      fontWeight: FontWeight.bold
-                    ),
-                  ),
-                  TextSpan(
-                    text: organiser_name,
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.black,
-                      fontWeight: FontWeight.normal
-                    ),
-                  ),
-                ]
-              )
-            ),
-            
-            // Uniform spacing between all elements
-            const SizedBox(height: 4),  // Consistent spacing
-            
-            // Organizer Contact
-            if(organiser_phone_number != "")
-            TextButton(
-              onPressed: () => _launchPhoneCall(organiser_phone_number),
-              style: TextButton.styleFrom(
-                alignment: Alignment.centerLeft,
-                padding: EdgeInsets.zero,  // Removed vertical padding
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: RichText(
-                text: TextSpan(
-                  children: [
-                    TextSpan(
-                      text: 'Organizer Contact: ',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        color: Colors.black,
-                        fontWeight: FontWeight.bold
-                      ),
-                    ),
-                    TextSpan(
-                      text: organiser_phone_number,
-                      style: TextStyle(
-                        fontSize: 18,
-                        color: Colors.blue,
-                        fontWeight: FontWeight.normal
-                      ),
-                    ),
-                  ]
-                )
-              ),
-            ),
           ],
         ),
       ),
@@ -529,8 +390,22 @@ class _PledgePageState extends State<PledgePage> {
                     decoration: _buildInputDecoration('Nambari ya Simu', prefixIcon: Icons.phone),
                     style: const TextStyle(fontSize: 16),
                     validator: (value) {
-                      if (value == null || value.isEmpty) return 'Tafadhali jaza nambari yako ya simu';
-                      if (value.length > 15) return 'Nambari ya simu lazima liwe herufi 15 au chini';
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Please enter your phone number';
+                      }
+
+                      final phone = value.trim();
+
+                      if (phone.length > 15) {
+                        return 'Phone number cannot exceed 15 characters';
+                      }
+
+                      final regex = RegExp(r'^(0\d{9}|255\d{9})$');
+
+                      if (!regex.hasMatch(phone)) {
+                        return 'Invalid number format. Use 0XXXXXXXXX or 255XXXXXXXXX';
+                      }
+
                       return null;
                     },
                   ),
@@ -546,33 +421,36 @@ class _PledgePageState extends State<PledgePage> {
                       return null;
                     },
                   ),
-                  ElevatedButton(
-                    onPressed: 
-                    () async {
-                      await pledge();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      backgroundColor: isPledged ? Colors.orange[800] : Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: Text(
-                      isPledged ? 'Ahadi yako imepokelewa' : 'Toa ahadi yako',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: isPledged
-                            ? Colors.white
-                            : Colors.orange[800],
-                      ),
-                    ),
-                  ),
                 ]
               )
             )
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+
+          ElevatedButton(
+            onPressed:
+            !isPledged ? () async {
+              await pledge();
+            } : null,
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+              backgroundColor: isPledged ? Colors.orange[800] : Colors.white,
+              disabledBackgroundColor: isPledged ? Colors.orange[800] : Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: Text(
+              isPledged ? 'Ahadi Yako Imepokelewa' : 'Toa Ahadi Yako',
+              style: TextStyle(
+                fontSize: 16,
+                color: isPledged
+                    ? Colors.white
+                    : Colors.orange[800],
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
 
           ElevatedButton.icon(
             icon: const Icon(Icons.logout),
@@ -622,22 +500,6 @@ class _PledgePageState extends State<PledgePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Hero(
-                  tag: 'event-image-${event.id}',
-                  child:
-                  CachedNetworkImage(
-                    imageUrl: '${backend_url}api/image/${event.imageUrl}',
-                    // imageUrl: widget.useDNS ? '${backend_url}api/image/${event.imageUrl}' : '${backend_url_with_fallback_ip}api/image/${event.imageUrl}',
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      color: Colors.grey[300],
-                      child: const Center(child: CircularProgressIndicator()),
-                    ),
-                    errorWidget: (context, url, error) {
-                      return const Icon(Icons.error);
-                    },
-                  ),
-                ),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -720,27 +582,6 @@ class _PledgePageState extends State<PledgePage> {
       backgroundColor: Colors.grey[100],
       body: CustomScrollView(
         slivers: [
-          SliverAppBar(
-            expandedHeight: _calculateExpandedHeight(context),
-            pinned: true,
-            flexibleSpace: FlexibleSpaceBar(
-              background: Hero(
-                tag: 'event-image-${event.id}',
-                child: 
-                CachedNetworkImage(
-                  imageUrl: '${backend_url}api/image/${event.imageUrl}',
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) => Container(
-                    color: Colors.grey[300],
-                    child: const Center(child: CircularProgressIndicator()),
-                  ),
-                  errorWidget: (context, url, error) {
-                    return const Icon(Icons.error);
-                  }
-                ),
-              ),
-            ),
-          ),
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.all(16),

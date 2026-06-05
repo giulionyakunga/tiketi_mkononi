@@ -52,7 +52,7 @@ class _EventPledgesPageState extends State<EventPledgesPage> {
       final response = await http.get(uri);
 
       if (response.statusCode == 200) {
-        List<dynamic> dataList = jsonDecode(response.body)['tickets'];
+        List<dynamic> dataList = jsonDecode(response.body)['pledges'];
         List<Pledge> pledges = dataList.map((json) => Pledge.fromJson(json)).toList();
 
         setState(() {
@@ -60,7 +60,7 @@ class _EventPledgesPageState extends State<EventPledgesPage> {
           pledgesList2 = pledges;
         });
       } else {
-        throw Exception('Failed to load tickets');
+        throw Exception('Failed to load pledges');
       }
     } on SocketException catch (e) {
       debugPrint('Network error occurred:');
@@ -84,7 +84,7 @@ class _EventPledgesPageState extends State<EventPledgesPage> {
         }
       }
     } catch (e) {
-      debugPrint('Error fetching tickets: $e');
+      debugPrint('Error fetching pledges: $e');
     }
   }
 

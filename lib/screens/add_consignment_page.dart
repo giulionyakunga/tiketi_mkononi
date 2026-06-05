@@ -1875,6 +1875,9 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
     final items = consignment['consignment_items'] ?? [];
 
+    DateTime now = DateTime.now();
+    String formattedDateTime = DateFormat('d/M/H H:m').format(now);
+
     List<int> bytes = [];
 
     bytes += generator.text("********************************",
@@ -2019,6 +2022,10 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     bytes += generator.row([
       PosColumn(text: "Phone number", width: 6),
       PosColumn(text: consignment['issuer_phone_number'] ?? '', width: 6),
+    ]);
+    bytes += generator.row([
+      PosColumn(text: "Date", width: 6),
+      PosColumn(text: formattedDateTime, width: 6),
     ]);
 
     // QR
@@ -2194,6 +2201,9 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     const pageWidth = 226.0;
 
     final items = consignment['consignment_items'] ?? [];
+
+    DateTime now = DateTime.now();
+    String formattedDateTime = DateFormat('d/M/H H:m').format(now);
 
     String data = SimpleCodec.encode(jsonEncode({
       "cid": packageId,
@@ -2389,6 +2399,11 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
                 pw.Text(
                   "Phone: ${consignment['issuer_phone_number'] ?? ''}",
+                  style: pw.TextStyle(font: customFont),
+                ),
+
+                pw.Text(
+                  "Date: ${formattedDateTime}",
                   style: pw.TextStyle(font: customFont),
                 ),
 

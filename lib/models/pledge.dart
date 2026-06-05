@@ -22,7 +22,7 @@ class Pledge {
     return Pledge(
       id: json['id'] ?? 0,
       eventId: json['event_id'] ?? 0,
-      fullName: json['full_name'] ?? "N/A",
+      fullName: json['name'] ?? "N/A",
       phoneNumber: json['phone_number'] ?? "N/A",
       amount: (json['amount'] ?? 0).toDouble(),
       createdAt: _parseDate(json['createdAt']),

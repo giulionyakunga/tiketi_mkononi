@@ -229,7 +229,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           }
         }
       } catch (e) {
-      debugPrint('Error fetching events: $e');
+      debugPrint('Error fetching events here: $e');
     }
   }
 

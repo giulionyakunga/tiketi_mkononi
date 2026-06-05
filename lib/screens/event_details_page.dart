@@ -1343,7 +1343,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                     ),
                                   ),
                                 ),
-                                if ((userId == event.userId) && ((event.category.toUpperCase() == "WEDDING") || (event.category.toUpperCase() == "CELEBRATION")))
+                                if ((userId == event.userId) && (event.status == "active") && ((event.category.toUpperCase() == "WEDDING") || (event.category.toUpperCase() == "CELEBRATION")))
                                 Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 8),
                                   child: TextButton(
@@ -1400,7 +1400,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
 
                                   ),
                                 ),
-                                if ((userId == event.userId) && (role == 'admin') && (event.category.toUpperCase() == "WEDDING"))
+                                if ((userId == event.userId) && (event.status == "active") && (role == 'admin') && (event.category.toUpperCase() == "WEDDING"))
                                 Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 8),
                                   child: TextButton(
@@ -1424,7 +1424,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                     ),
                                   ),
                                 ),
-                                if ((userId == event.userId) && (role == 'admin') && (event.category.toUpperCase() == "WEDDING"))
+                                if ((userId == event.userId) && (event.status == "active")  && (role == 'admin') && (event.category.toUpperCase() == "WEDDING"))
                                 Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 8),
                                   child: TextButton(
@@ -1664,7 +1664,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                           const SizedBox(width: 10),
                         ],
                         // Generate cards (wedding)
-                        if ((userId == event.userId) && ((event.category.toUpperCase() == "WEDDING") || (event.category.toUpperCase() == "CELEBRATION"))) ...[
+                        if ((userId == event.userId) && (event.status == "active") && ((event.category.toUpperCase() == "WEDDING") || (event.category.toUpperCase() == "CELEBRATION"))) ...[
                           TextButton(
                             style: _compactBtnStyle,
                             onPressed: () {
@@ -1710,7 +1710,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                         ),
 
                         // Admin reminder
-                        if ((userId == event.userId) && (role == 'admin') && (event.category.toUpperCase() == "WEDDING")) ...[
+                        if ((userId == event.userId) && (event.status == "active") && (role == 'admin') && (event.category.toUpperCase() == "WEDDING")) ...[
                           const SizedBox(width: 10),
                           TextButton(
                             style: _compactBtnStyle,

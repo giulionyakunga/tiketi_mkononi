@@ -1368,42 +1368,6 @@ class _SendReminderMessagesPageState extends State<SendReminderMessagesPage> wit
           centerTitle: false,
           titleSpacing: 0,
           backgroundColor: const Color.fromARGB(255, 240, 244, 247),
-          actions: [
-            IconButton(
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              visualDensity: VisualDensity.compact,
-              icon: Icon(
-                Icons.remove_red_eye,
-                color: Colors.orange[800],
-              ),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => CardViewPage(event: widget.event),
-                  ),
-                );
-              },
-            ),
-            IconButton(
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              visualDensity: VisualDensity.compact,
-              icon: Icon(
-                Icons.receipt,
-                color: Colors.orange[800],
-              ),
-              onPressed: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => EventTicketsPage(event: widget.event),
-                  ),
-                );
-              },
-            ),
-          ],
           bottom: TabBar(
             tabs: [
               Tab(text: 'Use Excel'),

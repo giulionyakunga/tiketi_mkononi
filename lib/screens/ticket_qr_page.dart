@@ -493,14 +493,14 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
     setState(() {
       config = OverlayConfig(
         qrOffset: Offset(
-          (p.getDouble('qrOffsetDx') ?? 0.1).clamp(0.1, 1.0),
-          (p.getDouble('qrOffsetDy') ?? 0.1).clamp(0.1, 1.0),
+          (p.getDouble('qrOffsetDx') ?? 0.1).clamp(0.05, 1.0),
+          (p.getDouble('qrOffsetDy') ?? 0.1).clamp(0.05, 1.0),
         ),
         textOffset: Offset(
-          (p.getDouble('textOffsetDx') ?? 0.1).clamp(0.1, 1.0),
-          (p.getDouble('textOffsetDy') ?? 0.1).clamp(0.1, 1.0),
+          (p.getDouble('textOffsetDx') ?? 0.1).clamp(0.05, 1.0),
+          (p.getDouble('textOffsetDy') ?? 0.1).clamp(0.05, 1.0),
         ),
-        qrSize: (p.getDouble('qrSize') ?? 0.1).clamp(0.1, 1.0),
+        qrSize: (p.getDouble('qrSize') ?? 0.1).clamp(0.05, 1.0),
       );
     });
 

@@ -30,26 +30,12 @@ class _SendPledgeRequestsPageState extends State<SendPledgeRequestsPage> {
   String role = "";
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  final _familyNameController = TextEditingController();
-  final _networkNameAccountNumber1Controller = TextEditingController();
-  final _networkNameAccountNumber2Controller = TextEditingController();
-  final _networkNameAccountNumber3Controller = TextEditingController();
-  final _accountNameController = TextEditingController();
-  final _accountName2Controller = TextEditingController();
-  final _accountName3Controller = TextEditingController();
   String? fileType;
   bool _isLoading = false;
 
-
   final _fullNameController = TextEditingController();
   final _phoneNumberController = TextEditingController();
-  String _ticketType = '';
-  double _ticketPrice = 0.0;
   final Map<String, double> ticketTypePriceMap = {};
-
-      // const { user_id, event_id, family_name, account_name_account_number_1, account_name_account_number_2, account_name, document_type, document_name, document_file } = req.body;
-
-
   
   bool useDNS = true;
 
@@ -63,29 +49,13 @@ class _SendPledgeRequestsPageState extends State<SendPledgeRequestsPage> {
   void initState() {
     super.initState();
     _nameController.text = widget.event.name;
-    _familyNameController.text = widget.event.familyName;
-    _networkNameAccountNumber1Controller.text = widget.event.networkNameAccountNumber1;
-    _networkNameAccountNumber2Controller.text = widget.event.networkNameAccountNumber2;
-    _networkNameAccountNumber3Controller.text = widget.event.networkNameAccountNumber3;
-    _accountNameController.text = widget.event.accountName;
-    _accountName2Controller.text = widget.event.accountName2;
-    _accountName3Controller.text = widget.event.accountName3;
-
     _initializeServices();
   }
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _fullNameController.dispose();
-    _familyNameController.dispose();
-    _networkNameAccountNumber1Controller.dispose();
-    _networkNameAccountNumber2Controller.dispose();
-    _networkNameAccountNumber3Controller.dispose();
-    _accountNameController.dispose();
-    _accountName2Controller.dispose();
-    _accountName3Controller.dispose();
     super.dispose();
+    _nameController.dispose();
   }
 
   Future<void> _initializeServices() async {
@@ -134,31 +104,9 @@ class _SendPledgeRequestsPageState extends State<SendPledgeRequestsPage> {
     debugPrint('document_type : ${fileType2}');
     debugPrint('document_name : ${fileName}');
 
-    String familyName = _familyNameController.text.trim();
-    if (familyName.isNotEmpty) {
-      final lower = familyName.toLowerCase();
-
-      if (!lower.startsWith('family') && !lower.startsWith('familia')) {
-        familyName = 'Familia ya $familyName';
-      }
-    }
-    String networkNameAccountNumber1 = _networkNameAccountNumber1Controller.text.trim(); 
-    String networkNameAccountNumber2 = _networkNameAccountNumber2Controller.text.trim();
-    String networkNameAccountNumber3 = _networkNameAccountNumber3Controller.text.trim();
-    String accountName = _accountNameController.text.trim();
-    String accountName2 = _accountName2Controller.text.trim();
-    String accountName3 = _accountName3Controller.text.trim();
-
     final Map<String, dynamic> requestBody = {
       'user_id': userId,
       'event_id': widget.event.id,
-      'family_name': familyName,
-      'network_name_account_number_1': networkNameAccountNumber1,
-      'network_name_account_number_2': networkNameAccountNumber2,
-      'network_name_account_number_3': networkNameAccountNumber3,
-      'account_name': accountName,
-      'account_name_2': accountName2,
-      'account_name_3': accountName3,
       'document_type': fileType2,
       'document_name': fileName,
       'document_file': base64File,
@@ -167,8 +115,8 @@ class _SendPledgeRequestsPageState extends State<SendPledgeRequestsPage> {
     try {
       setState(() => _isLoading = true);
 
-      final Uri uri = useDNS ? Uri.parse('${backend_url}api/send_reminder_messages') // Original URL 
-      : Uri.parse('${backend_url_with_fallback_ip}send_reminder_messages'); // Use IP
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/send_pledge_reguests') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}send_pledge_reguests'); // Use IP
 
       final response = await http.post(
         uri,
@@ -177,7 +125,7 @@ class _SendPledgeRequestsPageState extends State<SendPledgeRequestsPage> {
       );
 
       if (response.statusCode == 200) {
-        if (response.body == "Reminder messages were sent successfully!") {
+        if (response.body == "Pledge requests were sent successfully!") {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(response.body)),
           );
@@ -260,70 +208,14 @@ class _SendPledgeRequestsPageState extends State<SendPledgeRequestsPage> {
       return;
     }
 
-    if (_familyNameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Family name can\'t be empty')),
-      );
-      return;
-    }
-
-    if (_networkNameAccountNumber1Controller.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('NetworkName:AccountNumber can\'t be empty')),
-      );
-      return;
-    }
-
-    if (_accountNameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Account name can\'t be empty')),
-      );
-      return;
-    }
-
-    if (_networkNameAccountNumber2Controller.text.trim().isEmpty && _accountName2Controller.text.trim().isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('NetworkName:AccountNumber2 can\'t be empty')),
-      );
-      return;
-    }
-
-    if (_networkNameAccountNumber3Controller.text.trim().isEmpty && _accountName3Controller.text.trim().isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('NetworkName:AccountNumber2 can\'t be empty')),
-      );
-      return;
-    }
-
-    String familyName = _familyNameController.text.trim();
-    if (familyName.isNotEmpty) {
-      final lower = familyName.toLowerCase();
-
-      if (!lower.startsWith('family') && !lower.startsWith('familia')) {
-        familyName = 'Familia ya $familyName';
-      }
-    }
     String fullName = _fullNameController.text.trim();
     String phoneNumber = _phoneNumberController.text.trim();
-    String networkNameAccountNumber1 = _networkNameAccountNumber1Controller.text.trim(); 
-    String networkNameAccountNumber2 = _networkNameAccountNumber2Controller.text.trim();
-    String networkNameAccountNumber3 = _networkNameAccountNumber3Controller.text.trim();
-    String accountName = _accountNameController.text.trim();
-    String accountName2 = _accountName2Controller.text.trim();
-    String accountName3 = _accountName3Controller.text.trim();
 
     final Map<String, dynamic> requestBody = {
       'user_id': userId,
       'event_id': widget.event.id,
       'full_name': fullName,
       'phone_number': phoneNumber,
-      'family_name': familyName,
-      'network_name_account_number_1': networkNameAccountNumber1,
-      'network_name_account_number_2': networkNameAccountNumber2,
-      'network_name_account_number_3': networkNameAccountNumber3,
-      'account_name': accountName,
-      'account_name_2': accountName2,
-      'account_name_3': accountName3,
       'document_type': fileType2,
       'document_name': fileName,
       'document_file': base64File,
@@ -332,8 +224,8 @@ class _SendPledgeRequestsPageState extends State<SendPledgeRequestsPage> {
     try {
       setState(() => _isLoading = true);
 
-      final Uri uri = useDNS ? Uri.parse('${backend_url}api/send_individual_reminder_message') // Original URL 
-      : Uri.parse('${backend_url_with_fallback_ip}send_individual_reminder_message'); // Use IP
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/send_individual_pledge_reguest') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}send_individual_pledge_reguest'); // Use IP
 
       final response = await http.post(
         uri,
@@ -342,7 +234,7 @@ class _SendPledgeRequestsPageState extends State<SendPledgeRequestsPage> {
       );
 
       if (response.statusCode == 200) {
-        if (response.body == "Reminder message was sent successfully!") {
+        if (response.body == "Request message was sent successfully!") {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(response.body)),
           );
@@ -547,7 +439,7 @@ class _SendPledgeRequestsPageState extends State<SendPledgeRequestsPage> {
                 ),
                 const SizedBox(height: 24),
                 Text(
-                  'Send Contribution Reminders',
+                  'Send Pledge Requests',
                   style: TextStyle(
                     fontSize: isLargeScreen ? 28 : 20,
                     fontWeight: FontWeight.w800,
@@ -559,7 +451,7 @@ class _SendPledgeRequestsPageState extends State<SendPledgeRequestsPage> {
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: isLargeScreen ? 80 : 20),
                   child: Text(
-                    'Remind your invited guests to contribute to your wedding collection (mchango) by sending polite and timely reminder messages.',
+                    'Ask your people to pledge their contributions to your event by sending polite and timely pledge requests.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: isLargeScreen ? 16 : 14,
@@ -572,7 +464,7 @@ class _SendPledgeRequestsPageState extends State<SendPledgeRequestsPage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _buildFeatureChip(Icons.group_rounded, 'Group Reminders'),
+                    _buildFeatureChip(Icons.group_rounded, 'Group Pledge Requests'),
                     const SizedBox(width: 2),
                     _buildFeatureChip(Icons.notifications_active_rounded, 'Timely Alerts'),
                     const SizedBox(width: 2),
@@ -591,90 +483,6 @@ class _SendPledgeRequestsPageState extends State<SendPledgeRequestsPage> {
               validator: (value) {
                 if (value == null || value.isEmpty) return 'Please enter event name';
                 if (value.length > 100) return 'Event name must be 100 characters or less';
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _familyNameController,
-              maxLength: 50,
-              decoration: _buildInputDecoration('Family Name', prefixIcon: Icons.emoji_events),
-              style: const TextStyle(fontSize: 16),
-              validator: (value) {
-                if (value == null || value.isEmpty) return 'Please enter family name';
-                if (value.length > 50) return 'Family must be 50 characters or less';
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _networkNameAccountNumber1Controller,
-              maxLength: 50,
-              decoration: _buildInputDecoration('NetworkName:AccountNumber', prefixIcon: Icons.emoji_events),
-              style: const TextStyle(fontSize: 16),
-              validator: (value) {
-                if (value == null || value.isEmpty) return 'Please enter account name and number';
-                if (value.length > 50) return 'Account name and number must be 50 characters or less';
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _accountNameController,
-              maxLength: 50,
-              decoration: _buildInputDecoration('Account Name', prefixIcon: Icons.emoji_events),
-              style: const TextStyle(fontSize: 16),
-              validator: (value) {
-                if (value == null || value.isEmpty) return 'Please enter account name';
-                if (value.length > 50) return 'Account name must be 50 characters or less';
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _networkNameAccountNumber2Controller,
-              maxLength: 50,
-              decoration: _buildInputDecoration('NetworkName:AccountNumber2', prefixIcon: Icons.emoji_events),
-              style: const TextStyle(fontSize: 16),
-              validator: (value) {
-                if (value == null || value.isEmpty) return 'Please enter account name and number';
-                if (value.length > 50) return 'Account name and number must be 50 characters or less';
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-             TextFormField(
-              controller: _accountName2Controller,
-              maxLength: 50,
-              decoration: _buildInputDecoration('Account Name', prefixIcon: Icons.emoji_events),
-              style: const TextStyle(fontSize: 16),
-              validator: (value) {
-                if (value == null || value.isEmpty) return 'Please enter account name';
-                if (value.length > 50) return 'Account name must be 50 characters or less';
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _networkNameAccountNumber3Controller,
-              maxLength: 50,
-              decoration: _buildInputDecoration('NetworkName:AccountNumber3', prefixIcon: Icons.emoji_events),
-              style: const TextStyle(fontSize: 16),
-              validator: (value) {
-                if (value == null || value.isEmpty) return null;
-                if (value.length > 50) return 'Account name and number must be 50 characters or less';
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-             TextFormField(
-              controller: _accountName3Controller,
-              maxLength: 50,
-              decoration: _buildInputDecoration('Account Name', prefixIcon: Icons.emoji_events),
-              style: const TextStyle(fontSize: 16),
-              validator: (value) {
-                if (value == null || value.isEmpty) return null;
-                if (value.length > 50) return 'Account name must be 50 characters or less';
                 return null;
               },
             ),
@@ -763,7 +571,7 @@ class _SendPledgeRequestsPageState extends State<SendPledgeRequestsPage> {
                 child: _isLoading 
                     ? const CircularProgressIndicator()
                     : const Text(
-                        'Send Reminder Messages',
+                        'Send Pledge Requests',
                         style: TextStyle(
                           fontSize: 14,
                           color: Colors.white,
@@ -791,7 +599,7 @@ class _SendPledgeRequestsPageState extends State<SendPledgeRequestsPage> {
             ),
             const SizedBox(height: 16),
             Text(
-              'Send Individual Reminder',
+              'Send Individual Pledge Request',
               style: TextStyle(
                 fontSize: isLargeScreen ? 24 : 18,
                 fontWeight: FontWeight.bold,
@@ -799,7 +607,7 @@ class _SendPledgeRequestsPageState extends State<SendPledgeRequestsPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Send a polite reminder message to a single guest about the wedding contribution (mchango).',
+              'Send a polite pledge request to a single guest about the event contribution.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: isLargeScreen ? 16 : 14,
@@ -934,398 +742,6 @@ class _SendPledgeRequestsPageState extends State<SendPledgeRequestsPage> {
                 return null;
               },
             ),
-            const SizedBox(height: 16),              
-            TextFormField(
-              controller: _familyNameController,
-              maxLength: 50,
-              decoration: InputDecoration(
-                labelText: 'Family Name',
-                labelStyle: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 16,
-                ),
-                prefixIcon: Icon(
-                  Icons.phone,
-                  color: Colors.grey[600],
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                  borderSide: BorderSide(
-                    color: Colors.grey[400]!,
-                  ),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                  borderSide: BorderSide(
-                    color: Colors.grey[400]!,
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                  borderSide: BorderSide(
-                    color: Colors.orange[800]!,
-                    width: 2.0,
-                  ),
-                ),
-                filled: true,
-                fillColor: Colors.grey[200],
-                contentPadding: const EdgeInsets.symmetric(
-                    vertical: 16.0, horizontal: 16.0),
-              ),
-              style: const TextStyle(
-                color: Colors.black87,
-                fontSize: 16,
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Please enter family name';
-                }
-
-                final familyName = value.trim();
-
-                if (familyName.length > 50) {
-                  return 'Family name can\'t exceed 50 characters';
-                }
-
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _networkNameAccountNumber1Controller,
-              maxLength: 50,
-              decoration: InputDecoration(
-                labelText: 'Network Name:Account Number2',
-                labelStyle: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 16,
-                ),
-                prefixIcon: Icon(
-                  Icons.phone,
-                  color: Colors.grey[600],
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                  borderSide: BorderSide(
-                    color: Colors.grey[400]!,
-                  ),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                  borderSide: BorderSide(
-                    color: Colors.grey[400]!,
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                  borderSide: BorderSide(
-                    color: Colors.orange[800]!,
-                    width: 2.0,
-                  ),
-                ),
-                filled: true,
-                fillColor: Colors.grey[200],
-                contentPadding: const EdgeInsets.symmetric(
-                    vertical: 16.0, horizontal: 16.0),
-              ),
-              style: const TextStyle(
-                color: Colors.black87,
-                fontSize: 16,
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Please enter network name:account number';
-                }
-
-                final networkNameAccountNumber = value.trim();
-
-                if (networkNameAccountNumber.length > 50) {
-                  return 'Network name:account number exceed 50 characters';
-                }
-
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-             TextFormField(
-              controller: _accountNameController,
-              maxLength: 50,
-              decoration: InputDecoration(
-                labelText: 'Account name',
-                labelStyle: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 16,
-                ),
-                prefixIcon: Icon(
-                  Icons.phone,
-                  color: Colors.grey[600],
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                  borderSide: BorderSide(
-                    color: Colors.grey[400]!,
-                  ),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                  borderSide: BorderSide(
-                    color: Colors.grey[400]!,
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                  borderSide: BorderSide(
-                    color: Colors.orange[800]!,
-                    width: 2.0,
-                  ),
-                ),
-                filled: true,
-                fillColor: Colors.grey[200],
-                contentPadding: const EdgeInsets.symmetric(
-                    vertical: 16.0, horizontal: 16.0),
-              ),
-              style: const TextStyle(
-                color: Colors.black87,
-                fontSize: 16,
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Please enter account name';
-                }
-
-                final accountName = value.trim();
-
-                if (accountName.length > 50) {
-                  return 'Account name can\'t exceed 50 characters';
-                }
-
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _networkNameAccountNumber2Controller,
-              maxLength: 50,
-              decoration: InputDecoration(
-                labelText: 'Network Name:Account Number',
-                labelStyle: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 16,
-                ),
-                prefixIcon: Icon(
-                  Icons.phone,
-                  color: Colors.grey[600],
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                  borderSide: BorderSide(
-                    color: Colors.grey[400]!,
-                  ),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                  borderSide: BorderSide(
-                    color: Colors.grey[400]!,
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                  borderSide: BorderSide(
-                    color: Colors.orange[800]!,
-                    width: 2.0,
-                  ),
-                ),
-                filled: true,
-                fillColor: Colors.grey[200],
-                contentPadding: const EdgeInsets.symmetric(
-                    vertical: 16.0, horizontal: 16.0),
-              ),
-              style: const TextStyle(
-                color: Colors.black87,
-                fontSize: 16,
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return null;
-                }
-
-                final networkNameAccountNumber = value.trim();
-
-                if (networkNameAccountNumber.length > 50) {
-                  return 'Network name:account number exceed 50 characters';
-                }
-
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _accountName2Controller,
-              maxLength: 50,
-              decoration: InputDecoration(
-                labelText: 'Account name',
-                labelStyle: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 16,
-                ),
-                prefixIcon: Icon(
-                  Icons.phone,
-                  color: Colors.grey[600],
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                  borderSide: BorderSide(
-                    color: Colors.grey[400]!,
-                  ),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                  borderSide: BorderSide(
-                    color: Colors.grey[400]!,
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                  borderSide: BorderSide(
-                    color: Colors.orange[800]!,
-                    width: 2.0,
-                  ),
-                ),
-                filled: true,
-                fillColor: Colors.grey[200],
-                contentPadding: const EdgeInsets.symmetric(
-                    vertical: 16.0, horizontal: 16.0),
-              ),
-              style: const TextStyle(
-                color: Colors.black87,
-                fontSize: 16,
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Please enter account name';
-                }
-
-                final accountName = value.trim();
-
-                if (accountName.length > 50) {
-                  return 'Account name can\'t exceed 50 characters';
-                }
-
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _networkNameAccountNumber3Controller,
-              maxLength: 50,
-              decoration: InputDecoration(
-                labelText: 'Network Name:Account Number3',
-                labelStyle: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 16,
-                ),
-                prefixIcon: Icon(
-                  Icons.phone,
-                  color: Colors.grey[600],
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                  borderSide: BorderSide(
-                    color: Colors.grey[400]!,
-                  ),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                  borderSide: BorderSide(
-                    color: Colors.grey[400]!,
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                  borderSide: BorderSide(
-                    color: Colors.orange[800]!,
-                    width: 2.0,
-                  ),
-                ),
-                filled: true,
-                fillColor: Colors.grey[200],
-                contentPadding: const EdgeInsets.symmetric(
-                    vertical: 16.0, horizontal: 16.0),
-              ),
-              style: const TextStyle(
-                color: Colors.black87,
-                fontSize: 16,
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return null;
-                }
-
-                final networkNameAccountNumber = value.trim();
-
-                if (networkNameAccountNumber.length > 50) {
-                  return 'Network name:account number exceed 50 characters';
-                }
-
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _accountName3Controller,
-              maxLength: 50,
-              decoration: InputDecoration(
-                labelText: 'Account name',
-                labelStyle: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 16,
-                ),
-                prefixIcon: Icon(
-                  Icons.phone,
-                  color: Colors.grey[600],
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                  borderSide: BorderSide(
-                    color: Colors.grey[400]!,
-                  ),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                  borderSide: BorderSide(
-                    color: Colors.grey[400]!,
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                  borderSide: BorderSide(
-                    color: Colors.orange[800]!,
-                    width: 2.0,
-                  ),
-                ),
-                filled: true,
-                fillColor: Colors.grey[200],
-                contentPadding: const EdgeInsets.symmetric(
-                    vertical: 16.0, horizontal: 16.0),
-              ),
-              style: const TextStyle(
-                color: Colors.black87,
-                fontSize: 16,
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return null;
-                }
-
-                final accountName = value.trim();
-
-                if (accountName.length > 50) {
-                  return 'Account name can\'t exceed 50 characters';
-                }
-
-                return null;
-              },
-            ),
             const SizedBox(height: 16),
             SizedBox(
               width: isLargeScreen ? 400 : double.infinity,
@@ -1359,7 +775,7 @@ class _SendPledgeRequestsPageState extends State<SendPledgeRequestsPage> {
   Widget _buildMobileLayout(bool isDarkMode, bool isLargeScreen) {
     return DefaultTabController(
       length: 3,
-      child: Scaffold(
+      child: Scaffold( 
         appBar: AppBar(
           title: const Text(
             'Send Pledge Requests',
@@ -1370,42 +786,6 @@ class _SendPledgeRequestsPageState extends State<SendPledgeRequestsPage> {
           centerTitle: false,
           titleSpacing: 0,
           backgroundColor: const Color.fromARGB(255, 240, 244, 247),
-          actions: [
-            IconButton(
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              visualDensity: VisualDensity.compact,
-              icon: Icon(
-                Icons.remove_red_eye,
-                color: Colors.orange[800],
-              ),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => CardViewPage(event: widget.event),
-                  ),
-                );
-              },
-            ),
-            IconButton(
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              visualDensity: VisualDensity.compact,
-              icon: Icon(
-                Icons.receipt,
-                color: Colors.orange[800],
-              ),
-              onPressed: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => EventTicketsPage(event: widget.event),
-                  ),
-                );
-              },
-            ),
-          ],
           bottom: TabBar(
             tabs: [
               Tab(text: 'Use Excel'),
@@ -1433,52 +813,8 @@ class _SendPledgeRequestsPageState extends State<SendPledgeRequestsPage> {
   Widget _buildDesktopLayout(bool isDarkMode, bool isLargeScreen) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Generate Cards'),
+        title: const Text('Send Pledge Requests'),
         backgroundColor: const Color.fromARGB(255, 240, 244, 247),
-        actions: [
-          IconButton(
-            icon: Icon(
-              Icons.remove_red_eye,
-              color: Colors.orange[800],
-            ),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => CardViewPage(event: widget.event),
-                ),
-              );
-            },
-          ),
-          ElevatedButton.icon(
-            icon: Icon(
-              Icons.logout,
-            ),
-            label: Text(
-              'Tickets(${widget.event.soldTickets})', 
-              style: TextStyle(
-                fontSize: 14,
-              )
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: Colors.orange[800],
-              padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 5),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              elevation: 2,
-            ),
-            onPressed: () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => EventTicketsPage(event: widget.event),
-                ),
-              );
-            },
-          ),
-        ],
       ),
       body: Center(
         child: ConstrainedBox(
@@ -1497,7 +833,7 @@ class _SendPledgeRequestsPageState extends State<SendPledgeRequestsPage> {
                 children: [
                   if (isLargeScreen) ...[
                     const Text(
-                      'Generate cards',
+                      'Send Pledge Requests',
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
