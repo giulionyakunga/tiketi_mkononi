@@ -186,7 +186,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
 
       _handleSocketException(e);
     } catch (e) {
-      debugPrint('Error fetching check tickets scan status: $e');
+      debugPrint('Error getting tickets count: $e');
     }
   }
 
