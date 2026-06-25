@@ -3,13 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:tiketi_mkononi/screens/add_shop_attendant_page.dart';
 import 'package:tiketi_mkononi/screens/add_shop_page.dart';
-import 'package:tiketi_mkononi/screens/sales_book_page.dart';
+import 'package:tiketi_mkononi/screens/orders_page.dart';
 import '../env.dart';
 
 class ShopsPage extends StatefulWidget {
   final int userId;
+  final String role;
+  final String userName;
+  final String userPhoneNumber;
 
-  const ShopsPage({super.key, required this.userId});
+  const ShopsPage({super.key, required this.userId, required this.role, required this.userName, required this.userPhoneNumber});
 
   @override
   State<ShopsPage> createState() => _ShopsPageState();
@@ -101,7 +104,7 @@ class _ShopsPageState extends State<ShopsPage> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => SalesBookPage(userId: widget.userId, shopId: shop['id']), 
+            builder: (context) => OrdersPage(userId: widget.userId, shopId: shop['id'], shopName: shop['name'], userName: widget.userName, userPhoneNumber: widget.userPhoneNumber, role: widget.role),
           ),
         );
       },

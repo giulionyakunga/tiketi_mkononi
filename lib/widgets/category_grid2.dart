@@ -3,25 +3,29 @@ import 'package:tiketi_mkononi/l10n/app_localizations.dart';
 import 'package:tiketi_mkononi/models/category.dart';
 import 'package:tiketi_mkononi/models/event.dart';
 import 'package:tiketi_mkononi/screens/add_consignment_page.dart';
+import 'package:tiketi_mkononi/screens/add_order_page.dart';
 import 'package:tiketi_mkononi/screens/apply_to_be_cargo_transporter_page.dart';
 import 'package:tiketi_mkononi/screens/apply_to_be_transporter_page.dart';
 import 'package:tiketi_mkononi/screens/auth/login_screen.dart';
 import 'package:tiketi_mkononi/screens/category_events_page.dart';
 import 'package:tiketi_mkononi/screens/find_bus_routes_page.dart';
 import 'package:tiketi_mkononi/screens/offices_page.dart';
+import 'package:tiketi_mkononi/screens/shops_page.dart';
 
 class CategoryGrid2 extends StatelessWidget {
   final List<Event> events;
   final int userId;
   final String role;
   final int companyId;
-  final int officeId;
   final String companyName;
+  final int officeId;
+  final int? shopId;
+  final String shopName;
   final String userName;
   final String userPhoneNumber;
   final Function refreshMethod;
 
-  const CategoryGrid2({super.key, required this.events, required this.userId, required this.role, required this.companyId,  required this.officeId,  required this.companyName,  required this.userName, required this.userPhoneNumber, required this.refreshMethod});
+  const CategoryGrid2({super.key, required this.events, required this.userId, required this.role, required this.companyId,  required this.officeId, this.shopId, required this.companyName, required this.shopName,  required this.userName, required this.userPhoneNumber, required this.refreshMethod});
 
 
   void _showCargoDialog(BuildContext context) {
@@ -112,6 +116,8 @@ class CategoryGrid2 extends StatelessWidget {
       Category(name: AppLocalizations.of(context)!.buses, value: 'Buses', icon: Icons.directions_bus, color: Colors.teal),
       if ((role == 'transporter') || (role == 'cargo_transporter') || (role == 'transport_office_attendant') || (role == 'cargo_office_attendant'))
       Category(name: AppLocalizations.of(context)!.cargo, value: 'Cargo', icon: Icons.local_shipping, color: Colors.teal),
+      if ((role == 'shop_owner') || (role == 'shop_attendant'))
+      Category(name: AppLocalizations.of(context)!.myOrders, value: 'My Orders', icon: Icons.shopping_cart, color: Colors.green),
       Category(name: AppLocalizations.of(context)!.sports, value: 'Sports', icon: Icons.sports_basketball, color: Colors.red),
       Category(name: AppLocalizations.of(context)!.comedy, value: 'Comedy', icon: Icons.theater_comedy, color: Colors.brown),
       Category(name: AppLocalizations.of(context)!.fun, value: 'Fun', icon: Icons.beach_access, color: Colors.amber[500]!),
@@ -206,6 +212,33 @@ class CategoryGrid2 extends StatelessWidget {
                           ),
                         );
                       }
+                    }
+                  } if(categories[index].value == 'My Orders'){
+                    if(role == 'shop_attendant'){
+                      if (shopId != null) {
+                        await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => AddOrderPage(
+                                userId: userId,
+                                shopId: shopId!,
+                                shopName: shopName,
+                                userName: userName,
+                                userPhoneNumber: userPhoneNumber,
+                                isReplacableScreen: true,
+                              ),
+                            ),
+                        );
+                      }
+                    } else if(role == 'shop_owner'){
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ShopsPage(userId: userId, role: role, userName: userName, userPhoneNumber: userPhoneNumber),
+                        ),
+                      );
+
+                      refreshMethod();
                     }
                   } else {
                     Navigator.push(

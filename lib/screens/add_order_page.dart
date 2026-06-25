@@ -13,7 +13,9 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:http/http.dart' as http;
 import 'package:tiketi_mkononi/l10n/app_localizations.dart';
-import 'package:tiketi_mkononi/screens/consignments_page.dart';
+import 'package:tiketi_mkononi/models/Order.dart';
+import 'package:tiketi_mkononi/models/product.dart';
+import 'package:tiketi_mkononi/screens/orders_page.dart';
 import 'package:tiketi_mkononi/screens/platform_detector_stub.dart';
 import 'package:tiketi_mkononi/screens/qr_scanner_cargo_page.dart';
 import 'package:tiketi_mkononi/services/SimpleCodec.dart';
@@ -23,51 +25,30 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
 
-class ConsignmentItem {
-  String name;
-  double value;
-  int quantity;
-
-  ConsignmentItem({
-    required this.name,
-    required this.value,
-    required this.quantity,
-  });
-}
-
-class AddConsignmentPage extends StatefulWidget {
+class AddOrderPage extends StatefulWidget {
   final int userId;
-  final int companyId;
-  final int officeId;
-  final String companyName;
+  final int shopId;
+  final String shopName;
   final String userName;
   final String userPhoneNumber;
   final bool isReplacableScreen;
 
-  const AddConsignmentPage({super.key, required this.userId, required this.companyId, required this.companyName, required this.officeId, required this.userName, required this.userPhoneNumber, required this.isReplacableScreen});
+  const AddOrderPage({super.key, required this.userId, required this.shopId, required this.shopName, required this.userName, required this.userPhoneNumber, required this.isReplacableScreen});
 
   @override
-  State<AddConsignmentPage> createState() => _AddConsignmentPageState();
+  State<AddOrderPage> createState() => _AddOrderPageState();
 }
 
-class _AddConsignmentPageState extends State<AddConsignmentPage> {
+class _AddOrderPageState extends State<AddOrderPage> {
   int userId = 0;
   String role = "";
   String officeName = '';
-  List<String> officeNames = [];
   final _formKey = GlobalKey<FormState>();
-  final _senderNameController = TextEditingController();
-  final _senderPhoneNumberController = TextEditingController();
-  final _fromController = TextEditingController();
-  final _toController = TextEditingController();
-  final _receiverNameController = TextEditingController();
-  final _receiverPhoneNumberController = TextEditingController();
-  final _packageNameController = TextEditingController();
-  final _packageValueController = TextEditingController();
-  final _paidAmountController = TextEditingController();
+  final _customerNameController = TextEditingController();
+  final _customerPhoneNumberController = TextEditingController();
+  final _productNameController = TextEditingController();
   bool _isLoading = false;
   bool _isPaid = true;
-  bool _isParcel = true;
   late final StorageService _storageService;
 
   List<BluetoothInfo> devices = [];
@@ -78,24 +59,24 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
   String receiptFooter = "Karibu Sana";
 
-  List<ConsignmentItem> _consignmentItems = [];
-  Map<String, dynamic>? _addedConsignment;
+  List<OrderItem> _orderItems = [];
+  late Order _addedOrder;
+  List<Product> productsList = [];
   
   String selectedPaymentMethod = 'MIXX BY YAS';
   final List<String> paymentMethods = ['MIXX BY YAS', 'M-PESA', 'AIRTEL MONEY', 'HALOPESA', 'AZAMPESA'];
 
   int receiptsBalance = 0;
-  int packageId = 0;
-  String packageId2 = '';
   List<dynamic> receiptPackages = [];
 
-  int _consignmentItemsVersion = 0;
+  int _orderItemsVersion = 0;
+  List<TextEditingController> _priceControllers = [];
 
   @override
   void initState() {
     super.initState();
     _initializeServices();
-    _addConsignmentItem();
+    _addOrderItem();
     if (Platform.isWindows) {
       _refreshCablePrinters();
       _loadSelectedPrinter();
@@ -122,49 +103,33 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       if(profile.role == "user") {
         // Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Sorry! You can't add a consignment")),
+          SnackBar(content: Text("Sorry! You can't add an order")),
         );
       }
 
       getUserRole();
-      getCompanyOffices();
+      getShopProducts();
     }
   }
 
-  Future<void> getCompanyOffices({bool useDNS = true}) async {
-    final Uri uri = useDNS ? Uri.parse('${backend_url}api/company_offices/${widget.companyId}') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}company_offices/${widget.companyId}'); // Use IP
+  
+  Future<void> getShopProducts({bool useDNS = true}) async {
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/shop_products/${widget.shopId}') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}shop_products/${widget.shopId}'); // Use IP
 
-      debugPrint('Fetching company offices from: ${uri.toString()}');
+      debugPrint('Fetching shop products from: ${uri.toString()}');
         
     try {
       final response = await http.get(uri);
       if (response.statusCode == 200) {
         debugPrint("response.body : ${response.body}");
 
-        final responseData = jsonDecode(response.body); // This is a List<dynamic>
+        final List<dynamic> jsonList = jsonDecode(response.body);
+        final newItems = jsonList.map((json) => Product.fromJson(json)).toList();
 
-        List<String> officeNames2 = [];
-
-        // Loop through each office
-        for (var office in responseData) {
-          // Add name to officeNames
-          if (office['id'] != widget.officeId) {
-            officeNames2.add(office['name']);
-          }
-
-          // If this office's id matches widget.officeId, set officeName
-          if (office['id'] == widget.officeId) {
-            setState(() {
-              officeName = office['name'];
-              _fromController.text = office['name'];
-            });
-          }
-        }
-
-        if(officeNames2.length > 0) {
+        if(newItems.length > 0) {
           setState(() {
-            officeNames = officeNames2;
+            productsList = newItems;
           });
         }        
       }
@@ -182,7 +147,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await getCompanyOffices(useDNS: false); // Recursive retry
+          await getShopProducts(useDNS: false); // Recursive retry
 
           final prefs = await SharedPreferences.getInstance();
           await prefs.setBool('use_dns', false);
@@ -197,6 +162,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       debugPrint('Process finished');
     }
   }
+
 
   Future<void> getUserRole({bool useDNS = true}) async {
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/get_user_role/$userId') // Original URL 
@@ -217,7 +183,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
           if(responseData['role'] == "user") {
             // Navigator.pop(context);
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text("Sorry, You can't add a consignment")),
+              SnackBar(content: Text("Sorry, You can't add an order")),
             );
           }
         }        
@@ -302,75 +268,81 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     return MediaQuery.of(context).size.width > 768;
   }
 
-  void _addConsignmentItem() {
+  void _addOrderItem() {
     setState(() {
-      _consignmentItems.add(ConsignmentItem(
+      _orderItems.add(OrderItem(
+        id: 0,
         name: '',
-        value: 0,
-        quantity: 1,
+        price: 0,
+        quantity: 1, 
+        createdAt: DateTime.now(), 
+        updatedAt: DateTime.now(),
       ));
-      _consignmentItemsVersion++; // Increment version
+
+      _orderItemsVersion++; // Increment version
+      _priceControllers.add(TextEditingController(text: '0'));
     });
   }
 
-  void _removeConsignmentItem(int index) {
+  void _removeOrderItem(int index) {
     setState(() {
-      _consignmentItems.removeAt(index);
-      _consignmentItemsVersion++; // Increment version
+      _orderItems.removeAt(index);
+      _priceControllers.removeAt(index);
+      _orderItemsVersion++; // Increment version
     });
   }
 
-  bool _validateConsignmentItems() {
-    if (_consignmentItems.isEmpty) {
+  bool _validateOrderItems() {
+    if (_orderItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(AppLocalizations.of(context)!.pleaseAddAtLeastOneItem)),
       );
       return false;
     }
 
-    int totalNumberOfConsignmentItems = 0;
-    for (var i = 0; i < _consignmentItems.length; i++) {
-      final consignmentItem = _consignmentItems[i];
+    int totalNumberOfOrderItems = 0;
+    for (var i = 0; i < _orderItems.length; i++) {
+      final orderItem = _orderItems[i];
 
-      if (consignmentItem.name.isEmpty) {
+      if (orderItem.name.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(AppLocalizations.of(context)!.pleaseEnterItemName)), 
         );
         return false;
       }
       
-      if (consignmentItem.value <= 0) {
+      if (orderItem.price <= 0) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(AppLocalizations.of(context)!.itemPriceGreaterThanZero)),
         );
         return false;
       }
 
-      if (consignmentItem.quantity <= 0) {
+      if (orderItem.quantity <= 0) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(AppLocalizations.of(context)!.itemQuantityGreaterThanZero)),
         );
         return false;
       }
 
-      totalNumberOfConsignmentItems = totalNumberOfConsignmentItems +  consignmentItem.quantity;
+      totalNumberOfOrderItems = totalNumberOfOrderItems +  orderItem.quantity;
 
-      if (consignmentItem.name.isEmpty) {
+      if (orderItem.name.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(AppLocalizations.of(context)!.itemNamesCannotBeEmpty)),
         );
         return false;
       }
 
-      if (consignmentItem.name.length > 100) {
+      if (orderItem.name.length > 100) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Item names must be 100 characters or less')),
         );
         return false;
       }
 
-      for (var j = i + 1; j < _consignmentItems.length; j++) {
-        if (consignmentItem.name.trim() == _consignmentItems[j].name.trim()) {
+      for (var j = i + 1; j < _orderItems.length; j++) {
+        if (orderItem.name.trim() == _orderItems[j].name.trim()) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Item names should be different')),
           );
@@ -392,7 +364,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     });
   }
   
-  Future<void> _submitConsignment({bool useDNS = true}) async {
+  Future<void> _placeOrder({bool useDNS = true}) async {
     _printCableFile();
     
     if (!_formKey.currentState!.validate()) {
@@ -400,47 +372,31 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       return;
     }
 
-    ConsignmentItem consignmentItem;
-    if(_isParcel) {
-      consignmentItem = ConsignmentItem(
-        name: _packageNameController.text.trim(), 
-        value: double.tryParse(_packageValueController.text.trim()) ?? 0.0,
-        quantity: 1,
-      );
-      _consignmentItems = [consignmentItem];
-    }
-
-    if (!_validateConsignmentItems()) {
+    if (!_validateOrderItems()) {
       return;
     }
 
-    if (_fromController.text.trim().toLowerCase() == _toController.text.trim().toLowerCase()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Origin and destination cannot be the same location.')),
-      );
-      return;
+    double totalPrice = 0.0;
+    for (var item in _orderItems) {
+      totalPrice += item.price;
     }
+
+    String dateStr = DateFormat('d-M-yyyy').format(DateTime.now());
+    DateTime _orderDate = DateFormat('d-M-yyyy').parse(dateStr);
 
     final Map<String, dynamic> requestBody = {
       'user_id': userId,
-      'company_id': widget.companyId,
-      'office_id': widget.officeId,
-      'package_name': _packageNameController.text.trim(),
-      'sender_name': _senderNameController.text.trim(),
-      'sender_phone_number': _senderPhoneNumberController.text.trim(),
-      'from': _fromController.text.trim(),
-      'to': _toController.text.trim(),
-      'receiver_name': _receiverNameController.text.trim(),
-      'receiver_phone_number': _receiverPhoneNumberController.text.trim(),
-      'package_value': _packageValueController.text.trim(),
-      'paid_amount': _paidAmountController.text.trim(),
+      'shop_id': widget.shopId,
+      'customer_name': _customerNameController.text.trim(),
+      'customer_phone_number': _customerPhoneNumberController.text.trim(),
+      'date': DateFormat('d-M-yyyy').format(_orderDate),
       'payment_status': _isPaid ? true : false,
-      'is_parcel': _isParcel ? true : false,
-      'consignment_items': _consignmentItems.map((consignment_item) => {
-        'name': consignment_item.name.trim(),
-        'value': consignment_item.value,
-        'quantity': consignment_item.quantity,
+      'order_items': _orderItems.map((order_item) => {
+        'name': order_item.name.trim(),
+        'price': order_item.price,
+        'quantity': order_item.quantity,
       }).toList(),
+      'total_price': totalPrice,
       'issued_by': widget.userName,
       'issuer_phone_number': widget.userPhoneNumber,
     };
@@ -448,8 +404,8 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     try {
       setState(() => _isLoading = true);
 
-      final Uri uri = useDNS ? Uri.parse('${backend_url}api/add_consignment') // Original URL 
-      : Uri.parse('${backend_url_with_fallback_ip}add_consignment'); // Use IP
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/place_order') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}place_order'); // Use IP
 
       final response = await http.post(
         uri,
@@ -461,49 +417,33 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
         final responseData = jsonDecode(response.body);
         String message = responseData['message'];
         
-        if ((message.trim() == "Consignment added successfully!") || (message.trim() == "Parcel added successfully!"))  {
+        if (message.trim() == "Order added successfully!")  {
           receiptsBalance = responseData['number_of_sms'];
           _saveReceiptsBalance(responseData['number_of_sms']);
 
           debugPrint('message : $message');
 
           debugPrint('responseData : $responseData');
-          packageId = responseData['id'];
-          packageId2 = responseData['package_id'];
           debugPrint('responseData2 : $responseData');
+
+          _customerNameController.clear();
+          _customerPhoneNumberController.clear();
+          _productNameController.clear();
+          _orderItems.clear();
+          _addOrderItem();
+
+          dynamic jsonData = jsonDecode(response.body);
+          final newOrder = Order.fromJson(jsonData);
+
           setState(() {
-            packageId = responseData['id'];
-            packageId2 = responseData['package_id'];
+            _addedOrder = newOrder;
             receiptFooter = responseData['receipt_footer'];
           });
 
-          _packageNameController.clear();
-          _senderNameController.clear();
-          _senderPhoneNumberController.clear();
-          _toController.clear();
-          _receiverNameController.clear();
-          _receiverPhoneNumberController.clear();
-          _packageValueController.clear();
-          _paidAmountController.clear();
-          _consignmentItems.clear();
-          _addConsignmentItem();
-
-          setState(() {
-            _addedConsignment = requestBody;
-          });
-
           if (Platform.isWindows) {
-            _printCableReceipt(requestBody);
+            _printCableReceipt(_addedOrder);
           } else {
-            _printBluetoothReceipt(requestBody);
-          }
-
-          if(_selectedNumberofReceiptsToPrint == 2) {
-            if (Platform.isWindows) {
-              _printCableReceipt(requestBody);
-            } else {
-              _printBluetoothReceipt2(requestBody);
-            }
+            _printBluetoothReceipt(_addedOrder);
           }
 
           _showSuccessDialog();
@@ -540,7 +480,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await _submitConsignment(useDNS: false); // Recursive retry
+          await _placeOrder(useDNS: false); // Recursive retry
 
           return;
         }
@@ -624,7 +564,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                           groupValue: selectedPaymentMethod,
                           onChanged: (value) {
                             debugPrint('Selected payment method: $value');
-                            debugPrint('SselectedPaymentMethod: $selectedPaymentMethod');
+                            debugPrint('Selected payment method: $selectedPaymentMethod');
                             setState(() {
                               selectedPaymentMethod = value.toString();
                             });
@@ -799,7 +739,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
             Text(AppLocalizations.of(context)!.success),
           ],
         ),
-        content: Text(AppLocalizations.of(context)!.packageAddedSuccessfully),
+        content: Text(AppLocalizations.of(context)!.orderReceivedSuccessfully),
         actions: [
           TextButton(
             onPressed: () {
@@ -845,19 +785,13 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
   @override
   void dispose() {
-    _packageNameController.dispose();
-    _senderNameController.dispose();
-    _senderPhoneNumberController.dispose();
-    _fromController.dispose();
-    _toController.dispose();
-    _receiverNameController.dispose();
-    _receiverPhoneNumberController.dispose();
-    _packageValueController.dispose();
-    _paidAmountController.dispose();
+    _customerNameController.dispose();
+    _customerPhoneNumberController.dispose();
+    _productNameController.dispose();
     super.dispose();
   }
 
-  Widget _buildConsignmentItemField(int index, bool isLargeScreen) {
+  Widget _buildOrderItemField(int index, bool isLargeScreen) {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
       child: Padding(
@@ -865,24 +799,24 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
         child: Column(
           children: [
             isLargeScreen 
-                ? _buildDesktopConsignmentItemFields(index)
-                : _buildMobileConsignmentItemFields(index),
+                ? _buildDesktopOrderItemFields(index)
+                : _buildMobileOrderItemFields(index),
             const SizedBox(height: 8),
-            _buildConsignmentItemActions(index),
+            _buildOrderItemActions(index),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildDesktopConsignmentItemFields(int index) {
+  Widget _buildDesktopOrderItemFields(int index) {
     return Column(
       children: [
         Row(
           children: [
             Expanded(
               flex: 2,
-              child: _buildConsignmentItemNameInputField(index),
+              child: _buildOrderItemNameInputField(index),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -898,10 +832,10 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     );
   }
 
-  Widget _buildMobileConsignmentItemFields(int index) {
+  Widget _buildMobileOrderItemFields(int index) {
     return Column(
       children: [
-        _buildConsignmentItemNameInputField(index),
+        _buildOrderItemNameInputField(index),
         const SizedBox(height: 8),
         Row(
           children: [
@@ -918,21 +852,104 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     );
   }
 
-  Widget _buildConsignmentItemNameInputField(int index) {
-    return TextFormField(
-      key: ValueKey('name_${_consignmentItemsVersion}_$index'), // Unique key that changes when list is cleared
-      initialValue: _consignmentItems[index].name,
-      decoration: _buildInputDecoration(AppLocalizations.of(context)!.itemName),
-      style: const TextStyle(fontSize: 14),
-      onChanged: (value) => setState(() => _consignmentItems[index].name = value),
+  Widget _buildOrderItemNameInputField(int index) {
+    return Autocomplete<Product>(
+      displayStringForOption: (Product option) => option.name,
+      
+      initialValue: TextEditingValue(
+        text: _orderItems[index].name,
+      ),
+
+      optionsBuilder: (TextEditingValue textEditingValue) {
+        if (textEditingValue.text.isEmpty) {
+          return productsList;
+        }
+        
+        return productsList.where((product) =>
+            product.name.toLowerCase().contains(textEditingValue.text.toLowerCase()));
+
+      },
+
+      onSelected: (Product selection) {
+        debugPrint('Selected product name: ${selection.name}, price: ${selection.price}');
+        setState(() {
+          _orderItems[index].name = selection.name;
+          _orderItems[index].price = selection.price;
+          _priceControllers[index].text = selection.price.toStringAsFixed(0);
+        });
+      },
+
+      fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
+        return TextFormField(
+          controller: controller,
+          focusNode: focusNode,
+          decoration: _buildInputDecoration(
+            AppLocalizations.of(context)!.productName,
+            prefixIcon: Icons.inventory,
+          ),
+          onChanged: (value) {
+            debugPrint('Edited product name: $value');
+            final product = productsList.firstWhere(
+              (p) => p.name.toLowerCase() == value.toLowerCase(),
+              orElse: () => Product(
+                id: 0,
+                shopId: 0,
+                name: '',
+                price: 0,
+                createdAt: DateTime.now(),
+                updatedAt: DateTime.now(),
+              ),
+            );
+
+            setState(() {
+              _orderItems[index].name = product.name;
+              _orderItems[index].price = product.price;
+            });
+          },
+          
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return AppLocalizations.of(context)!.pleaseEnterProductName;
+            }
+            return null;
+          },
+        );
+      },
+
+      // 👇 THIS CONTROLS HEIGHT
+      optionsViewBuilder: (context, onSelected, options) {
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Material(
+            elevation: 4,
+            child: SizedBox(
+              height: 300,
+              width: MediaQuery.of(context).size.width * 0.9,
+              child: ListView.builder(
+                padding: EdgeInsets.zero,
+                itemCount: options.length,
+                itemBuilder: (context, index) {
+                  final option = options.elementAt(index);
+
+                  return ListTile(
+                    dense: true,
+                    title: Text('${option.name} - TSH ${option.price.toStringAsFixed(0)}'),
+                    onTap: () => onSelected(option),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
   double getTotalValue() {
     double totalValue = 0;
 
-    for (int index = 0; index < _consignmentItems.length; index++) {
-      totalValue += _consignmentItems[index].value * _consignmentItems[index].quantity;
+    for (int index = 0; index < _orderItems.length; index++) {
+      totalValue += _orderItems[index].price * _orderItems[index].quantity;
     }
 
     return totalValue;
@@ -940,42 +957,127 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
   Widget _buildPriceField(int index) {
     return TextFormField(
-      key: ValueKey('price_${_consignmentItemsVersion}_$index'), // Unique key
-      initialValue: _consignmentItems[index].value.toString(),
-      decoration: _buildInputDecoration(AppLocalizations.of(context)!.price, prefixText: 'TSH '),
+      key: ValueKey('price_${_orderItemsVersion}_$index'), // Unique key
+      controller: _priceControllers[index],
+      decoration: _buildInputDecoration(
+        AppLocalizations.of(context)!.price,
+        prefixText: 'TSH ',
+      ),
       keyboardType: TextInputType.number,
       style: const TextStyle(fontSize: 14),
-      enabled: true,
-      onChanged: (value) => setState(() {
-        _consignmentItems[index].value = double.tryParse(value) ?? 0;
-        _paidAmountController.text = '${getTotalValue()}';
-      }),
+      onChanged: (value) {
+        _orderItems[index].price = double.tryParse(value) ?? 0;
+      },
     );
   }
 
   Widget _buildQuantityField(int index) {
-    return TextFormField(
-      key: ValueKey('quantity_${_consignmentItemsVersion}_$index'), // Unique key
-      initialValue: _consignmentItems[index].quantity.toString(),
-      decoration: _buildInputDecoration(AppLocalizations.of(context)!.quantity),
-      keyboardType: TextInputType.number,
-      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-      style: const TextStyle(fontSize: 14),
-      onChanged: (value) => setState(() {
-        _consignmentItems[index].quantity = int.tryParse(value) ?? 0;
-        _paidAmountController.text = '${getTotalValue()}';
-      }),
+    final item = _orderItems[index];
+    
+    return Container(
+      height: 44,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Theme.of(context).primaryColor,
+          width: 1.5,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Minus button with Material ripple
+          Material(
+            color: Colors.transparent,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(8),
+              bottomLeft: Radius.circular(8),
+            ),
+            child: InkWell(
+              onTap: () {
+                if (item.quantity > 1) {
+                  setState(() {
+                    item.quantity--;
+                  });
+                }
+              },
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(8),
+                bottomLeft: Radius.circular(8),
+              ),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Icon(
+                  Icons.remove,
+                  size: 20,
+                  color: item.quantity > 1 
+                      ? Theme.of(context).primaryColor 
+                      : Colors.grey,
+                ),
+              ),
+            ),
+          ),
+          
+          // Quantity display
+          Container(
+            width: 40,
+            decoration: BoxDecoration(
+              border: Border.symmetric(
+                horizontal: BorderSide(
+                  color: Theme.of(context).primaryColor.withOpacity(0.3),
+                ),
+              ),
+            ),
+            child: Text(
+              item.quantity.toString(),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          
+          // Plus button with Material ripple
+          Material(
+            color: Colors.transparent,
+            borderRadius: const BorderRadius.only(
+              topRight: Radius.circular(8),
+              bottomRight: Radius.circular(8),
+            ),
+            child: InkWell(
+              onTap: () {
+                setState(() {
+                  item.quantity++;
+                });
+              },
+              borderRadius: const BorderRadius.only(
+                topRight: Radius.circular(8),
+                bottomRight: Radius.circular(8),
+              ),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Icon(
+                  Icons.add,
+                  size: 20,
+                  color: Theme.of(context).primaryColor,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildConsignmentItemActions(int index) {
+  Widget _buildOrderItemActions(int index) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        if (_consignmentItems.length > 1)
+        if (_orderItems.length > 1)
           IconButton(
             icon: const Icon(Icons.delete, color: Colors.red),
-            onPressed: () => _removeConsignmentItem(index),
+            onPressed: () => _removeOrderItem(index),
           ),
       ],
     );
@@ -1026,35 +1128,6 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
               value: _isPaid,
               onChanged: (value) => setState(() {
                 _isPaid = value;
-              }),
-              activeColor: Colors.teal[800],
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPackageTypeToggle() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          AppLocalizations.of(context)!.packageType,
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        Row(
-          children: [
-            Text(
-              _isParcel ? AppLocalizations.of(context)!.parcel : AppLocalizations.of(context)!.consignment,
-              style: const TextStyle(fontSize: 14),
-            ),
-            const SizedBox(width: 8),
-            Switch(
-              value: _isParcel,
-              onChanged: (value) => setState(() {
-                _isParcel = value;
-                receiptFooter = value ? "Karibu Sana" : "Thank You";
               }),
               activeColor: Colors.teal[800],
             ),
@@ -1145,7 +1218,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          _isParcel ? AppLocalizations.of(context)!.addParcel : AppLocalizations.of(context)!.addConsignment,
+          '${AppLocalizations.of(context)!.placeOrder}: ${widget.shopName}',
           style: TextStyle(
             fontSize: 15,
           ),
@@ -1154,21 +1227,21 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
         foregroundColor: Colors.white,
         actions: [
           IconButton(
-            icon: const Icon(Icons.local_shipping),
+            icon: const Icon(Icons.shopping_cart),
             onPressed: () {
               
               if(widget.isReplacableScreen) {
                 Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => ConsignmentsPage(userId: userId, officeId: widget.officeId, officeName: officeName, companyId: widget.companyId, role: role, companyName: widget.companyName, userName: widget.userName, userPhoneNumber: widget.userPhoneNumber,),
+                    builder: (context) => OrdersPage(userId: userId, shopId: widget.shopId, shopName: widget.shopName, userName: widget.userName, userPhoneNumber: widget.userPhoneNumber, role: role),
                   ),
                 ); 
               } else {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => ConsignmentsPage(userId: userId, officeId: widget.officeId, officeName: officeName, companyId: widget.companyId, role: role, companyName: widget.companyName, userName: widget.userName, userPhoneNumber: widget.userPhoneNumber,),
+                    builder: (context) => OrdersPage(userId: userId, shopId: widget.shopId, shopName: widget.shopName, userName: widget.userName, userPhoneNumber: widget.userPhoneNumber, role: role),
                   ),
                 );
               }
@@ -1177,15 +1250,15 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
           IconButton(
             icon: const Icon(Icons.qr_code_scanner),
             onPressed: () {
-              (kIsWeb) ? 
-                _handleQRCodeScannerUnavailablility()
-              :
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => QRScannerCargoPage(userId: widget.userId, companyId: widget.companyId, companyName: widget.companyName, officeId: widget.officeId, userName: widget.userName, userPhoneNumber: widget.userPhoneNumber),
-                ),
-              );
+              // (kIsWeb) ? 
+              //   _handleQRCodeScannerUnavailablility()
+              // :
+              // Navigator.push(
+              //   context,
+              //   MaterialPageRoute(
+              //     builder: (context) => QRScannerCargoPage(userId: widget.userId, companyId: widget.companyId, shopName: widget.shopName, officeId: widget.officeId, userName: widget.userName, userPhoneNumber: widget.userPhoneNumber),
+              //   ),
+              // );
             },
           ),
           PopupMenuButton<String>(
@@ -1202,12 +1275,8 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
             ),
             onSelected: (value) async {
               if (value == 'reprint_receipt') {
-                if (_addedConsignment != null) {
-                  _printBluetoothReceipt(_addedConsignment);
-                }
-              } else if (value == 'my_receipt') {
-                if (_addedConsignment != null) {
-                  _printBluetoothReceipt2(_addedConsignment);
+                if (_addedOrder != null) {
+                  _printBluetoothReceipt(_addedOrder);
                 }
               } else if (value == 'refresh_printers') {
                 if (Platform.isWindows) {
@@ -1227,18 +1296,13 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
             itemBuilder: (context) => [              
               _buildMenuItem(
                 icon: Icons.business_sharp,
-                text: widget.companyName,
+                text: widget.shopName,
                 value: '--',
               ),
               _buildMenuItem(
                 icon: Icons.print,
                 text: AppLocalizations.of(context)!.reprintReceipt,
                 value: 'reprint_receipt',
-              ),
-              _buildMenuItem(
-                icon: Icons.print,
-                text: AppLocalizations.of(context)!.myReceipt,
-                value: 'my_receipt',
               ),
               _buildMenuItem(
                 icon: Icons.refresh,
@@ -1293,7 +1357,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                     children: [
                       if (isLargeScreen) ...[
                         Text(
-                          AppLocalizations.of(context)!.addNewConsignment,
+                          AppLocalizations.of(context)!.placeOrder,
                           style: TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.bold,
@@ -1301,190 +1365,54 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                         ),
                         const SizedBox(height: 16),
                       ],
-                      _buildPackageTypeToggle(),
                       _buildPaymentStatusToggle(),
                       const SizedBox(height: 16),
                       TextFormField(
-                        controller: _packageNameController,
+                        controller: _customerNameController,
                         maxLength: 100,
-                        decoration: _buildInputDecoration('Package Name', prefixIcon: Icons.person),
+                        decoration: _buildInputDecoration( AppLocalizations.of(context)!.customerName, prefixIcon: Icons.person),
                         style: const TextStyle(fontSize: 16),
                         validator: (value) {
-                          if (value == null || value.isEmpty) return  AppLocalizations.of(context)!.pleaseEnterPackageName;
-                          if (value.length > 100) return  AppLocalizations.of(context)!.packageName;
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _senderNameController,
-                        maxLength: 100,
-                        decoration: _buildInputDecoration( AppLocalizations.of(context)!.senderName, prefixIcon: Icons.person),
-                        style: const TextStyle(fontSize: 16),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) return  AppLocalizations.of(context)!.pleaseEnterSenderName;
+                          if (value == null || value.isEmpty) return  AppLocalizations.of(context)!.pleaseEnterCustomerName;
                           if (value.length > 100) return 'Sender name must be 100 characters or less';
                           return null;
                         },
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
-                        controller: _senderPhoneNumberController,
+                        controller: _customerPhoneNumberController,
                         maxLength: 15,
                         keyboardType: TextInputType.number,
-                        decoration: _buildInputDecoration( AppLocalizations.of(context)!.senderPhoneNumber, prefixIcon: Icons.phone),
+                        decoration: _buildInputDecoration( AppLocalizations.of(context)!.customerPhoneNumber, prefixIcon: Icons.phone),
                         style: const TextStyle(fontSize: 16),
                         validator: (value) {
-                          if (value == null || value.isEmpty) return  AppLocalizations.of(context)!.pleaseEnterSenderPhone;
+                          if (value == null || value.isEmpty) return  AppLocalizations.of(context)!.pleaseEnterCustomerPhone;
                           if (value.length > 15) return 'Sender phone number must be 15 characters or less';
                           return null;
                         },
                       ),
                       const SizedBox(height: 16),
-                      (widget.officeId > 0) ?
-                      TextFormField(
-                        controller: _fromController,
-                        maxLength: 100,
-                        enabled: false,
-                        decoration: _buildInputDecoration(AppLocalizations.of(context)!.from, prefixIcon: Icons.business),
-                        style: const TextStyle(fontSize: 16),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) return  AppLocalizations.of(context)!.pleaseEnterOrigin;
-                          if (value.length > 100) return AppLocalizations.of(context)!.originMaxLength;
-                          return null;
-                        },
-                      ) :
-                      DropdownButtonFormField<String>(
-                        value: _fromController.text.isNotEmpty ? _fromController.text : null, // preselect if any
-                        decoration: _buildInputDecoration(AppLocalizations.of(context)!.from, prefixIcon: Icons.business),
-                        style: const TextStyle(fontSize: 16),
-                        items: officeNames.map((office) {
-                          return DropdownMenuItem<String>(
-                            value: office,
-                            child: Text(
-                              office,
-                              style: TextStyle(color: Colors.black),
-                            ),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          if (value != null) {
-                            _fromController.text = value; // update controller so form works
-                          }
-                        },
-                        validator: (value) {
-                          if (value == null || value.isEmpty) return 'Please select a origin';
-                          return null;
-                        },
+                      Text(
+                        AppLocalizations.of(context)!.orderItems,
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
-                      const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
-                        value: _toController.text.isNotEmpty ? _toController.text : null, // preselect if any
-                        decoration: _buildInputDecoration(AppLocalizations.of(context)!.to, prefixIcon: Icons.business),
-                        style: const TextStyle(fontSize: 16),
-                        items: officeNames.map((office) {
-                          return DropdownMenuItem<String>(
-                            value: office,
-                            child: Text(
-                              office,
-                              style: TextStyle(color: Colors.black),
-                            ),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          if (value != null) {
-                            _toController.text = value; // update controller so form works
-                          }
-                        },
-                        validator: (value) {
-                          if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseEnterDestination;
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _receiverNameController,
-                        maxLength: 100,
-                        decoration: _buildInputDecoration('Receiver Name', prefixIcon: Icons.person),
-                        style: const TextStyle(fontSize: 16),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseEnterReceiverName;
-                          if (value.length > 100) return AppLocalizations.of(context)!.receiverNameMaxLength;
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _receiverPhoneNumberController,
-                        maxLength: 15,
-                        keyboardType: TextInputType.number,
-                        decoration: _buildInputDecoration(AppLocalizations.of(context)!.receiverPhoneNumber, prefixIcon: Icons.phone),
-                        style: const TextStyle(fontSize: 16),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseEnterReceiverPhone;
-                          if (value.length > 15) return AppLocalizations.of(context)!.receiverPhoneMaxLength;
-                          return null;
-                        },
-                      ),
-      
-                      if (!_isParcel) ...[
-                        const SizedBox(height: 16),
-                        Text(
-                          AppLocalizations.of(context)!.consignmentItems,
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      const SizedBox(height: 8),
+                      ..._orderItems.asMap().entries.map((entry) {
+                        return _buildOrderItemField(entry.key, isLargeScreen);
+                      }),
+                      const SizedBox(height: 8),
+                      Center(
+                        child: TextButton.icon(
+                          onPressed: _addOrderItem,
+                          icon: const Icon(Icons.add),
+                          label: Text(AppLocalizations.of(context)!.addItems),
                         ),
-                        const SizedBox(height: 8),
-                        ..._consignmentItems.asMap().entries.map((entry) {
-                          return _buildConsignmentItemField(entry.key, isLargeScreen);
-                        }),
-                        const SizedBox(height: 8),
-                        Center(
-                          child: TextButton.icon(
-                            onPressed: _addConsignmentItem,
-                            icon: const Icon(Icons.add),
-                            label: Text(AppLocalizations.of(context)!.addItems),
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _packageValueController,
-                        maxLength: 8,
-                        keyboardType: TextInputType.number,
-                        decoration: _buildInputDecoration(AppLocalizations.of(context)!.packageValue, prefixText: 'TSH '),
-                        style: const TextStyle(fontSize: 16),
-                        validator: _isParcel ? (value) {
-                          if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseEnterPackageValue;
-                          if (value.length > 8) return AppLocalizations.of(context)!.packageValueMaxLength;
-                          return null;
-                        } : (value) {
-                          if (value == null || value.isEmpty) {
-                            _packageValueController.text = '0';
-                            return null;
-                          };
-                          if (value.length > 8) return AppLocalizations.of(context)!.packageValueMaxLength;
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _paidAmountController,
-                        maxLength: 8,
-                        enabled: _isParcel,
-                        decoration: _buildInputDecoration(AppLocalizations.of(context)!.paidAmount, prefixText: 'TSH '),
-                        keyboardType: TextInputType.number,
-                        style: const TextStyle(fontSize: 16),
-                        validator: _isParcel ? (value) {
-                          if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseEnterPaidAmount;
-                          if (value.length > 8) return AppLocalizations.of(context)!.paidAmountMaxLength;
-                          return null;
-                        } : null,
                       ),
                       const SizedBox(height: 24),
                       SizedBox(
                         width: isLargeScreen ? 400 : double.infinity,
                         child: ElevatedButton(
-                          onPressed: _isLoading ? null : _submitConsignment,
+                          onPressed: _isLoading ? null : _placeOrder,
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             backgroundColor: Colors.teal[800],
@@ -1492,7 +1420,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                           child: _isLoading 
                               ? const CircularProgressIndicator()
                               : Text(
-                                  _isParcel ? AppLocalizations.of(context)!.addParcel : AppLocalizations.of(context)!.addConsignment,
+                                  AppLocalizations.of(context)!.placeOrder,
                                   style: TextStyle(
                                     fontSize: 18,
                                     color: Colors.white,
@@ -1510,255 +1438,66 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (isLargeScreen) ...[
-                    Text(
-                      AppLocalizations.of(context)!.addNewConsignment,
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  _buildPackageTypeToggle(),
                   _buildPaymentStatusToggle(),
                   const SizedBox(height: 16),
                   TextFormField(
-                    controller: _packageNameController,
+                    controller: _customerNameController,
                     maxLength: 100,
-                    decoration: _buildInputDecoration(AppLocalizations.of(context)!.packageName, prefixIcon: Icons.person),
+                    decoration: _buildInputDecoration(AppLocalizations.of(context)!.customerName, prefixIcon: Icons.person),
                     style: const TextStyle(fontSize: 16),
                     validator: (value) {
-                      if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseEnterPackageName;
-                      if (value.length > 100) return AppLocalizations.of(context)!.packageNameMaxLength;
+                      if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseEnterCustomerName;
+                      if (value.length > 100) return AppLocalizations.of(context)!.customerNameMaxLength;
                       return null;
                     },
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
-                    controller: _senderNameController,
-                    maxLength: 100,
-                    decoration: _buildInputDecoration(AppLocalizations.of(context)!.senderName, prefixIcon: Icons.person),
-                    style: const TextStyle(fontSize: 16),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseEnterSenderName;
-                      if (value.length > 100) return AppLocalizations.of(context)!.senderNameMaxLength;
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _senderPhoneNumberController,
+                    controller: _customerPhoneNumberController,
                     maxLength: 15,
                     keyboardType: TextInputType.number,
-                    decoration: _buildInputDecoration(AppLocalizations.of(context)!.senderPhoneNumber, prefixIcon: Icons.phone),
+                    decoration: _buildInputDecoration(AppLocalizations.of(context)!.customerPhoneNumber, prefixIcon: Icons.phone),
                     style: const TextStyle(fontSize: 16),
                     validator: (value) {
-                      if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseEnterSenderPhone;
+                      if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseEnterCustomerPhone;
                       if (value.length > 15) return AppLocalizations.of(context)!.senderPhoneMaxLength;
                       return null;
                     },
                   ),
                   const SizedBox(height: 16),
-                  (widget.officeId > 0) ?
-                  TextFormField(
-                    controller: _fromController,
-                    maxLength: 100,
-                    enabled: false,
-                    decoration: _buildInputDecoration(AppLocalizations.of(context)!.from, prefixIcon: Icons.business),
-                    style: const TextStyle(fontSize: 16),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseEnterOrigin;
-                      if (value.length > 100) return AppLocalizations.of(context)!.originMaxLength;
-                      return null;
-                    },
-                  ) :
-                  DropdownButtonFormField<String>(
-                    value: _fromController.text.isNotEmpty ? _fromController.text : null, // preselect if any
-                    decoration: _buildInputDecoration(AppLocalizations.of(context)!.from, prefixIcon: Icons.business),
-                    style: const TextStyle(fontSize: 16),
-                    items: officeNames.map((office) {
-                      return DropdownMenuItem<String>(
-                        value: office,
-                        child: Text(
-                          office,
-                          style: TextStyle(color: Colors.black),
-                        ),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        _fromController.text = value; // update controller so form works
-                      }
-                    },
-                    validator: (value) {
-                      if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseSelectOrigin;
-                      return null;
-                    },
+                  Text(
+                    AppLocalizations.of(context)!.orderItems,
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 16),
-                  Autocomplete<String>(
-                    initialValue: TextEditingValue(text: _toController.text),
-
-                    optionsBuilder: (TextEditingValue textEditingValue) {
-                      if (textEditingValue.text.isEmpty) {
-                        return officeNames;
-                      }
-                      return officeNames.where((office) =>
-                          office.toLowerCase().contains(textEditingValue.text.toLowerCase()));
-                    },
-
-                    onSelected: (String selection) {
-                      _toController.text = selection;
-                    },
-
-                    fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
-                      controller.text = _toController.text;
-
-                      return TextFormField(
-                        controller: controller,
-                        focusNode: focusNode,
-                        decoration: _buildInputDecoration(
-                          AppLocalizations.of(context)!.to,
-                          prefixIcon: Icons.business,
-                        ),
-                        onChanged: (value) {
-                          _toController.text = value;
-                        },
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return AppLocalizations.of(context)!.pleaseEnterDestination;
-                          }
-                          return null;
-                        },
-                      );
-                    },
-
-                    // 👇 THIS CONTROLS HEIGHT
-                    optionsViewBuilder: (context, onSelected, options) {
-                      return Align(
-                        alignment: Alignment.topLeft,
-                        child: Material(
-                          elevation: 4,
-                          child: SizedBox(
-                            height: 300, // 👈 🔥 increase this (e.g. 400, 500)
-                            width: MediaQuery.of(context).size.width * 0.9,
-                            child: ListView.builder(
-                              padding: EdgeInsets.zero,
-                              itemCount: options.length,
-                              itemBuilder: (context, index) {
-                                final option = options.elementAt(index);
-
-                                return ListTile(
-                                  dense: true, // 👈 reduces item height
-                                  title: Text(option),
-                                  onTap: () => onSelected(option),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _receiverNameController,
-                    maxLength: 100,
-                    decoration: _buildInputDecoration(AppLocalizations.of(context)!.receiverName, prefixIcon: Icons.person),
-                    style: const TextStyle(fontSize: 16),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseEnterReceiverName;
-                      if (value.length > 100) return AppLocalizations.of(context)!.receiverNameMaxLength;
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _receiverPhoneNumberController,
-                    maxLength: 15,
-                    keyboardType: TextInputType.number,
-                    decoration: _buildInputDecoration(AppLocalizations.of(context)!.receiverPhoneNumber, prefixIcon: Icons.phone),
-                    style: const TextStyle(fontSize: 16),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseEnterReceiverPhone;
-                      if (value.length > 15) return AppLocalizations.of(context)!.receiverPhoneMaxLength;
-                      return null;
-                    },
-                  ),
-  
-                  if (!_isParcel) ...[
-                    const SizedBox(height: 16),
-                    Text(
-                      AppLocalizations.of(context)!.consignmentItems,
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  const SizedBox(height: 8),
+                  ..._orderItems.asMap().entries.map((entry) {
+                    return _buildOrderItemField(entry.key, isLargeScreen);
+                  }),
+                  const SizedBox(height: 8),
+                  Center(
+                    child: TextButton.icon(
+                      onPressed: _addOrderItem,
+                      icon: const Icon(Icons.add),
+                      label: Text(AppLocalizations.of(context)!.addItems),
                     ),
-                    const SizedBox(height: 8),
-                    ..._consignmentItems.asMap().entries.map((entry) {
-                      return _buildConsignmentItemField(entry.key, isLargeScreen);
-                    }),
-                    const SizedBox(height: 8),
-                    Center(
-                      child: TextButton.icon(
-                        onPressed: _addConsignmentItem,
-                        icon: const Icon(Icons.add),
-                        label: Text(AppLocalizations.of(context)!.addItems),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _packageValueController,
-                    maxLength: 8,
-                    keyboardType: TextInputType.number,
-                    decoration: _buildInputDecoration(AppLocalizations.of(context)!.packageValue, prefixText: 'TSH '),
-                    style: const TextStyle(fontSize: 16),
-                    validator: _isParcel ? (value) {
-                      if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseEnterPackageValue;
-                      if (value.length > 8) return AppLocalizations.of(context)!.packageValueMaxLength;
-                      return null;
-                    } : (value) {
-                      if (value == null || value.isEmpty) {
-                        _packageValueController.text = '0';
-                        return null;
-                      };
-                      if (value.length > 8) return AppLocalizations.of(context)!.packageValueMaxLength;
-                      return null;
-                    },
-                  ),
-                   const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _paidAmountController,
-                    maxLength: 8,
-                    enabled: _isParcel,
-                    decoration: _buildInputDecoration(AppLocalizations.of(context)!.paidAmount, prefixText: 'TSH '),
-                    keyboardType: TextInputType.number,
-                    style: const TextStyle(fontSize: 16),
-                    validator: _isParcel ? (value) {
-                      if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseEnterPaidAmount;
-                      if (value.length > 8) return AppLocalizations.of(context)!.paidAmountMaxLength;
-                      return null;
-                    } : null,
-                  ),
+                  ),                  
                   const SizedBox(height: 24),
                   SizedBox(
                     width: isLargeScreen ? 400 : double.infinity,
                     child: ElevatedButton(
-                      onPressed: _isLoading ? null : _submitConsignment,
+                      onPressed: _isLoading ? null : _placeOrder,
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         backgroundColor: Colors.teal[800],
                       ),
-                      child: _isLoading 
-                          ? const CircularProgressIndicator()
-                          : Text(
-                              _isParcel ? AppLocalizations.of(context)!.addParcel : AppLocalizations.of(context)!.addConsignment,
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: Colors.white,
-                              ),
-                            ),
+                      child: _isLoading ? const CircularProgressIndicator()
+                      : Text(
+                        AppLocalizations.of(context)!.placeOrder,
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -1825,7 +1564,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       )
     );
 
-    bytes += generator.text(widget.companyName,
+    bytes += generator.text(widget.shopName,
       styles: const PosStyles(
         align: PosAlign.center,
         bold: true,
@@ -1845,7 +1584,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     await PrintBluetoothThermal.writeBytes(bytes);
   }
 
-  Future<void> _printBluetoothReceipt(dynamic consignment) async {
+  Future<void> _printBluetoothReceipt(Order order) async {
     debugPrint("Printing via Bluetooth...");
 
     if (selectedPrinter == null) {
@@ -1871,7 +1610,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     final profile = await CapabilityProfile.load();
     final generator = Generator(PaperSize.mm58, profile);
 
-    final items = consignment['consignment_items'] ?? [];
+    final items = order.orderItems;
 
     DateTime now = DateTime.now();
     String formattedDateTime = DateFormat('d/M/H H:m').format(now);
@@ -1884,7 +1623,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       )
     );
 
-    bytes += generator.text(widget.companyName,
+    bytes += generator.text(widget.shopName,
       styles: const PosStyles(
         align: PosAlign.center,
         bold: true,
@@ -1899,94 +1638,60 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     );
 
     bytes += generator.text(
-      consignment['is_parcel'] ? "PARCEL RECEIPT" : "CONSIGNMENT RECEIPT",
+      "ORDER RECEIPT",
       styles: const PosStyles(align: PosAlign.center),
     );
 
     bytes += generator.text(
-      "Package No: $packageId2",
+      "Order No: ${order.orderId}",
       styles: const PosStyles(align: PosAlign.center),
     );
 
     bytes += generator.row([
-      PosColumn(text: "Package Name", width: 6),
-      PosColumn(text: consignment['package_name'] ?? '', width: 6),
+      PosColumn(text: "Customer Name", width: 6),
+      PosColumn(text: order.customerName, width: 6),
     ]);
     
-    double packageValue = double.tryParse(
-      consignment['package_value']?.toString() ?? '0'
+    double totalPrice = double.tryParse(
+      order.totalPrice.toString()
     ) ?? 0;
 
     bytes += generator.row([
-      PosColumn(text: "Package Value", width: 6),
-      PosColumn(text: 'TZS ${NumberFormat('#,##0').format(packageValue)}', width: 6),
+      PosColumn(text: "Total Price", width: 6),
+      PosColumn(text: 'TZS ${NumberFormat('#,##0').format(totalPrice)}', width: 6),
     ]);
 
     bytes += generator.row([
       PosColumn(text: "Payment Status", width: 6),
-      PosColumn(text: consignment['payment_status'] ? "Paid" : "Not Paid", width: 6),
+      PosColumn(text: order.paymentStatus ? "Paid" : "Not Paid", width: 6),
     ]);
 
-    double paidAmount = double.tryParse(
-      consignment['paid_amount']?.toString() ?? '0'
-    ) ?? 0;
-
-    bytes += generator.row([
-      PosColumn(text: "Paid Amount", width: 6),
-      PosColumn(text: 'TZS ${NumberFormat('#,##0').format(paidAmount)}', width: 6),
-    ]);
 
     bytes += generator.text(
-      "Route:",
-      styles: const PosStyles(bold: true),
-    );
-
-    bytes += generator.row([
-      PosColumn(text: "From", width: 6),
-      PosColumn(text: consignment['from'] ?? '', width: 6),
-    ]);
-
-    bytes += generator.row([
-      PosColumn(text: "To", width: 6),
-      PosColumn(text: consignment['to'] ?? '', width: 6),
-    ]);
-
-    bytes += generator.text(
-      "Sender:",
+      "Customer Details",
       styles: const PosStyles(bold: true),
     );
     bytes += generator.row([
       PosColumn(text: "Name", width: 6),
-      PosColumn(text: consignment['sender_name'] ?? '', width: 6),
+      PosColumn(text: order.customerName, width: 6),
     ]);
     bytes += generator.row([
       PosColumn(text: "Phone number", width: 6),
-      PosColumn(text: consignment['sender_phone_number'] ?? '', width: 6),
+      PosColumn(text: order.customerPhoneNumber, width: 6),
     ]);
 
-    bytes += generator.text(
-      "Receiver:",
-      styles: const PosStyles(bold: true),
-    );
-    bytes += generator.row([
-      PosColumn(text: "Name", width: 6),
-      PosColumn(text: consignment['receiver_name'] ?? '', width: 6),
-    ]);
-    bytes += generator.row([
-      PosColumn(text: "Phone number", width: 6),
-      PosColumn(text: consignment['receiver_phone_number'] ?? '', width: 6),
-    ]);
+
 
     int totalAmount = 0;
     // Items
     if(items.length > 1) {
       for (var item in items) {
-        totalAmount += (item['value'] as num).toInt() * (item['quantity'] as num).toInt();
+        totalAmount += (item.price as num).toInt() * (item.quantity as num).toInt();
         bytes += generator.row([
           PosColumn(
-              text: "${item['name']} x${item['quantity']}", width: 8),
+              text: "${item.name} x${item.quantity}", width: 8),
           PosColumn(
-              text: "TZS ${NumberFormat('#,##0').format(((item['value'] ?? 0)))}", width: 4, styles: const PosStyles(align: PosAlign.right)),
+              text: "TZS ${NumberFormat('#,##0').format(((item.price)))}", width: 4, styles: const PosStyles(align: PosAlign.right)),
         ]);
       }
 
@@ -2015,11 +1720,11 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     );
     bytes += generator.row([
       PosColumn(text: "Name", width: 6),
-      PosColumn(text: consignment['issued_by'] ?? '', width: 6),
+      PosColumn(text: order.issuedBy, width: 6),
     ]);
     bytes += generator.row([
       PosColumn(text: "Phone number", width: 6),
-      PosColumn(text: consignment['issuer_phone_number'] ?? '', width: 6),
+      PosColumn(text: order.issuerPhoneNumber, width: 6),
     ]);
     bytes += generator.row([
       PosColumn(text: "Date", width: 6),
@@ -2028,8 +1733,8 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
     // QR
     String data = SimpleCodec.encode(jsonEncode({
-      "cid": packageId,
-      "oid": consignment['office_id'],
+      "oid": order.id,
+      "sid": order.shopId,
     }));
 
     bytes += generator.qrcode(
@@ -2056,136 +1761,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     await PrintBluetoothThermal.writeBytes(bytes);
   }
 
-  Future<void> _printBluetoothReceipt2(dynamic consignment) async {
-    debugPrint("Printing via Bluetooth...");
-
-    if (selectedPrinter == null) {
-      await _refreshBluetoothPrinters();
-      if (selectedPrinter == null) return;
-    }
-
-    await PrintBluetoothThermal.disconnect; // ensure clean state
-
-    bool connected = await PrintBluetoothThermal.connect(
-      macPrinterAddress: selectedPrinter!.macAdress,
-    );
-
-    if (!connected) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context)!.printerNotConnected)),
-      );
-      selectedPrinter = null;
-      await _refreshBluetoothPrinters();
-      if (selectedPrinter == null) return;
-    }
-
-    final profile = await CapabilityProfile.load();
-    final generator = Generator(PaperSize.mm58, profile);
-
-    List<int> bytes = [];
-
-    bytes += generator.text("********************************",
-      styles: const PosStyles(
-        align: PosAlign.center,
-      )
-    );
-
-    bytes += generator.text(widget.companyName,
-      styles: const PosStyles(
-        align: PosAlign.center,
-        bold: true,
-        height: PosTextSize.size2,
-        width: PosTextSize.size2,
-      )
-    );
-
-    bytes += generator.text("********************************",
-      styles: const PosStyles(
-        align: PosAlign.center,
-      )
-    );
-
-    bytes += generator.text(
-      consignment['is_parcel'] ? "PARCEL INFO" : "CONSIGNMENT INFO",
-      styles: const PosStyles(align: PosAlign.center),
-    );
-
-    bytes += generator.text(
-      "PKG No: $packageId2",
-      styles: const PosStyles(
-        align: PosAlign.center,
-        height: PosTextSize.size2,
-        width: PosTextSize.size2,
-      ),
-    );
-
-    bytes += generator.text(
-      "PKG Name: ${consignment['package_name']}",
-      styles: const PosStyles(
-        align: PosAlign.center,
-        height: PosTextSize.size2,
-        width: PosTextSize.size2,
-      ),
-    );
-
-    bytes += generator.text(
-      "${consignment['from']} to ${consignment['to']}",
-      styles: const PosStyles(
-        align: PosAlign.center,
-        height: PosTextSize.size2,
-        width: PosTextSize.size2,
-      ),
-    );
-
-    bytes += generator.text(
-      "Name:${consignment['receiver_name']}",
-      styles: const PosStyles(
-        align: PosAlign.center,
-        height: PosTextSize.size2,
-        width: PosTextSize.size2,
-      ),
-    );
-    bytes += generator.text(
-      "Phone:${consignment['receiver_phone_number']}",
-      styles: const PosStyles(
-        align: PosAlign.center,
-        height: PosTextSize.size2,
-        width: PosTextSize.size2,
-      ),
-    );
-
-    // QR
-    String data = SimpleCodec.encode(jsonEncode({
-      "cid": packageId,
-      "oid": consignment['office_id'],
-    }));
-
-    bytes += generator.qrcode(
-      data,
-      size: QRSize.size7,
-    );
-
-    bytes += generator.text(
-      receiptFooter,
-      styles: const PosStyles(align: PosAlign.center)
-    );
-
-    bytes += generator.text(
-      'Powered by Tiketi Mkononi',
-      styles: const PosStyles(align: PosAlign.center)
-    );
-    bytes += generator.text(
-      'Email:tiketimkononi@telabs.co.tz',
-      styles: const PosStyles(align: PosAlign.center)
-    );
-  
-    bytes += generator.feed(1);
-    bytes += generator.cut();
-
-    await PrintBluetoothThermal.writeBytes(bytes);
-  }
-
-  Future<void> _printCableReceipt(dynamic consignment) async {
+  Future<void> _printCableReceipt(Order order) async {
     debugPrint("Printing via cable...");
 
     final pdf = pw.Document();
@@ -2198,14 +1774,14 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
     const pageWidth = 226.0;
 
-    final items = consignment['consignment_items'] ?? [];
+    final items = order.orderItems;
 
     DateTime now = DateTime.now();
     String formattedDateTime = DateFormat('d/M/H H:m').format(now);
 
     String data = SimpleCodec.encode(jsonEncode({
-      "cid": packageId,
-      "oid": consignment['office_id'],
+      "oid": order.id,
+      "sid": order.shopId,
     }));
 
     pdf.addPage(
@@ -2228,7 +1804,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                 /// COMPANY NAME
                 pw.Center(
                   child: pw.Text(
-                    widget.companyName,
+                    widget.shopName,
                     style: pw.TextStyle(
                       font: customFont,
                       fontSize: 12,
@@ -2239,9 +1815,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
                 pw.Center(
                   child: pw.Text(
-                    consignment['is_parcel']
-                        ? "PARCEL RECEIPT"
-                        : "CONSIGNMENT RECEIPT",
+                    "ORDER RECEIPT",
                     style: pw.TextStyle(
                       font: customFont,
                       fontSize: 11,
@@ -2259,30 +1833,19 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
                 /// PACKAGE INFO
                 pw.Text(
-                  "Package No: ${packageId2}",
+                  "Order No: ${order.id}",
                   style: pw.TextStyle(font: customFont),
                 ),
 
                 pw.Text(
-                  "Package Name: ${consignment['package_name'] ?? ''}",
+                  "Total Price: ${order.totalPrice}",
                   style: pw.TextStyle(font: customFont),
                 ),
 
                 pw.Text(
-                  "Package Value: TZS ${consignment['package_value']}",
+                  "Payment Status: ${order.paymentStatus ? "Paid" : "Not Paid"}",
                   style: pw.TextStyle(font: customFont),
                 ),
-
-                pw.Text(
-                  "Payment Status: ${consignment['payment_status'] ? "Paid" : "Not Paid"}",
-                  style: pw.TextStyle(font: customFont),
-                ),
-
-                if (consignment['payment_status'])
-                  pw.Text(
-                    "Paid Amount: TZS ${consignment['paid_amount']}",
-                    style: pw.TextStyle(font: customFont),
-                  ),
 
                 pw.SizedBox(height: 6),
 
@@ -2291,30 +1854,11 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                   style: pw.TextStyle(font: customFont),
                 ),
 
-                /// ROUTE
-                pw.Text(
-                  "Route",
-                  style: pw.TextStyle(
-                    font: customFont,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-
-                pw.Text(
-                  "From: ${consignment['from'] ?? ''}",
-                  style: pw.TextStyle(font: customFont),
-                ),
-
-                pw.Text(
-                  "To: ${consignment['to'] ?? ''}",
-                  style: pw.TextStyle(font: customFont),
-                ),
-
                 pw.SizedBox(height: 6),
 
                 /// SENDER
                 pw.Text(
-                  "Sender",
+                  "Customer Details",
                   style: pw.TextStyle(
                     font: customFont,
                     fontWeight: pw.FontWeight.bold,
@@ -2322,35 +1866,16 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                 ),
 
                 pw.Text(
-                  "Name: ${consignment['sender_name'] ?? ''}",
+                  "Name: ${order.customerName}",
                   style: pw.TextStyle(font: customFont),
                 ),
 
                 pw.Text(
-                  "Phone: ${consignment['sender_phone_number'] ?? ''}",
+                  "Phone: ${order.customerPhoneNumber}",
                   style: pw.TextStyle(font: customFont),
                 ),
 
                 pw.SizedBox(height: 6),
-
-                /// RECEIVER
-                pw.Text(
-                  "Receiver",
-                  style: pw.TextStyle(
-                    font: customFont,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-
-                pw.Text(
-                  "Name: ${consignment['receiver_name'] ?? ''}",
-                  style: pw.TextStyle(font: customFont),
-                ),
-
-                pw.Text(
-                  "Phone: ${consignment['receiver_phone_number'] ?? ''}",
-                  style: pw.TextStyle(font: customFont),
-                ),
 
                 /// ITEMS
                 if ((items.length > 1) && (items.length <= 10)) ...[
@@ -2368,8 +1893,8 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
                   for (int i = 0; i < items.length; i++)
                     pw.Text(
-                      "${i + 1}. ${items[i]['name']} (x${items[i]['quantity']})  "
-                      "TZS ${NumberFormat('#,##0').format(((items[i]['value'] ?? 0) * items[i]['quantity']).toInt())}",
+                      "${i + 1}. ${items[i].name} (x${items[i].quantity})  "
+                      "TZS ${NumberFormat('#,##0').format(((items[i].price) * items[i].quantity).toInt())}",
                       style: pw.TextStyle(font: customFont),
                     ),
                 ],
@@ -2391,12 +1916,12 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                 ),
 
                 pw.Text(
-                  "Name: ${consignment['issued_by'] ?? ''}",
+                  "Name: ${order.issuedBy}",
                   style: pw.TextStyle(font: customFont),
                 ),
 
                 pw.Text(
-                  "Phone: ${consignment['issuer_phone_number'] ?? ''}",
+                  "Phone: ${order.issuerPhoneNumber}",
                   style: pw.TextStyle(font: customFont),
                 ),
 

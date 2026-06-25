@@ -1,9 +1,10 @@
 class UserProfile {
   final int id;
   int companyId;
-  final int officeId;
-  final int shopId;
   String companyName;
+  final int officeId;
+  int shopId;
+  String shopName;
   final String firstName;
   final String middleName;
   final String lastName;
@@ -23,9 +24,10 @@ class UserProfile {
   UserProfile({
     required this.id,
     required this.companyId,
+    required this.companyName,
     required this.officeId,
     required this.shopId,
-    required this.companyName,
+    required this.shopName,
     required this.firstName,
     required this.middleName,
     required this.lastName,
@@ -47,9 +49,10 @@ class UserProfile {
     return {
       'id': id,
       'company_id': companyId,
+      'companyName': companyName,
       'office_id': officeId,
       'shop_id': shopId,
-      'companyName': companyName,
+      'shopName': shopName,
       'firstName': firstName,
       'middleName': middleName,
       'lastName': lastName,
@@ -70,9 +73,10 @@ class UserProfile {
     return UserProfile(
       id: json['id'] as int,
       companyId: (json['company_id'] ?? 0) as int,
+      companyName: (json['companyName'] ?? '') as String,
       officeId: (json['office_id'] ?? 0) as int,
       shopId: (json['shop_id'] ?? 0) as int,
-      companyName: (json['companyName'] ?? '') as String,
+      shopName: (json['shop_name'] ?? '') as String,
       firstName: json['firstName'] as String,
       middleName: json['middleName'] as String,
       lastName: json['lastName'] as String,
@@ -95,9 +99,10 @@ class UserProfile {
     return UserProfile(
       id: json['id'] as int,
       companyId: (json['company_id'] ?? 0) as int,
+      companyName: (json['companyName'] ?? '') as String,
       officeId: (json['office_id'] ?? 0) as int,
       shopId: (json['shop_id'] ?? 0) as int,
-      companyName: (json['companyName'] ?? '') as String,
+      shopName: (json['shop_ame'] ?? '') as String,
       firstName: json['first_name'] as String,
       middleName: json['middle_name'] as String,
       lastName: json['last_name'] as String,

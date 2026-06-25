@@ -34,6 +34,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   int officeId = 0;
   int shopId = 0;
   String companyName = '';
+  String shopName = '';
   final _firstNameController = TextEditingController();
   final _middleNameController = TextEditingController();
   final _lastNameController = TextEditingController();
@@ -75,6 +76,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         companyId = profile.companyId;
         officeId = profile.officeId;
         companyName = profile.companyName;
+        shopName = profile.shopName;
         shopId = profile.shopId;
         _firstNameController.text = profile.firstName;
         _middleNameController.text = profile.middleName;
@@ -138,6 +140,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         officeId: officeId,
         shopId: shopId,
         companyName: companyName,
+        shopName: shopName,
         firstName: _firstNameController.text.trim(),
         middleName: _middleNameController.text.trim(),
         lastName: _lastNameController.text.trim(),

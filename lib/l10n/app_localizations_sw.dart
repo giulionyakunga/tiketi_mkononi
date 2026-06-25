@@ -48,6 +48,9 @@ class AppLocalizationsSw extends AppLocalizations {
   String get cargos => 'Mizigo';
 
   @override
+  String get myOrders => 'Oda Zangu';
+
+  @override
   String officeCargos(Object officeName) {
     return 'Mizigo ya $officeName';
   }
@@ -89,6 +92,9 @@ class AppLocalizationsSw extends AppLocalizations {
   String get addConsignment => 'Ongeza Shehena';
 
   @override
+  String get placeOrder => 'Weka Oda';
+
+  @override
   String get success => 'Imefanikiwa';
 
   @override
@@ -111,6 +117,15 @@ class AppLocalizationsSw extends AppLocalizations {
 
   @override
   String get to => 'Kwenda';
+
+  @override
+  String get selectProduct => 'Chagua bidhaa';
+
+  @override
+  String get customerName => 'Jina la Mteja';
+
+  @override
+  String get customerPhoneNumber => 'Namba ya sumu ya Mteja';
 
   @override
   String get passingThrough => 'Kupitia';
@@ -167,6 +182,9 @@ class AppLocalizationsSw extends AppLocalizations {
   String get itemName => 'Jina la Kitu';
 
   @override
+  String get orderItems => 'Bidhaa za oda';
+
+  @override
   String get price => 'Bei';
 
   @override
@@ -191,32 +209,44 @@ class AppLocalizationsSw extends AppLocalizations {
   String get consignment => 'Shehena';
 
   @override
-  String get pleaseEnterPackageName => 'Tafadhali ingiza jina la kifurushi';
+  String get pleaseEnterPackageName => 'Tafadhali jaza jina la kifurushi';
 
   @override
   String get packageNameMaxLength =>
-      'Jina la kifurushi lazima iwe herufi 100 au chini';
+      'Jina la kifurushi lazima liwe herufi 100 au chini';
 
   @override
-  String get pleaseEnterSenderName => 'Tafadhali ingiza jina la mtumaji';
+  String get pleaseEnterSenderName => 'Tafadhali jaza jina la mtumaji';
+
+  @override
+  String get pleaseEnterCustomerName => 'Tafadhali jaza jina la mteja';
 
   @override
   String get senderNameMaxLength =>
-      'Jina la mtumaji lazima iwe herufi 100 au chini';
+      'Jina la mtumaji lazima liwe herufi 100 au chini';
+
+  @override
+  String get customerNameMaxLength =>
+      'Jina la mteja lazima liwe herufi 100 au chini';
 
   @override
   String get pleaseEnterSenderPhone =>
-      'Tafadhali ingiza namba ya simu ya mtumaji';
+      'Tafadhali jaza namba ya simu ya mtumaji';
+
+  @override
+  String get pleaseEnterCustomerPhone =>
+      'Tafadhali jaza namba ya simu ya mteja';
 
   @override
   String get senderPhoneMaxLength =>
-      'Namba ya simu ya mtumaji lazima iwe herufi 15 au chini';
+      'Namba ya simu ya mtumaji lazima liwe herufi 15 au chini';
 
   @override
-  String get pleaseEnterOrigin => 'Tafadhali ingiza sehemu ya mwanzo';
+  String get pleaseEnterOrigin => 'Tafadhali jaza sehemu ya mwanzo';
 
   @override
-  String get originMaxLength => 'Jina la chanzo lazima iwe herufi 100 au chini';
+  String get originMaxLength =>
+      'Jina la chanzo lazima liwe herufi 100 au chini';
 
   @override
   String get pleaseSelectOrigin => 'Tafadhali chagua chanzo';
@@ -225,42 +255,42 @@ class AppLocalizationsSw extends AppLocalizations {
   String get pleaseSelectDestination => 'Tafadhali chagua anakoenda';
 
   @override
-  String get pleaseEnterDestination => 'Tafadhali ingiza au chagua anakoenda';
+  String get pleaseEnterDestination => 'Tafadhali jaza au chagua anakoenda';
 
   @override
-  String get pleaseEnterReceiverName => 'Tafadhali ingiza jina la mpokeaji';
+  String get pleaseEnterReceiverName => 'Tafadhali jaza jina la mpokeaji';
 
   @override
   String get receiverNameMaxLength =>
-      'Jina la mpokeaji lazima iwe herufi 100 au chini';
+      'Jina la mpokeaji lazima liwe herufi 100 au chini';
 
   @override
   String get pleaseEnterReceiverPhone =>
-      'Tafadhali ingiza namba ya simu ya mpokeaji';
+      'Tafadhali jaza namba ya simu ya mpokeaji';
 
   @override
   String get receiverPhoneMaxLength =>
-      'Namba ya simu ya mpokeaji lazima iwe herufi 15 au chini';
+      'Namba ya simu ya mpokeaji lazima liwe herufi 15 au chini';
 
   @override
-  String get pleaseEnterPackageValue => 'Tafadhali ingiza thamani ya kifurushi';
+  String get pleaseEnterPackageValue => 'Tafadhali jaza thamani ya kifurushi';
 
   @override
   String get packageValueMaxLength =>
       'Thamani ya kifurushi lazima iwe herufi 8 au chini';
 
   @override
-  String get pleaseEnterPaidAmount => 'Tafadhali ingiza kiasi kilicholipwa';
+  String get pleaseEnterPaidAmount => 'Tafadhali jaza kiasi kilicholipwa';
 
   @override
   String get paidAmountMaxLength =>
-      'Kiasi kilicholipwa lazima iwe herufi 8 au chini';
+      'Kiasi kilicholipwa lazima kiwe herufi 8 au chini';
 
   @override
   String get pleaseAddAtLeastOneItem => 'Tafadhali ongeza angalau kitu kimoja';
 
   @override
-  String get pleaseEnterItemName => 'Tafadhali ingiza jina la kitu';
+  String get pleaseEnterItemName => 'Tafadhali jaza jina la kitu';
 
   @override
   String get itemPriceGreaterThanZero =>
@@ -677,7 +707,7 @@ class AppLocalizationsSw extends AppLocalizations {
   String get officeLocation => 'Mahali ilipo ofisi';
 
   @override
-  String get pleaseEnterOfficeLocation => 'Tafadhali weka mahali ilipo ofisi';
+  String get pleaseEnterOfficeLocation => 'Tafadhali jaza mahali ilipo ofisi';
 
   @override
   String get addOffice => 'Ongeza Ofisi';
@@ -687,8 +717,20 @@ class AppLocalizationsSw extends AppLocalizations {
 
   @override
   String get pleaseEnterBusRegistrationNumber =>
-      'Tafadhali weka namba ya usajiri ya basi';
+      'Tafadhali jaza namba ya usajiri ya basi';
 
   @override
-  String get pleaseEnterBusName => 'Tafadhali weka jina la basi';
+  String get pleaseEnterBusName => 'Tafadhali jaza jina la basi';
+
+  @override
+  String get productName => 'Jina la bidhaa';
+
+  @override
+  String get pleaseEnterProductName => 'Tafadhali jaza jina la bidhaa';
+
+  @override
+  String get noOrdersYet => 'Bado hakuna oda';
+
+  @override
+  String get orderReceivedSuccessfully => 'Oda imepokelewa kikamilifu';
 }

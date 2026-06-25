@@ -176,6 +176,12 @@ abstract class AppLocalizations {
   /// **'Cargos'**
   String get cargos;
 
+  /// No description provided for @myOrders.
+  ///
+  /// In en, this message translates to:
+  /// **'My Orders'**
+  String get myOrders;
+
   /// No description provided for @officeCargos.
   ///
   /// In en, this message translates to:
@@ -254,6 +260,12 @@ abstract class AppLocalizations {
   /// **'Add Consignment'**
   String get addConsignment;
 
+  /// No description provided for @placeOrder.
+  ///
+  /// In en, this message translates to:
+  /// **'Place Order'**
+  String get placeOrder;
+
   /// No description provided for @success.
   ///
   /// In en, this message translates to:
@@ -301,6 +313,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Destination'**
   String get to;
+
+  /// No description provided for @selectProduct.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Product'**
+  String get selectProduct;
+
+  /// No description provided for @customerName.
+  ///
+  /// In en, this message translates to:
+  /// **'Customer Name'**
+  String get customerName;
+
+  /// No description provided for @customerPhoneNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Customer Phone Number'**
+  String get customerPhoneNumber;
 
   /// No description provided for @passingThrough.
   ///
@@ -410,6 +440,12 @@ abstract class AppLocalizations {
   /// **'Item Name'**
   String get itemName;
 
+  /// No description provided for @orderItems.
+  ///
+  /// In en, this message translates to:
+  /// **'Order Items'**
+  String get orderItems;
+
   /// No description provided for @price.
   ///
   /// In en, this message translates to:
@@ -476,17 +512,35 @@ abstract class AppLocalizations {
   /// **'Please enter sender name'**
   String get pleaseEnterSenderName;
 
+  /// No description provided for @pleaseEnterCustomerName.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter customer name'**
+  String get pleaseEnterCustomerName;
+
   /// No description provided for @senderNameMaxLength.
   ///
   /// In en, this message translates to:
   /// **'Sender name must be 100 characters or less'**
   String get senderNameMaxLength;
 
+  /// No description provided for @customerNameMaxLength.
+  ///
+  /// In en, this message translates to:
+  /// **'Customer name must be 100 characters or less'**
+  String get customerNameMaxLength;
+
   /// No description provided for @pleaseEnterSenderPhone.
   ///
   /// In en, this message translates to:
   /// **'Please enter sender phone number'**
   String get pleaseEnterSenderPhone;
+
+  /// No description provided for @pleaseEnterCustomerPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter customer phone number'**
+  String get pleaseEnterCustomerPhone;
 
   /// No description provided for @senderPhoneMaxLength.
   ///
@@ -1321,6 +1375,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Please enter bus name'**
   String get pleaseEnterBusName;
+
+  /// No description provided for @productName.
+  ///
+  /// In en, this message translates to:
+  /// **'Product name'**
+  String get productName;
+
+  /// No description provided for @pleaseEnterProductName.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter product name'**
+  String get pleaseEnterProductName;
+
+  /// No description provided for @noOrdersYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No Orders Yet'**
+  String get noOrdersYet;
+
+  /// No description provided for @orderReceivedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Order received successfully'**
+  String get orderReceivedSuccessfully;
 }
 
 class _AppLocalizationsDelegate

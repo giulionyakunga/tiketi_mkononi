@@ -17,45 +17,44 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:tiketi_mkononi/l10n/app_localizations.dart';
-import 'package:tiketi_mkononi/screens/add_consignment_page.dart';
+import 'package:tiketi_mkononi/models/order.dart';
+import 'package:tiketi_mkononi/screens/add_order_page.dart';
 import 'package:tiketi_mkononi/services/SimpleCodec.dart';
 import 'package:excel/excel.dart' hide Border;
 import 'package:url_launcher/url_launcher.dart';  // Hide Excel's Border
 
 
-class ConsignmentsPage extends StatefulWidget {
+class OrdersPage extends StatefulWidget {
   final int userId;
-  final int officeId;
-  final String officeName;
-  final String companyName;
+  final int shopId;
+  final String shopName;
   final String userName;
   final String userPhoneNumber;
-  final int companyId;
   final String role;
 
-  const ConsignmentsPage({super.key, required this.userId, required this.officeId, required this.officeName, required this.companyId, required this.companyName, required this.userName, required this.userPhoneNumber, required this.role});
+  const OrdersPage({super.key, required this.userId, required this.shopId, required this.shopName, required this.userName, required this.userPhoneNumber, required this.role});
 
   @override
-  State<ConsignmentsPage> createState() => _ConsignmentsPageState();
+  State<OrdersPage> createState() => _OrdersPageState();
 }
 
-class _ConsignmentsPageState extends State<ConsignmentsPage> {
+class _OrdersPageState extends State<OrdersPage> {
   bool _isLoading = true;
   String? _error;
-  List<dynamic> _consignments = [];
+  List<Order> _orders = [];
   double totalCollection = 0;
-  dynamic _selectedConsignment;
+  Order? _selectedOrder;
   bool _showDetails = false;
   DateTime _selectedDate = DateTime.now();
   BluetoothInfo? selectedPrinter;
   Printer? selectedCablePrinter;
-  String _typeFilter = 'all'; // all | parcel | consignment
-  String _paymentFilter = 'all'; // all | parcel | consignment
-  
+  String _paymentFilter = 'all';
 
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
   bool _isSearchBarVisible = false;
+  String receiptFooter = "Karibu Sana";
+
 
   @override
   void initState() {
@@ -63,7 +62,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     String dateStr = DateFormat('d-M-yyyy').format(DateTime.now());
     _selectedDate = DateFormat('d-M-yyyy').parse(dateStr);
 
-    _fetchConsignments();
+    _fetchOrders();
 
     if (Platform.isWindows) {
       _loadSelectedPrinter();
@@ -170,53 +169,54 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     });
   }
 
-  Future<void> _fetchConsignments({bool useDNS = true}) async {
+  Future<void> _fetchOrders({bool useDNS = true}) async {
     try {
       setState(() {
         _isLoading = true;
         _error = null;
         _showDetails = false;
-        _selectedConsignment = null;
+        _selectedOrder = null;
       });
 
-      final uri = useDNS ? Uri.parse('${backend_url}api/consignments/${widget.userId}/${widget.role}/${widget.officeId}/${widget.companyId}/${DateFormat('d-M-yyyy').format(_selectedDate)}')
-      : Uri.parse('${backend_url_with_fallback_ip}consignments/${widget.userId}/${widget.role}/${widget.officeId}/${widget.companyId}/${DateFormat('d-M-yyyy').format(_selectedDate)}');
-      
-      debugPrint('Fetching consignments from: $uri');
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/orders/${widget.userId}/${widget.shopId}/${widget.role}/${DateFormat('d-M-yyyy').format(_selectedDate)}')
+      : Uri.parse('${backend_url_with_fallback_ip}orders/${widget.userId}/${widget.shopId}/${widget.role}/${DateFormat('d-M-yyyy').format(_selectedDate)}');
+
+      debugPrint('Fetching orders from: $uri');
 
       final response = await http.get(uri);
 
-
       if (response.statusCode == 200) {
+        debugPrint('Fetched orders: ${response.body}');
+
         final dynamic responseData = jsonDecode(response.body);
         
         // Handle different response structures
-        List<dynamic> consignmentsList = [];
+        List<Order> ordersList = [];
         if (responseData is List) {
-          consignmentsList = responseData;
+          ordersList = responseData.map((e) => Order.fromJson(e)).toList();
         } else if (responseData is Map && responseData.containsKey('data')) {
-          consignmentsList = responseData['data'] as List;
+          ordersList = (responseData['data'] as List).map((e) => Order.fromJson(e)).toList();
         }
 
         double totalPaidAmount = 0;
 
-        for (var consignment in consignmentsList) {
-          totalPaidAmount += (consignment['paid_amount'] ?? 0).toDouble();
+        for (var order in ordersList) {
+          totalPaidAmount += (order.totalPrice).toDouble();
         }
 
         setState(() {
           totalCollection = totalPaidAmount;
-          _consignments = consignmentsList;
+          _orders = ordersList;
         });
         
-        debugPrint('Loaded ${consignmentsList.length} consignments');
+        debugPrint('Loaded ${ordersList.length} orders');
       } else {
-        _error = 'Failed to load consignments (${response.statusCode})';
+        _error = 'Failed to load orders (${response.statusCode})';
         debugPrint(_error);
       }
     } on SocketException catch (e) {
       if ((e.osError?.errorCode == 7 || e.osError?.errorCode == 11001) && useDNS) {
-        await _fetchConsignments(useDNS: false);
+        await _fetchOrders(useDNS: false);
         return;
       }
       _error = 'Network error. Please check your connection.';
@@ -236,13 +236,6 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
   Color _getPaymentStatusColor(bool? status) {
     if (status == null) return Colors.grey;
     return status ? Colors.green : Colors.teal;
-  }
-
-  IconData _getPackageTypeIcon(bool? type) {
-    if (type!)
-      return Icons.inventory_2;   // package/box icon
-    else
-      return Icons.local_shipping; // shipment icon
   }
 
   Widget _buildDatePicker() {
@@ -283,7 +276,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
         setState(() {
           _selectedDate = picked;
         });
-        _fetchConsignments();
+        _fetchOrders();
       }
     }
   }
@@ -293,7 +286,8 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          (widget.officeId > 0) ? AppLocalizations.of(context)!.officeCargos(widget.officeName) : AppLocalizations.of(context)!.cargos,
+          
+          '${AppLocalizations.of(context)!.myOrders}: ${widget.shopName}',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600
@@ -307,13 +301,13 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
             padding: const EdgeInsets.only(left: 4),
             child: _buildDatePicker(),
           ),
-          if (_selectedConsignment != null)
+          if (_selectedOrder != null)
             IconButton(
               icon: const Icon(Icons.refresh),
               onPressed: () {
                 setState(() {
                   _showDetails = false;
-                  _selectedConsignment = null;
+                  _selectedOrder = null;
                   _printBluetoothTestReceipt();
                   if (Platform.isWindows) {
                     _refreshCablePrinters();
@@ -328,12 +322,12 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
         children: [
 
           RefreshIndicator(
-            onRefresh: _fetchConsignments,
+            onRefresh: _fetchOrders,
             color: Colors.teal,
             child: _buildBody(),
           ),
 
-          if (_showDetails && _selectedConsignment != null) ...[
+          if (_showDetails && _selectedOrder != null) ...[
             
             /// This disables background clicks
             ModalBarrier(
@@ -341,7 +335,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
               onDismiss: () {
                 setState(() {
                   _showDetails = false;
-                  _selectedConsignment = null;
+                  _selectedOrder = null;
                 });
               },
               color: Colors.black.withOpacity(0.2),
@@ -365,16 +359,15 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     FloatingActionButton.extended(
       heroTag: "addBtn",
       backgroundColor: Colors.teal,
-      tooltip: "Add Consignment",
+      tooltip: "Add Order",
       onPressed: () {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => AddConsignmentPage(
+            builder: (context) => AddOrderPage(
               userId: widget.userId,
-              companyId: widget.companyId,
-              companyName: widget.companyName,
-              officeId: widget.officeId,
+              shopId: widget.shopId,
+              shopName: widget.shopName,
               userName: widget.userName,
               userPhoneNumber: widget.userPhoneNumber,
               isReplacableScreen: true,
@@ -427,18 +420,6 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
             ),
             const SizedBox(width: 8),
             _buildFilterChip(
-              label: "Parcels",
-              icon: Icons.inventory_2,
-              value: "parcels",
-            ),
-            const SizedBox(width: 8),
-            _buildFilterChip(
-              label: "Consignments",
-              icon: Icons.local_shipping,
-              value: "consignments",
-            ),
-            const SizedBox(width: 8),
-            _buildFilterChip(
               label: "Paid",
               icon: Icons.check_circle,
               value: "paid",
@@ -478,35 +459,26 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     required IconData icon,
     required String value,
   }) {
-    final bool isActive = _typeFilter == value;
+    final bool isActive = _paymentFilter == value;
 
     return GestureDetector(
       onTap: () {
         if (value == 'all') {
           setState(() {
             _paymentFilter = 'all';
-            _typeFilter = value;
-          });
-        }
-        if((value == 'parcels') || (value == 'consignments')) {
-          setState(() {
-            _paymentFilter = 'all';
-            _typeFilter = value;
           });
         } else if (value == 'unpaid') {
           setState(() {
-            _typeFilter = 'all';
             _paymentFilter = value;
           });
         } else if (value == 'export_unpaid') {
-          exportUnpaidPackages(_consignments);
+          exportUnpaidPackages(_orders);
         } else if (value == 'export_paid') {
-          exportPaidPackages(_consignments);
+          exportPaidPackages(_orders);
         } else if (value == 'export_all') {
-          exportAllPackages(_consignments);
+          exportAllPackages(_orders);
         } else if (value == 'paid') {
           setState(() {
-            _typeFilter = 'all';
             _paymentFilter = value;
           });
         }
@@ -544,16 +516,16 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     );
   }
   
-  Future<void> exportUnpaidPackages(List<dynamic> consignments) async {
-    if(consignments.isEmpty) {
+  Future<void> exportUnpaidPackages(List<Order> orders) async {
+    if(orders.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No packages found')),
+        SnackBar(content: Text('No orders found')),
       );
       return;
     }
     
-    consignments = consignments.where((c) {
-      return (c['payment_status'] == false);
+    orders = orders.where((c) {
+      return (c.paymentStatus == false);
     }).toList();
 
     // Create a new Excel document
@@ -562,48 +534,34 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
     // Add header row
     sheet.appendRow([
-      'Package Name',
-      'Package Number',
-      'Sender Name',
-      'Sender Phone',
-      'From',
-      'To',
-      'Receiver Name',
-      'Receiver Phone',
-      'Package Value',
-      'Amount to be Paid',
+      'Order ID',
+      'Customer Name',
+      'Customer Phone',
+      'Total Price',
       'Payment Status',
-      'Is Parcel',
       'Items',
       'Issued By',
       'Issuer Phone'
     ]);
 
-    // Add consignment data
-    for (final consignment in consignments) {
+    // Add order data
+    for (final order in orders) {
 
-      // Convert consignment items to a readable string
-      final items = (consignment['consignment_items'] as List)
+      // Convert orders items to a readable string
+      final items = (order.orderItems as List)
           .map((item) =>
               "${item['name']} (x${item['quantity']}) - ${item['value']}")
           .join(", ");
 
       sheet.appendRow([
-        consignment['package_name'],
-        consignment['package_id'],
-        consignment['sender_name'],
-        consignment['sender_phone_number'],
-        consignment['from'],
-        consignment['to'],
-        consignment['receiver_name'],
-        consignment['receiver_phone_number'],
-        consignment['package_value'],
-        consignment['paid_amount'],
-        consignment['payment_status'] ? 'Paid' : 'Unpaid',
-        consignment['is_parcel'] ? 'Yes' : 'No',
+        order.orderId,
+        order.customerName,
+        order.customerPhoneNumber,
+        order.totalPrice,
+        order.paymentStatus ? 'Paid' : 'Unpaid',
         items,
-        consignment['issued_by'],
-        consignment['issuer_phone_number'],
+        order.issuedBy,
+        order.issuerPhoneNumber,
       ]);
     }
 
@@ -642,16 +600,16 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     }
   }
 
-  Future<void> exportPaidPackages(List<dynamic> consignments) async {
-    if(consignments.isEmpty) {
+  Future<void> exportPaidPackages(List<Order> orders) async {
+    if(orders.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No packages found')),
+        SnackBar(content: Text('No orders found')),
       );
       return;
     }
 
-    consignments = consignments.where((c) {
-      return c['payment_status'] == true;
+    orders = orders.where((c) {
+      return c.paymentStatus == true;
     }).toList();
 
     // Create a new Excel document
@@ -660,48 +618,34 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
     // Add header row
     sheet.appendRow([
-      'Package Name',
-      'Package Number',
-      'Sender Name',
-      'Sender Phone',
-      'From',
-      'To',
-      'Receiver Name',
-      'Receiver Phone',
-      'Package Value',
-      'Paid Amount',
+      'Order ID',
+      'Customer Name',
+      'Customer Phone',
+      'Total Price',
       'Payment Status',
-      'Is Parcel',
       'Items',
       'Issued By',
       'Issuer Phone'
     ]);
 
-    // Add consignment data
-    for (final consignment in consignments) {
+    // Add order data
+    for (final order in orders) {
 
-      // Convert consignment items to a readable string
-      final items = (consignment['consignment_items'] as List)
+      // Convert order items to a readable string
+      final items = (order.orderItems as List)
           .map((item) =>
               "${item['name']} (x${item['quantity']}) - ${item['value']}")
           .join(", ");
 
       sheet.appendRow([
-        consignment['package_name'],
-        consignment['package_id'],
-        consignment['sender_name'],
-        consignment['sender_phone_number'],
-        consignment['from'],
-        consignment['to'],
-        consignment['receiver_name'],
-        consignment['receiver_phone_number'],
-        consignment['package_value'],
-        consignment['paid_amount'],
-        consignment['payment_status'] ? 'Paid' : 'Unpaid',
-        consignment['is_parcel'] ? 'Yes' : 'No',
+        order.orderId,
+        order.customerName,
+        order.customerPhoneNumber,
+        order.totalPrice,
+        order.paymentStatus ? 'Paid' : 'Unpaid',
         items,
-        consignment['issued_by'],
-        consignment['issuer_phone_number'],
+        order.issuedBy,
+        order.issuerPhoneNumber,
       ]);
     }
 
@@ -741,8 +685,8 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
   }
 
 
-  Future<void> exportAllPackages(List<dynamic> consignments) async {
-    if(consignments.isEmpty) {
+  Future<void> exportAllPackages(List<Order> orders) async {
+    if(orders.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('No packages found')),
       );
@@ -755,48 +699,34 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
     // Add header row
     sheet.appendRow([
-      'Package Name',
-      'Package Number',
-      'Sender Name',
-      'Sender Phone',
-      'From',
-      'To',
-      'Receiver Name',
-      'Receiver Phone',
-      'Package Value',
-      'Paid Amount',
+      'Order ID',
+      'Customer Name',
+      'Customer Phone',
+      'Total Price',
       'Payment Status',
-      'Is Parcel',
       'Items',
       'Issued By',
       'Issuer Phone'
     ]);
 
-    // Add consignment data
-    for (final consignment in consignments) {
+    // Add order data
+    for (final order in orders) {
 
-      // Convert consignment items to a readable string
-      final items = (consignment['consignment_items'] as List)
+      // Convert order items to a readable string
+      final items = (order.orderItems as List)
           .map((item) =>
               "${item['name']} (x${item['quantity']}) - ${item['value']}")
           .join(", ");
 
       sheet.appendRow([
-        consignment['package_name'],
-        consignment['package_id'],
-        consignment['sender_name'],
-        consignment['sender_phone_number'],
-        consignment['from'],
-        consignment['to'],
-        consignment['receiver_name'],
-        consignment['receiver_phone_number'],
-        consignment['package_value'],
-        consignment['paid_amount'],
-        consignment['payment_status'] ? 'Paid' : 'Unpaid',
-        consignment['is_parcel'] ? 'Yes' : 'No',
+        order.orderId,
+        order.customerName,
+        order.customerPhoneNumber,
+        order.totalPrice,
+        order.paymentStatus ? 'Paid' : 'Unpaid',
         items,
-        consignment['issued_by'],
-        consignment['issuer_phone_number'],
+        order.issuedBy,
+        order.issuerPhoneNumber,
       ]);
     }
 
@@ -839,6 +769,41 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     return MediaQuery.of(context).size.width > 768;
   }
 
+  /// Helper methods for status handling
+  IconData _getStatusIcon(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending':
+        return Icons.pending_actions;
+      case 'processing':
+        return Icons.refresh;
+      case 'completed':
+        return Icons.check_circle;
+      case 'cancelled':
+        return Icons.cancel;
+      case 'delivered':
+        return Icons.delivery_dining;
+      default:
+        return Icons.shopping_bag;
+    }
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending':
+        return Colors.orange;
+      case 'processing':
+        return Colors.blue;
+      case 'completed':
+        return Colors.green;
+      case 'cancelled':
+        return Colors.red;
+      case 'delivered':
+        return Colors.purple;
+      default:
+        return Colors.teal;
+    }
+  }
+
   Widget _buildBody() {
     final isLargeScreen = _isLargeScreen(context);
     final theme = Theme.of(context);
@@ -875,7 +840,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
               ),
               const SizedBox(height: 24),
               ElevatedButton.icon(
-                onPressed: _fetchConsignments,
+                onPressed: _fetchOrders,
                 icon: const Icon(Icons.refresh),
                 label: const Text('Try Again'),
                 style: ElevatedButton.styleFrom(
@@ -893,7 +858,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
       );
     }
 
-    if (_consignments.isEmpty) {
+    if (_orders.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -912,7 +877,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
             ),
             const SizedBox(height: 24),
             Text(
-              AppLocalizations.of(context)!.noCargosYet,
+              AppLocalizations.of(context)!.noOrdersYet,
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -929,30 +894,23 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
       );
     }
 
-    var filteredConsignments = _consignments.where((c) {
-      if (_typeFilter == 'all') return true;
-      return _typeFilter == 'parcels'
-          ? c['is_parcel'] == true
-          : c['is_parcel'] == false;
-    }).toList();
-
-    filteredConsignments = filteredConsignments.where((c) {
+    var filteredOrders = _orders.where((c) {
       if (_paymentFilter == 'all') return true;
-      return _paymentFilter == 'unpaid' ? c['payment_status'] == false : c['payment_status'] == true;
+      return _paymentFilter == 'unpaid' ? c.paymentStatus == false : c.paymentStatus == true;
     }).toList();
 
 
     // Apply search filter
     if (_searchQuery.isNotEmpty) {
-      filteredConsignments = filteredConsignments.where(
-        (consignment) => (consignment['package_name'].toLowerCase().contains(_searchQuery.toLowerCase()) || consignment['sender_name'].toLowerCase().contains(_searchQuery.toLowerCase()))
+      filteredOrders = filteredOrders.where(
+        (order) => (order.orderId.toLowerCase().contains(_searchQuery.toLowerCase()) || order.customerName.toLowerCase().contains(_searchQuery.toLowerCase()))
       ).toList();
     }
 
     double totalPaidAmount = 0;
 
-    for (var consignment in filteredConsignments) {
-      totalPaidAmount += (consignment['paid_amount'] ?? 0).toDouble();
+    for (var order in filteredOrders) {
+      totalPaidAmount += (order.totalPrice).toDouble();
     }
 
     setState(() {
@@ -1005,7 +963,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
         isLargeScreen ? Expanded(
           child: Row(
             children: [
-              /// LEFT PANEL — CONSIGNMENT LIST
+              /// LEFT PANEL — ORDER LIST
               Container(
                 width: 420,
                 padding: const EdgeInsets.all(16),
@@ -1015,12 +973,13 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                   ),
                 ),
                 child: ListView.builder(
-                  itemCount: filteredConsignments.length,
+                  itemCount: filteredOrders.length,
                   itemBuilder: (context, index) {
-                    final consignment = filteredConsignments[index];
-                    final isSelected = _selectedConsignment == consignment;
+                    final order = filteredOrders[index];
+                    final isSelected = _selectedOrder == order;
 
-                    return Card(
+                    return 
+                    Card(
                       elevation: isSelected ? 6 : 1,
                       margin: const EdgeInsets.only(bottom: 10),
                       shape: RoundedRectangleBorder(
@@ -1033,57 +992,158 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                         borderRadius: BorderRadius.circular(14),
                         onTap: () {
                           setState(() {
-                            _selectedConsignment = consignment;
+                            _selectedOrder = order;
                           });
                         },
                         child: Padding(
                           padding: const EdgeInsets.all(14),
                           child: Row(
                             children: [
-
-                              /// PACKAGE ICON
+                              /// ORDER ICON
                               Container(
                                 padding: const EdgeInsets.all(10),
                                 decoration: BoxDecoration(
-                                  color: Colors.teal.shade50,
+                                  color: _getStatusColor(order.status).withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Icon(
-                                  _getPackageTypeIcon(consignment['is_parcel']),
-                                  color: Colors.teal,
+                                  _getStatusIcon(order.status),
+                                  color: _getStatusColor(order.status),
                                 ),
                               ),
-
+                              
                               const SizedBox(width: 12),
-
-                              /// PACKAGE INFO
+                              
+                              /// ORDER INFO
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
+                                    /// Order ID and Status
+                                    Row(
+                                      children: [
+                                        Text(
+                                          'Order #${order.orderId}',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 15,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: _getStatusColor(order.status).withOpacity(0.15),
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          child: Text(
+                                            order.status.toUpperCase(),
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w600,
+                                              color: _getStatusColor(order.status),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    
+                                    const SizedBox(height: 4),
+                                    
+                                    /// Customer Name
                                     Text(
-                                      consignment['package_name'] ??
-                                          'Unnamed Package',
+                                      order.customerName,
                                       style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
                                       ),
                                     ),
+                                    
                                     const SizedBox(height: 4),
-                                    Text(
-                                      "${consignment['from']} → ${consignment['to']}",
-                                      style: TextStyle(
-                                        color: Colors.grey.shade600,
-                                        fontSize: 13,
-                                      ),
+                                    
+                                    /// Order Items Summary
+                                    Row(
+                                      children: [
+                                        Text(
+                                          '${order.orderItems.length} item${order.orderItems.length > 1 ? 's' : ''}',
+                                          style: TextStyle(
+                                            color: Colors.grey.shade600,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          width: 4,
+                                          height: 4,
+                                          decoration: BoxDecoration(
+                                            color: Colors.grey.shade400,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'TZS${order.totalPrice.toStringAsFixed(2)}',
+                                          style: TextStyle(
+                                            color: Colors.grey.shade600,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    
+                                    const SizedBox(height: 4),
+                                    
+                                    /// Payment Status
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          order.paymentStatus 
+                                              ? Icons.check_circle_outline 
+                                              : Icons.pending_outlined,
+                                          size: 14,
+                                          color: order.paymentStatus 
+                                              ? Colors.green 
+                                              : Colors.orange,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          order.paymentStatus ? 'Paid' : 'Pending Payment',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: order.paymentStatus 
+                                                ? Colors.green 
+                                                : Colors.orange,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
                               ),
-
-                              Icon(
-                                Icons.chevron_right,
-                                color: Colors.grey.shade400,
-                              )
+                              
+                              /// Date and Chevron
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    order.date,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey.shade500,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Icon(
+                                    Icons.chevron_right,
+                                    color: Colors.grey.shade400,
+                                  ),
+                                ],
+                              ),
                             ],
                           ),
                         ),
@@ -1095,10 +1155,10 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
               /// RIGHT PANEL — DETAILS
               Expanded(
-                child: _selectedConsignment == null
+                child: _selectedOrder == null
                     ? Center(
                         child: Text(
-                          "Select a consignment to view details",
+                          "Select an order to view details",
                           style: TextStyle(
                             fontSize: 16,
                             color: Colors.grey.shade600,
@@ -1107,7 +1167,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                       )
                     : Padding(
                         padding: const EdgeInsets.all(24),
-                        child: _buildConsignmentDetails(_selectedConsignment),
+                        child: _buildOrderDetails(_selectedOrder!),
                       ),
               ),
             ],
@@ -1115,15 +1175,12 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
         ) :
         Expanded(
           child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: filteredConsignments.length,
-              itemBuilder: (context, index) {
-                final consignment = filteredConsignments[index];
-                final isSelected = _selectedConsignment == consignment;
+            padding: const EdgeInsets.all(16),
+            itemCount: filteredOrders.length,
+            itemBuilder: (context, index) {
+              final order = filteredOrders[index];
+              final isSelected = _selectedOrder == order;
           
-
-              final paidAmount = (consignment['paid_amount'] ?? 0).toInt();
-
               return Card(
                 elevation: isSelected ? 8 : 2,
                 margin: const EdgeInsets.only(bottom: 12),
@@ -1136,10 +1193,10 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                 child: InkWell(
                   onTap: () {
                     setState(() {
-                      if (_selectedConsignment == consignment) {
+                      if (_selectedOrder == order) {
                         _showDetails = !_showDetails;
                       } else {
-                        _selectedConsignment = consignment;
+                        _selectedOrder = order;
                         _showDetails = true;
                       }
                     });
@@ -1150,6 +1207,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Header Row - Order ID and Total
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -1160,24 +1218,34 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Icon(
-                                _getPackageTypeIcon(consignment['is_parcel']),
+                                Icons.shopping_bag,
                                 color: Colors.teal,
                                 size: 20,
                               ),
                             ),
                             const SizedBox(width: 4),
                             Expanded(
-                              child: 
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
                                   Text(
-                                    consignment['package_name'] ?? 'Unnamed Package',
+                                    'Order #${order.orderId}',
                                     style: const TextStyle(
                                       fontSize: 15,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
-                              
+                                  Text(
+                                    order.customerName,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                            // Paid amount at top right
+                            // Total Price at top right
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
@@ -1188,7 +1256,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
                                   Text(
-                                    "TZS ${NumberFormat('#,##0').format(paidAmount)}",
+                                    "TZS${NumberFormat('#,##0.00').format(order.totalPrice)}",
                                     style: TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.w500,
@@ -1200,44 +1268,35 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                             ),
                           ],
                         ),
+                        
+                        const SizedBox(height: 8),
+                        // Status and Payment Info Row
                         Row(
                           children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              child: const SizedBox(width: 20),
-                            ),
-                            const SizedBox(width: 4),
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 8,
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: _getPaymentStatusColor(
-                                        consignment['payment_status'])
-                                    .withOpacity(0.1),
+                                color: _getStatusColor(order.status).withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(
-                                    consignment['payment_status'] == true
-                                        ? Icons.check_circle
-                                        : Icons.pending,
+                                    _getStatusIcon(order.status),
                                     size: 14,
-                                    color: _getPaymentStatusColor(
-                                        consignment['payment_status']),
+                                    color: _getStatusColor(order.status),
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
-                                    _getPaymentStatusText(
-                                        consignment['payment_status']),
+                                    order.status.toUpperCase(),
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w500,
-                                      color: _getPaymentStatusColor(
-                                          consignment['payment_status']),
+                                      color: _getStatusColor(order.status),
                                     ),
                                   ),
                                 ],
@@ -1250,21 +1309,56 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: _getPaymentStatusColor(
-                                        consignment['payment_status'])
-                                    .withOpacity(0.1),
+                                color: _getPaymentStatusColor(order.paymentStatus).withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
+                                  Icon(
+                                    order.paymentStatus
+                                        ? Icons.check_circle
+                                        : Icons.pending,
+                                    size: 14,
+                                    color: _getPaymentStatusColor(order.paymentStatus),
+                                  ),
+                                  const SizedBox(width: 4),
                                   Text(
-                                    'Package No: ${consignment['package_id']}', 
+                                    _getPaymentStatusText(order.paymentStatus),
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w500,
-                                      color: _getPaymentStatusColor(
-                                          consignment['payment_status']),
+                                      color: _getPaymentStatusColor(order.paymentStatus),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.shopping_cart_outlined,
+                                    size: 12,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${order.orderItems.length} items',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.grey.shade600,
                                     ),
                                   ),
                                 ],
@@ -1272,64 +1366,50 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                             ),
                           ],
                         ),
+                        
                         const SizedBox(height: 8),
-                        // Route information
+                        
+                        // Order Date and Shop Info
                         Container(
                           padding: const EdgeInsets.symmetric(vertical: 4),
                           child: Row(
                             children: [
-                              Expanded(
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.location_on,
-                                        size: 16, color: Colors.grey.shade600),
-                                    const SizedBox(width: 4),
-                                    Expanded(
-                                      child: Text(
-                                        consignment['from'] ?? 'Unknown',
-                                        style: const TextStyle(fontWeight: FontWeight.w500),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
+                              Icon(Icons.calendar_today,
+                                  size: 14, color: Colors.grey.shade600),
+                              const SizedBox(width: 4),
+                              Text(
+                                order.date,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade600,
                                 ),
                               ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8),
-                                child: Icon(Icons.arrow_forward,
-                                    size: 16, color: Colors.grey.shade400),
-                              ),
-                              Expanded(
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.location_on,
-                                        size: 16, color: Colors.grey.shade600),
-                                    const SizedBox(width: 4),
-                                    Expanded(
-                                      child: Text(
-                                        consignment['to'] ?? 'Unknown',
-                                        style: const TextStyle(fontWeight: FontWeight.w500),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
+                              const SizedBox(width: 12),
+                              Icon(Icons.store,
+                                  size: 14, color: Colors.grey.shade600),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Shop #${order.shopId}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade600,
                                 ),
                               ),
                             ],
                           ),
                         ),
+                        
                         const Divider(),
-                        // Sender & Receiver info
+                        
+                        // Customer & Issuer Info
                         Row(
                           children: [
                             Expanded(
                               child: _buildPersonInfo(
                                 icon: Icons.person_outline,
-                                label: 'Sender',
-                                name: consignment['sender_name'],
-                                phone: consignment['sender_phone_number'],
+                                label: 'Customer',
+                                name: order.customerName,
+                                phone: order.customerPhoneNumber,
                               ),
                             ),
                             Container(
@@ -1340,14 +1420,90 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                             ),
                             Expanded(
                               child: _buildPersonInfo(
-                                icon: Icons.person,
-                                label: 'Receiver',
-                                name: consignment['receiver_name'],
-                                phone: consignment['receiver_phone_number'],
+                                icon: Icons.assignment_ind,
+                                label: 'Issued By',
+                                name: order.issuedBy,
+                                phone: order.issuerPhoneNumber,
                               ),
                             ),
                           ],
                         ),
+                        
+                        const Divider(),
+                        
+                        // Order Items Preview
+                        if (order.orderItems.isNotEmpty)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Order Items',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            ...order.orderItems.take(3).map((item) => Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 24,
+                                    height: 24,
+                                    decoration: BoxDecoration(
+                                      color: Colors.teal.shade50,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        '${item.quantity}x',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.teal.shade700,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      item.name,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade700,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  Text(
+                                    'TZS${(item.price * item.quantity).toStringAsFixed(2)}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )),
+                            if (order.orderItems.length > 3)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  '+${order.orderItems.length - 3} more items',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey.shade500,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      
                       ],
                     ),
                   ),
@@ -1467,7 +1623,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
       )
     );
 
-    bytes += generator.text(widget.companyName,
+    bytes += generator.text(widget.shopName,
       styles: const PosStyles(
         align: PosAlign.center,
         bold: true,
@@ -1487,7 +1643,9 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     await PrintBluetoothThermal.writeBytes(bytes);
   }
 
-  Future<void> _printBluetoothReceipt(dynamic consignment) async {
+  Future<void> _printBluetoothReceipt(Order order) async {
+    debugPrint("Printing via Bluetooth...");
+
     if (selectedPrinter == null) {
       await _refreshBluetoothPrinters();
       if (selectedPrinter == null) return;
@@ -1501,7 +1659,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
     if (!connected) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Printer not connected")),
+        SnackBar(content: Text(AppLocalizations.of(context)!.printerNotConnected)),
       );
       selectedPrinter = null;
       await _refreshBluetoothPrinters();
@@ -1511,7 +1669,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     final profile = await CapabilityProfile.load();
     final generator = Generator(PaperSize.mm58, profile);
 
-    final items = consignment['consignment_items'] ?? [];
+    final items = order.orderItems;
 
     DateTime now = DateTime.now();
     String formattedDateTime = DateFormat('d/M/H H:m').format(now);
@@ -1524,7 +1682,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
       )
     );
 
-    bytes += generator.text(widget.companyName,
+    bytes += generator.text(widget.shopName,
       styles: const PosStyles(
         align: PosAlign.center,
         bold: true,
@@ -1539,94 +1697,60 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     );
 
     bytes += generator.text(
-      consignment['is_parcel'] ? "PARCEL RECEIPT" : "CONSIGNMENT RECEIPT",
+      "ORDER RECEIPT",
       styles: const PosStyles(align: PosAlign.center),
     );
 
     bytes += generator.text(
-      "Package No: ${consignment['package_id']}",
+      "Order No: ${order.orderId}",
       styles: const PosStyles(align: PosAlign.center),
     );
 
     bytes += generator.row([
-      PosColumn(text: "Package Name", width: 6),
-      PosColumn(text: consignment['package_name'] ?? '', width: 6),
+      PosColumn(text: "Customer Name", width: 6),
+      PosColumn(text: order.customerName, width: 6),
     ]);
     
-    double packageValue = double.tryParse(
-      consignment['package_value']?.toString() ?? '0'
+    double totalPrice = double.tryParse(
+      order.totalPrice.toString()
     ) ?? 0;
 
     bytes += generator.row([
-      PosColumn(text: "Package Value", width: 6),
-      PosColumn(text: 'TZS ${NumberFormat('#,##0').format(packageValue)}', width: 6),
+      PosColumn(text: "Total Price", width: 6),
+      PosColumn(text: 'TZS ${NumberFormat('#,##0').format(totalPrice)}', width: 6),
     ]);
 
     bytes += generator.row([
       PosColumn(text: "Payment Status", width: 6),
-      PosColumn(text: consignment['payment_status'] ? "Paid" : "Not Paid", width: 6),
+      PosColumn(text: order.paymentStatus ? "Paid" : "Not Paid", width: 6),
     ]);
 
-    double paidAmount = double.tryParse(
-      consignment['paid_amount']?.toString() ?? '0'
-    ) ?? 0;
-
-    bytes += generator.row([
-      PosColumn(text: "Paid Amount", width: 6),
-      PosColumn(text: 'TZS ${NumberFormat('#,##0').format(paidAmount)}', width: 6),
-    ]);
 
     bytes += generator.text(
-      "Route:",
-      styles: const PosStyles(bold: true),
-    );
-
-    bytes += generator.row([
-      PosColumn(text: "From", width: 6),
-      PosColumn(text: consignment['from'] ?? '', width: 6),
-    ]);
-
-    bytes += generator.row([
-      PosColumn(text: "To", width: 6),
-      PosColumn(text: consignment['to'] ?? '', width: 6),
-    ]);
-
-    bytes += generator.text(
-      "Sender:",
+      "Customer Details",
       styles: const PosStyles(bold: true),
     );
     bytes += generator.row([
       PosColumn(text: "Name", width: 6),
-      PosColumn(text: consignment['sender_name'] ?? '', width: 6),
+      PosColumn(text: order.customerName, width: 6),
     ]);
     bytes += generator.row([
       PosColumn(text: "Phone number", width: 6),
-      PosColumn(text: consignment['sender_phone_number'] ?? '', width: 6),
+      PosColumn(text: order.customerPhoneNumber, width: 6),
     ]);
 
-    bytes += generator.text(
-      "Receiver:",
-      styles: const PosStyles(bold: true),
-    );
-    bytes += generator.row([
-      PosColumn(text: "Name", width: 6),
-      PosColumn(text: consignment['receiver_name'] ?? '', width: 6),
-    ]);
-    bytes += generator.row([
-      PosColumn(text: "Phone number", width: 6),
-      PosColumn(text: consignment['receiver_phone_number'] ?? '', width: 6),
-    ]);
+
 
     int totalAmount = 0;
     // Items
     if(items.length > 1) {
       for (var item in items) {
-        totalAmount += (item['value'] as num).toInt() * (item['quantity'] as num).toInt();
+        totalAmount += (item.price as num).toInt() * (item.quantity as num).toInt();
         bytes += generator.row([
           PosColumn(
-              text: "${item['name']} x${item['quantity']}", width: 8),
+              text: "${item.name} x${item.quantity}", width: 8),
           PosColumn(
-              text: "TZS ${NumberFormat('#,##0').format(((item['value'] ?? 0)))}", width: 4, styles: const PosStyles(align: PosAlign.right)),
+              text: "TZS ${NumberFormat('#,##0').format(((item.price)))}", width: 4, styles: const PosStyles(align: PosAlign.right)),
         ]);
       }
 
@@ -1655,11 +1779,11 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     );
     bytes += generator.row([
       PosColumn(text: "Name", width: 6),
-      PosColumn(text: consignment['issued_by'] ?? '', width: 6),
+      PosColumn(text: order.issuedBy, width: 6),
     ]);
     bytes += generator.row([
       PosColumn(text: "Phone number", width: 6),
-      PosColumn(text: consignment['issuer_phone_number'] ?? '', width: 6),
+      PosColumn(text: order.issuerPhoneNumber, width: 6),
     ]);
     bytes += generator.row([
       PosColumn(text: "Date", width: 6),
@@ -1668,8 +1792,8 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
     // QR
     String data = SimpleCodec.encode(jsonEncode({
-      "cid": consignment['id'],
-      "oid": consignment['office_id'],
+      "oid": order.id,
+      "sid": order.shopId,
     }));
 
     bytes += generator.qrcode(
@@ -1678,7 +1802,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     );
 
     bytes += generator.text(
-      'Karibu Sana',
+      receiptFooter,
       styles: const PosStyles(align: PosAlign.center)
     );
 
@@ -1696,153 +1820,27 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     await PrintBluetoothThermal.writeBytes(bytes);
   }
 
-  Future<void> _printBluetoothReceipt2(dynamic consignment) async {
-    if (selectedPrinter == null) {
-      await _refreshBluetoothPrinters();
-      if (selectedPrinter == null) return;
-    }
+  Future<void> _printCableReceipt(Order order) async {
+    debugPrint("Printing via cable...");
 
-    await PrintBluetoothThermal.disconnect; // ensure clean state
-
-    bool connected = await PrintBluetoothThermal.connect(
-      macPrinterAddress: selectedPrinter!.macAdress,
-    );
-
-    if (!connected) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Printer not connected")),
-      );
-      selectedPrinter = null;
-      await _refreshBluetoothPrinters();
-      if (selectedPrinter == null) return;
-    }
-
-    final profile = await CapabilityProfile.load();
-    final generator = Generator(PaperSize.mm58, profile);
-
-    List<int> bytes = [];
-
-    bytes += generator.text("********************************",
-      styles: const PosStyles(
-        align: PosAlign.center,
-      )
-    );
-
-    bytes += generator.text(widget.companyName,
-      styles: const PosStyles(
-        align: PosAlign.center,
-        bold: true,
-        height: PosTextSize.size2,
-        width: PosTextSize.size2,
-      )
-    );
-
-    bytes += generator.text("********************************",
-      styles: const PosStyles(
-        align: PosAlign.center,
-      )
-    );
-
-    bytes += generator.text(
-      consignment['is_parcel'] ? "PARCEL INFO" : "CONSIGNMENT INFO",
-      styles: const PosStyles(align: PosAlign.center),
-    );
-
-    bytes += generator.text(
-      "PKG No: ${consignment['package_id']}",
-      styles: const PosStyles(
-        align: PosAlign.center,
-        height: PosTextSize.size2,
-        width: PosTextSize.size2,
-      ),
-    );
-
-    bytes += generator.text(
-      "PKG Name: ${consignment['package_name']}",
-      styles: const PosStyles(
-        align: PosAlign.center,
-        height: PosTextSize.size2,
-        width: PosTextSize.size2,
-      ),
-    );
-
-    bytes += generator.text(
-      "${consignment['from']} to ${consignment['to']}",
-      styles: const PosStyles(
-        align: PosAlign.center,
-        height: PosTextSize.size2,
-        width: PosTextSize.size2,
-      ),
-    );
-
-    bytes += generator.text(
-      "Name:${consignment['receiver_name']}",
-      styles: const PosStyles(
-        align: PosAlign.center,
-        height: PosTextSize.size2,
-        width: PosTextSize.size2,
-      ),
-    );
-    bytes += generator.text(
-      "Phone:${consignment['receiver_phone_number']}",
-      styles: const PosStyles(
-        align: PosAlign.center,
-        height: PosTextSize.size2,
-        width: PosTextSize.size2,
-      ),
-    );
-
-    // QR
-    String data = SimpleCodec.encode(jsonEncode({
-      "cid": consignment['id'],
-      "oid": consignment['office_id'],
-    }));
-
-    bytes += generator.qrcode(
-      data,
-      size: QRSize.size7,
-    );
-
-    bytes += generator.text(
-      'Karibu Sana',
-      styles: const PosStyles(align: PosAlign.center)
-    );
-
-    bytes += generator.text(
-      'Powered by Tiketi Mkononi',
-      styles: const PosStyles(align: PosAlign.center)
-    );
-    bytes += generator.text(
-      'Email:tiketimkononi@telabs.co.tz',
-      styles: const PosStyles(align: PosAlign.center)
-    );
-  
-    bytes += generator.feed(1);
-    bytes += generator.cut();
-
-    await PrintBluetoothThermal.writeBytes(bytes);
-  }
-  
-  Future<void> _printCableReceipt(dynamic consignment) async {
     final pdf = pw.Document();
 
     // final logoData = await rootBundle.load('assets/telabs_logo.png');
     // final logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
 
-    final fontData =
-        await rootBundle.load('assets/fonts/poppins/Poppins-Regular.ttf');
+    final fontData = await rootBundle.load('assets/fonts/poppins/Poppins-Regular.ttf');
     final customFont = pw.Font.ttf(fontData);
 
     const pageWidth = 226.0;
 
-    final items = consignment['consignment_items'] ?? [];
+    final items = order.orderItems;
 
     DateTime now = DateTime.now();
     String formattedDateTime = DateFormat('d/M/H H:m').format(now);
 
     String data = SimpleCodec.encode(jsonEncode({
-      "cid": consignment['id'],
-      "oid": consignment['office_id'],
+      "oid": order.id,
+      "sid": order.shopId,
     }));
 
     pdf.addPage(
@@ -1850,7 +1848,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
         pageFormat: const PdfPageFormat(pageWidth, double.infinity),
         build: (context) {
           return pw.Padding(
-            padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+            padding: const pw.EdgeInsets.symmetric(horizontal: 8),
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
@@ -1863,40 +1861,26 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                 pw.SizedBox(height: 6),
 
                 /// COMPANY NAME
-                // pw.Center(
-                //   child: pw.Text(
-                //     widget.companyName,
-                //     style: pw.TextStyle(
-                //       font: customFont,
-                //       fontSize: 10,
-                //       fontWeight: pw.FontWeight.bold,
-                //     ),
-                //   ),
-                // ),
-
-                pw.Text(
-                  widget.companyName,
-                  style: pw.TextStyle(font: customFont, fontSize: 10),
+                pw.Center(
+                  child: pw.Text(
+                    widget.shopName,
+                    style: pw.TextStyle(
+                      font: customFont,
+                      fontSize: 12,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
                 ),
 
-                // pw.Center(
-                //   child: pw.Text(
-                //     consignment['is_parcel']
-                //         ? "PARCEL RECEIPT"
-                //         : "CONSIGNMENT RECEIPT",
-                //     style: pw.TextStyle(
-                //       font: customFont,
-                //       fontSize: 9,
-                //       fontWeight: pw.FontWeight.bold,
-                //     ),
-                //   ),
-                // ),
-
-                pw.Text(
-                  consignment['is_parcel']
-                  ? "PARCEL RECEIPT"
-                  : "CONSIGNMENT RECEIPT",
-                  style: pw.TextStyle(font: customFont, fontSize: 10),
+                pw.Center(
+                  child: pw.Text(
+                    "ORDER RECEIPT",
+                    style: pw.TextStyle(
+                      font: customFont,
+                      fontSize: 11,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
                 ),
 
                 pw.SizedBox(height: 6),
@@ -1908,30 +1892,19 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
                 /// PACKAGE INFO
                 pw.Text(
-                  "Package No: ${consignment['package_id']}",
-                  style: pw.TextStyle(font: customFont, fontSize: 9),
+                  "Order No: ${order.id}",
+                  style: pw.TextStyle(font: customFont),
                 ),
 
                 pw.Text(
-                  "Package Name: ${consignment['package_name'] ?? ''}",
-                  style: pw.TextStyle(font: customFont, fontSize: 9),
+                  "Total Price: ${order.totalPrice}",
+                  style: pw.TextStyle(font: customFont),
                 ),
 
                 pw.Text(
-                  "Package Value: TZS ${consignment['package_value']}",
-                  style: pw.TextStyle(font: customFont, fontSize: 9),
+                  "Payment Status: ${order.paymentStatus ? "Paid" : "Not Paid"}",
+                  style: pw.TextStyle(font: customFont),
                 ),
-
-                pw.Text(
-                  "Payment Status: ${consignment['payment_status'] ? "Paid" : "Not Paid"}",
-                  style: pw.TextStyle(font: customFont, fontSize: 9),
-                ),
-
-                if (consignment['payment_status'])
-                  pw.Text(
-                    "Paid Amount: TZS ${consignment['paid_amount']}",
-                    style: pw.TextStyle(font: customFont, fontSize: 9),
-                  ),
 
                 pw.SizedBox(height: 6),
 
@@ -1940,69 +1913,28 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                   style: pw.TextStyle(font: customFont),
                 ),
 
-                /// ROUTE
-                pw.Text(
-                  "Route",
-                  style: pw.TextStyle(
-                    font: customFont,
-                    fontWeight: pw.FontWeight.bold,
-                    fontSize: 9
-                  ),
-                ),
-
-                pw.Text(
-                  "From: ${consignment['from'] ?? ''}",
-                  style: pw.TextStyle(font: customFont, fontSize: 9),
-                ),
-
-                pw.Text(
-                  "To: ${consignment['to'] ?? ''}",
-                  style: pw.TextStyle(font: customFont, fontSize: 9),
-                ),
-
                 pw.SizedBox(height: 6),
 
                 /// SENDER
                 pw.Text(
-                  "Sender",
+                  "Customer Details",
                   style: pw.TextStyle(
                     font: customFont,
                     fontWeight: pw.FontWeight.bold,
-                    fontSize: 9
                   ),
                 ),
 
                 pw.Text(
-                  "Name: ${consignment['sender_name'] ?? ''}",
-                  style: pw.TextStyle(font: customFont, fontSize: 9),
+                  "Name: ${order.customerName}",
+                  style: pw.TextStyle(font: customFont),
                 ),
 
                 pw.Text(
-                  "Phone: ${consignment['sender_phone_number'] ?? ''}",
-                  style: pw.TextStyle(font: customFont, fontSize: 9),
+                  "Phone: ${order.customerPhoneNumber}",
+                  style: pw.TextStyle(font: customFont),
                 ),
 
                 pw.SizedBox(height: 6),
-
-                /// RECEIVER
-                pw.Text(
-                  "Receiver",
-                  style: pw.TextStyle(
-                    font: customFont,
-                    fontWeight: pw.FontWeight.bold,
-                    fontSize: 9
-                  ),
-                ),
-
-                pw.Text(
-                  "Name: ${consignment['receiver_name'] ?? ''}",
-                  style: pw.TextStyle(font: customFont, fontSize: 9),
-                ),
-
-                pw.Text(
-                  "Phone: ${consignment['receiver_phone_number'] ?? ''}",
-                  style: pw.TextStyle(font: customFont, fontSize: 9),
-                ),
 
                 /// ITEMS
                 if ((items.length > 1) && (items.length <= 10)) ...[
@@ -2013,7 +1945,6 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                     style: pw.TextStyle(
                       font: customFont,
                       fontWeight: pw.FontWeight.bold,
-                      fontSize: 9
                     ),
                   ),
 
@@ -2021,9 +1952,9 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
                   for (int i = 0; i < items.length; i++)
                     pw.Text(
-                      "${i + 1}. ${items[i]['name']} (x${items[i]['quantity']})  "
-                      "TZS ${NumberFormat('#,##0').format(((items[i]['value'] ?? 0) * items[i]['quantity']).toInt())}",
-                      style: pw.TextStyle(font: customFont, fontSize: 9),
+                      "${i + 1}. ${items[i].name} (x${items[i].quantity})  "
+                      "TZS ${NumberFormat('#,##0').format(((items[i].price) * items[i].quantity).toInt())}",
+                      style: pw.TextStyle(font: customFont),
                     ),
                 ],
 
@@ -2031,7 +1962,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
                 pw.Text(
                   "--------------------------------",
-                  style: pw.TextStyle(font: customFont, fontSize: 9),
+                  style: pw.TextStyle(font: customFont),
                 ),
 
                 /// ISSUED BY
@@ -2040,23 +1971,22 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                   style: pw.TextStyle(
                     font: customFont,
                     fontWeight: pw.FontWeight.bold,
-                    fontSize: 9
                   ),
                 ),
 
                 pw.Text(
-                  "Name: ${consignment['issued_by'] ?? ''}",
-                  style: pw.TextStyle(font: customFont, fontSize: 9),
+                  "Name: ${order.issuedBy}",
+                  style: pw.TextStyle(font: customFont),
                 ),
 
                 pw.Text(
-                  "Phone: ${consignment['issuer_phone_number'] ?? ''}",
-                  style: pw.TextStyle(font: customFont, fontSize: 9),
+                  "Phone: ${order.issuerPhoneNumber}",
+                  style: pw.TextStyle(font: customFont),
                 ),
 
                 pw.Text(
                   "Date: ${formattedDateTime}",
-                  style: pw.TextStyle(font: customFont, fontSize: 9),
+                  style: pw.TextStyle(font: customFont),
                 ),
 
                 pw.SizedBox(height: 14),
@@ -2076,8 +2006,8 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                 /// FOOTER
                 pw.Center(
                   child: pw.Text(
-                    "Thank you",
-                    style: pw.TextStyle(font: customFont, fontSize: 9),
+                    receiptFooter,
+                    style: pw.TextStyle(font: customFont),
                   ),
                 ),
 
@@ -2093,7 +2023,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                 pw.Center(
                   child: pw.Text(
                     "Email:tiketimkononi@telabs.co.tz",
-                    style: pw.TextStyle(fontSize: 9),
+                    style: pw.TextStyle(font: customFont, fontSize: 9),
                   ),
                 ),
 
@@ -2117,7 +2047,6 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
       await _selectCablePrinterDialog();
     }
   }
-
   
   Future<void> _selectPrinterDialog() async {
     await showDialog(
@@ -2286,14 +2215,17 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     });
   }
 
-  Future<void> _shareConsignment(dynamic consignment) async {
+  Future<void> _shareOrder(Order order) async {
     final pdf = pw.Document();
-    final items = consignment['consignment_items'] ?? [];
+    final items = order.orderItems;
 
     String data = SimpleCodec.encode(jsonEncode({
-      "cid": consignment['id'],
-      "oid": consignment['office_id'],
+      "oid": order.id,
+      "sid": order.shopId,
     }));
+
+    // Calculate totals
+    double totalItemsValue = items.fold(0.0, (sum, item) => sum + (item.price * item.quantity));
 
     pdf.addPage(
       pw.Page(
@@ -2302,12 +2234,12 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-
               pw.SizedBox(height: 8),
 
+              // Shop Name
               pw.Center(
                 child: pw.Text(
-                  widget.companyName,
+                  widget.shopName,
                   style: pw.TextStyle(
                     fontSize: 10,
                     fontWeight: pw.FontWeight.bold,
@@ -2317,9 +2249,10 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
               pw.SizedBox(height: 8),
 
+              // Receipt Title
               pw.Center(
                 child: pw.Text(
-                  consignment['is_parcel'] ? 'PARCEL RECEIPT' : 'CONSIGNMENT RECEIPT',
+                  'ORDER RECEIPT',
                   style: pw.TextStyle(
                     fontSize: 8,
                     fontWeight: pw.FontWeight.bold,
@@ -2329,9 +2262,10 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
               pw.SizedBox(height: 5),
 
+              // Order ID
               pw.Center(
                 child: pw.Text(
-                  "  Package No: ${consignment['package_id']}",
+                  "Order No: ${order.orderId}",
                   style: pw.TextStyle(
                     fontSize: 8,
                     fontWeight: pw.FontWeight.bold,
@@ -2341,80 +2275,70 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
               pw.SizedBox(height: 3),
 
-              _pdfRow('  Package Name', consignment['package_name']),
-
-              _pdfRow(
-                '  Package Value',
-                'TZS ${NumberFormat('#,##0').format((consignment['package_value'] ?? 0).toInt())}',
-              ),
-
-              _pdfRow(
-                '  Paid Amount',
-                'TZS ${NumberFormat('#,##0').format((consignment['paid_amount'] ?? 0).toInt())}',
-              ),
+              // Customer Info
+              pw.Text('Customer', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+              _pdfRow('Name', order.customerName),
+              _pdfRow('Phone', order.customerPhoneNumber),
 
               pw.Divider(),
 
-              pw.Text('  Route', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
-
-              _pdfRow('  From', consignment['from']),
-              _pdfRow('  To', consignment['to']),
-
-              pw.Divider(),
-
-              pw.Text('  Sender', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
-
-              _pdfRow('  Name', consignment['sender_name']),
-              _pdfRow('  Phone', consignment['sender_phone_number']),
+              // Order Summary
+              pw.Text('Order Summary', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+              _pdfRow('Order Date', order.date),
+              _pdfRow('Total Items', items.length.toString()),
+              _pdfRow('Total Amount', 'TZS${NumberFormat('#,##0.00').format(order.totalPrice)}'),
+              _pdfRow('Payment Status', order.paymentStatus ? 'Paid' : 'Pending'),
 
               pw.Divider(),
 
-              pw.Text('  Receiver', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
-
-              _pdfRow('  Name', consignment['receiver_name']),
-              _pdfRow('  Phone', consignment['receiver_phone_number']),
-
-              if (items.length > 1) ...[
-                pw.Divider(),
-                pw.Text('  Items', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+              // Order Items
+              if (items.isNotEmpty) ...[
+                pw.Text('Order Items', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
                 pw.SizedBox(height: 4),
-
-
-                ...items.asMap().entries.map<pw.Widget>((entry) {
-                  int index = entry.key;
-                  var item = entry.value;
-
+                
+                ...items.map<pw.Widget>((item) {
                   return pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
                       pw.Text(
-                        '  ${index + 1}. ${item['name']}',
+                        '${item.name}',
                         style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold),
                       ),
-                      _pdfRow('    Quantity', '${item['quantity'] ?? 1}'),
-                      _pdfRow(
-                        '    Total Value',
-                        'TZS ${NumberFormat('#,##0').format(((item['value'] ?? 0) * item['quantity']).toInt())}',
-                      ),
+                      _pdfRow('  Qty', '${item.quantity}'),
+                      _pdfRow('  Price', 'TZS${NumberFormat('#,##0.00').format(item.price)}'),
+                      _pdfRow('  Subtotal', 'TZS${NumberFormat('#,##0.00').format(item.price * item.quantity)}'),
                       pw.SizedBox(height: 4),
                     ],
                   );
                 }).toList(),
+                
+                // Total line for items
+                pw.Divider(thickness: 0.5),
+                _pdfRow('Total', 'TZS${NumberFormat('#,##0.00').format(totalItemsValue)}'),
               ],
 
               pw.Divider(),
 
-              pw.Text('  Issued By', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
-
-              _pdfRow('  Name', consignment['issued_by']),
-              _pdfRow('  Phone', consignment['issuer_phone_number']),
+              // Issued By
+              pw.Text('Issued By', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+              _pdfRow('Name', order.issuedBy),
+              _pdfRow('Phone', order.issuerPhoneNumber),
 
               pw.SizedBox(height: 6),
 
-              pw.Center( child: pw.BarcodeWidget( barcode: pw.Barcode.qrCode(), data: data, width: 60, height: 60, ),),
+              // QR Code
+              pw.Center(
+                child: pw.BarcodeWidget(
+                  barcode: pw.Barcode.qrCode(),
+                  data: data,
+                  width: 60,
+                  height: 60,
+                ),
+              ),
 
               pw.SizedBox(height: 8),
 
+              // Thank You
               pw.Center(
                 child: pw.Text(
                   'Thank you',
@@ -2424,24 +2348,24 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
               pw.SizedBox(height: 10),
 
+              // Footer
               pw.Center(
                 child: pw.Text(
                   'Powered by Tiketi Mkononi',
                   style: pw.TextStyle(fontSize: 8),
                 ),
               ),
-                            
+                              
               pw.SizedBox(height: 2),
 
               pw.Center(
                 child: pw.Text(
-                  "Email:tiketimkononi@telabs.co.tz",
+                  "Email: tiketimkononi@telabs.co.tz",
                   style: pw.TextStyle(fontSize: 9),
                 ),
               ),
 
               pw.SizedBox(height: 10),
-
             ],
           );
         },
@@ -2451,7 +2375,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     // Save PDF
     final dir = await getTemporaryDirectory();
     final file = File(
-      '${dir.path}/receipt.pdf',
+      '${dir.path}/order_receipt_${order.orderId}.pdf',
     );
 
     await file.writeAsBytes(await pdf.save());
@@ -2459,10 +2383,10 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     // Share PDF
     await Share.shareXFiles(
       [XFile(file.path)],
-      text: consignment['is_parcel'] ? 'Parcel Receipt' : 'Consignment Receipt',
+      text: 'Order Receipt #${order.orderId}',
     );
   }
-  
+
   pw.Widget _pdfRow(String label, String? value) {
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(vertical: 1),
@@ -2487,201 +2411,382 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     );
   }
 
+
   Widget _buildDetailsPanel() {
-    final consignment = _selectedConsignment;
-    if (consignment == null) return const SizedBox();
+  final order = _selectedOrder;
+  if (order == null) return const SizedBox();
 
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.7,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.3),
-            blurRadius: 10,
-            offset: const Offset(0, -3),
+  return Container(
+    height: MediaQuery.of(context).size.height * 0.7,
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.grey.withOpacity(0.3),
+          blurRadius: 10,
+          offset: const Offset(0, -3),
+        ),
+      ],
+    ),
+    child: Column(
+      children: [
+        // Drag handle
+        Container(
+          width: 40,
+          height: 4,
+          margin: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade300,
+            borderRadius: BorderRadius.circular(2),
           ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Container(
-            width: 40,
-            height: 4,
-            margin: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
+        ),
 
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
+        // Header with actions
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Icon(
+                Icons.shopping_bag_outlined,
+                color: Colors.teal.shade700,
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  'Order Details',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.teal.shade700,
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 32,
+                child: IconButton(
+                  icon: const Icon(Icons.share),
+                  color: Colors.blue,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => _shareOrder(order),
+                ),
+              ),
+              SizedBox(
+                width: 32,
+                child: IconButton(
+                  icon: const Icon(Icons.print),
+                  color: Colors.teal,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () {
+                    _printBluetoothReceipt(order);
+                    if (Platform.isWindows) {
+                      _printCableReceipt(order);
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const Divider(),
+
+        // Scrollable content
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  Icons.info_outline, 
-                  color: Colors.teal.shade700
-                ),
+                // Order ID and Status
+                _buildOrderHeader(order),
 
-                const SizedBox(width: 4),
+                const SizedBox(height: 16),
 
-                Expanded(
-                  child: Text(
-                    consignment['is_parcel'] ? 'Parcel Details' : 'Consignment Details',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.teal.shade700,
+                // Customer Information
+                _buildDetailSection(
+                  title: 'Customer Information',
+                  icon: Icons.person_outline,
+                  children: [
+                    _buildDetailRow('Name', order.customerName),
+                    _buildDetailRow(
+                      'Phone',
+                      order.customerPhoneNumber,
+                      clickable: true,
+                      onTap: () {
+                        _launchPhoneCall(order.customerPhoneNumber);
+                      },
                     ),
-                  ),
+                  ],
                 ),
 
-                SizedBox(
-                  width: 32,
-                  child: IconButton(
-                    icon: const Icon(Icons.share),
-                    color: Colors.blue,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    visualDensity: VisualDensity.compact,
-                    onPressed: () => _shareConsignment(consignment),
-                  ),
+                const SizedBox(height: 16),
+
+                // Order Summary
+                _buildDetailSection(
+                  title: 'Order Summary',
+                  icon: Icons.receipt_long,
+                  children: [
+                    _buildDetailRow(
+                      'Total Items',
+                      order.orderItems.length.toString(),
+                    ),
+                    _buildDetailRow(
+                      'Total Price',
+                      'TZS${NumberFormat('#,##0.00').format(order.totalPrice)}',
+                    ),
+                    _buildDetailRow(
+                      'Payment Status',
+                      order.paymentStatus ? '✅ Paid' : '⏳ Pending',
+                    ),
+                    _buildDetailRow('Order Date', order.date),
+                  ],
                 ),
 
-                SizedBox(
-                  width: 32,
-                  child: IconButton(
-                    icon: const Icon(Icons.print),
-                    color: Colors.teal,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    visualDensity: VisualDensity.compact,
-                    onPressed: () { 
-                      _printBluetoothReceipt(consignment);
-                      if (Platform.isWindows) {
-                        _printCableReceipt(consignment);
-                      }
-                    },
-                  ),
+                const SizedBox(height: 16),
+
+                // Order Items
+                if (order.orderItems.isNotEmpty)
+                  _buildOrderItemsSection(order.orderItems),
+
+                const SizedBox(height: 16),
+
+                // Issued By
+                _buildDetailSection(
+                  title: 'Issued By',
+                  icon: Icons.assignment_ind,
+                  children: [
+                    _buildDetailRow('Name', order.issuedBy),
+                    _buildDetailRow(
+                      'Phone',
+                      order.issuerPhoneNumber,
+                      clickable: true,
+                      onTap: () {
+                        _launchPhoneCall(order.issuerPhoneNumber);
+                      },
+                    ),
+                  ],
                 ),
 
-                SizedBox(
-                  width: 32,
-                  child: IconButton(
-                    icon: const Icon(Icons.print),
-                    color: Colors.red,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    visualDensity: VisualDensity.compact,
-                    onPressed: () => _printBluetoothReceipt2(consignment),
-                  ),
+                const SizedBox(height: 16),
+
+                // Additional Information
+                _buildDetailSection(
+                  title: 'Additional Information',
+                  icon: Icons.info_outline,
+                  children: [
+                    _buildDetailRow('Order ID', order.orderId),
+                    _buildDetailRow('Order Status', order.status),
+                    _buildDetailRow('Shop ID', order.shopId.toString()),
+                    _buildDetailRow('User ID', order.userId.toString()),
+                  ],
                 ),
               ],
-            )
+            ),
           ),
+        ),
+      ],
+    ),
+  );
+}
 
-          const Divider(),
+/// Helper widget for order header
+Widget _buildOrderHeader(Order order) {
+  return Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        colors: [
+          Colors.teal.shade50,
+          Colors.teal.shade100.withOpacity(0.3),
+        ],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: Colors.teal.shade200),
+    ),
+    child: Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Order #${order.orderId}',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                order.customerName,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade700,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 8,
+          ),
+          decoration: BoxDecoration(
+            color: _getStatusColor(order.status),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            order.status.toUpperCase(),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildDetailSection(
-                    title: 'Package Information',
-                    icon: Icons.inventory,
-                    children: [
-                      _buildDetailRow('Package No', '${consignment['package_id']}'),
-                      _buildDetailRow('Package Name', consignment['package_name']),
-                      _buildDetailRow('Package Value', 'TZS${NumberFormat('#,##0').format(  (consignment['package_value'] ?? 0).toInt())}'),
-                      _buildDetailRow('Paid Amount', 'TZS${NumberFormat('#,##0').format(  (consignment['paid_amount'] ?? 0).toInt())}'),
-                      
-                    ],
-                  ),
+/// Helper widget for order items section
+Widget _buildOrderItemsSection(List<OrderItem> items) {
+  return Container(
+    decoration: BoxDecoration(
+      color: Colors.grey.shade50,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: Colors.grey.shade200),
+    ),
+    padding: const EdgeInsets.all(16),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.shopping_cart, color: Colors.teal.shade700),
+            const SizedBox(width: 8),
+            Text(
+              'Order Items (${items.length})',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.teal.shade700,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ...items.map((item) => _buildOrderItemTile(item)).toList(),
+        const Divider(height: 24),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Total',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            Text(
+              'TZS${items.fold(0.0, (sum, item) => sum + (item.price * item.quantity)).toStringAsFixed(2)}',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: Colors.teal,
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
 
-                  const SizedBox(height: 16),
-
-                  _buildDetailSection(
-                    title: 'Route Information',
-                    icon: Icons.route,
-                    children: [
-                      _buildDetailRow('From', consignment['from']),
-                      _buildDetailRow('To', consignment['to']),
-                    ],
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  _buildDetailSection(
-                    title: 'Sender Details',
-                    icon: Icons.person_outline,
-                    children: [
-                      _buildDetailRow('Name', consignment['sender_name']),
-                      _buildDetailRow(
-                        'Phone', 
-                        consignment['sender_phone_number'], 
-                        clickable: true,
-                        onTap: () {
-                          _launchPhoneCall(consignment['sender_phone_number']);
-                        }
-                      ),
-                      
-                    ],
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  _buildDetailSection(
-                    title: 'Receiver Details',
-                    icon: Icons.person,
-                    children: [
-                      _buildDetailRow('Name', consignment['receiver_name']),
-                      _buildDetailRow(
-                        'Phone', 
-                        consignment['receiver_phone_number'],
-                        clickable: true,
-                        onTap: () {
-                          _launchPhoneCall(consignment['receiver_phone_number']);
-                        }
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  if (consignment['consignment_items'] != null && (consignment['consignment_items'] as List).length > 1)
-                  _buildItemsSection(consignment['consignment_items']),
-
-                  const SizedBox(height: 16),
-
-                  _buildDetailSection(
-                    title: 'Issued By',
-                    icon: Icons.assignment_ind,
-                    children: [
-                      _buildDetailRow('Name', consignment['issued_by']),
-                      _buildDetailRow(
-                        'Phone', 
-                        consignment['issuer_phone_number'],
-                        clickable: true,
-                        onTap: () {
-                          _launchPhoneCall(consignment['issuer_phone_number']);
-                        }
-                      ),
-                    ],
-                  ),
-                ],
+/// Helper widget for individual order item tile
+Widget _buildOrderItemTile(OrderItem item) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    child: Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: Colors.teal.shade50,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Center(
+            child: Text(
+              '${item.quantity}x',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Colors.teal.shade700,
               ),
             ),
           ),
-        ],
-      ),
-    );
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                item.name,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w500,
+                  fontSize: 14,
+                ),
+              ),
+              Text(
+                'TZS${NumberFormat('#,##0.00').format(item.price)} × ${item.quantity}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              'TZS${NumberFormat('#,##0.00').format(item.price * item.quantity)}',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+            Text(
+              'Updated: ${_formatDate(item.updatedAt)}',
+              style: TextStyle(
+                fontSize: 10,
+                color: Colors.grey.shade500,
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
+
+  /// Helper method to format date
+  String _formatDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 
-  Widget _buildConsignmentDetails(Map consignment) {
+  Widget _buildOrderDetails(Order order) {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(
@@ -2692,21 +2797,19 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-
+            /// HEADER WITH ACTIONS
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
                   Icon(
-                    Icons.info_outline, 
-                    color: Colors.teal.shade700
+                    Icons.shopping_bag_outlined,
+                    color: Colors.teal.shade700,
                   ),
-
                   const SizedBox(width: 4),
-
                   Expanded(
                     child: Text(
-                      consignment['is_parcel'] ? 'Parcel Details' : 'Consignment Details',
+                      'Order Details',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -2714,7 +2817,6 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                       ),
                     ),
                   ),
-
                   SizedBox(
                     width: 32,
                     child: IconButton(
@@ -2723,10 +2825,9 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                       visualDensity: VisualDensity.compact,
-                      onPressed: () => _shareConsignment(consignment),
+                      onPressed: () => _shareOrder(order),
                     ),
                   ),
-
                   SizedBox(
                     width: 32,
                     child: IconButton(
@@ -2735,18 +2836,17 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                       visualDensity: VisualDensity.compact,
-                      onPressed: () { 
+                      onPressed: () {
                         if (Platform.isWindows) {
                           debugPrint("Printing via cable...");
-                          _printCableReceipt(consignment);
+                          _printCableReceipt(order);
                         } else {
                           debugPrint("Printing via Bluetooth...");
-                          _printBluetoothReceipt(consignment);
+                          _printBluetoothReceipt(order);
                         }
                       },
                     ),
                   ),
-
                   SizedBox(
                     width: 32,
                     child: IconButton(
@@ -2755,96 +2855,182 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                       visualDensity: VisualDensity.compact,
-                      onPressed: () { 
+                      onPressed: () {
                         if (Platform.isWindows) {
                           debugPrint("Printing via cable...");
-                          _printCableReceipt(consignment);
+                          _printCableReceipt(order);
                         } else {
                           debugPrint("Printing via Bluetooth...");
-                          _printBluetoothReceipt2(consignment);
+                          _printBluetoothReceipt2(order);
                         }
                       },
                     ),
                   ),
                 ],
-              )
-            ),
-
-            const Divider(),
-
-            /// TITLE
-            Text(
-              consignment['package_name'] ?? "Package",
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
               ),
             ),
-
-            const SizedBox(height: 20),
-
-            /// ROUTE
-            Row(
-              children: [
-                Icon(Icons.location_on, color: Colors.grey.shade600),
-                const SizedBox(width: 6),
-                Expanded(child: Text(consignment['from'] ?? "")),
-                const SizedBox(width: 10),
-                const Icon(Icons.arrow_forward),
-                const SizedBox(width: 10),
-                Icon(Icons.location_on, color: Colors.grey.shade600),
-                const SizedBox(width: 6),
-                Expanded(child: Text(consignment['to'] ?? "")),
-              ],
-            ),
-
-            const Divider(height: 32),
-
-            /// SENDER / RECEIVER
+            
+            const Divider(),
+            
+            /// ORDER ID AND STATUS
             Row(
               children: [
                 Expanded(
-                  child: _buildPersonInfo(
-                    icon: Icons.person_outline,
-                    label: "Sender",
-                    name: consignment['sender_name'],
-                    phone: consignment['sender_phone_number'],
+                  child: Text(
+                    'Order #${order.orderId}',
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
-                Expanded(
-                  child: _buildPersonInfo(
-                    icon: Icons.person,
-                    label: "Receiver",
-                    name: consignment['receiver_name'],
-                    phone: consignment['receiver_phone_number'],
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _getStatusColor(order.status).withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    order.status.toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: _getStatusColor(order.status),
+                    ),
                   ),
                 ),
               ],
             ),
-
-            const SizedBox(height: 16),
-
-            /// SCROLLABLE AREA
-            Expanded(
-              child: ListView(
+            
+            const SizedBox(height: 12),
+            
+            /// CUSTOMER INFO
+            Row(
+              children: [
+                Icon(Icons.person_outline, color: Colors.grey.shade600),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    order.customerName,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                Icon(Icons.phone_outlined, color: Colors.grey.shade600),
+                const SizedBox(width: 6),
+                Text(
+                  order.customerPhoneNumber,
+                  style: const TextStyle(fontSize: 14),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 12),
+            
+            /// ORDER SUMMARY
+            Row(
+              children: [
+                Icon(Icons.receipt_long, color: Colors.grey.shade600),
+                const SizedBox(width: 6),
+                Text(
+                  '${order.orderItems.length} item${order.orderItems.length > 1 ? 's' : ''}',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Container(
+                  width: 4,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade400,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Icon(Icons.attach_money, color: Colors.grey.shade600),
+                const SizedBox(width: 6),
+                Text(
+                  'TZS${order.totalPrice.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.teal,
+                  ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 12),
+            
+            /// PAYMENT STATUS
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: order.paymentStatus 
+                    ? Colors.green.withOpacity(0.1) 
+                    : Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-
-                  if (consignment['consignment_items'] != null &&
-                      (consignment['consignment_items'] as List).isNotEmpty)
-                    _buildItemsSection(consignment['consignment_items']),
-
-                  const SizedBox(height: 16),
-
-                  _buildDetailSection(
-                    title: 'Issued By',
-                    icon: Icons.assignment_ind,
-                    children: [
-                      _buildDetailRow('Name', consignment['issued_by']),
-                      _buildDetailRow('Phone', consignment['issuer_phone_number']),
-                    ],
+                  Icon(
+                    order.paymentStatus 
+                        ? Icons.check_circle_outline 
+                        : Icons.pending_outlined,
+                    size: 18,
+                    color: order.paymentStatus ? Colors.green : Colors.orange,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    order.paymentStatus ? 'Payment Completed' : 'Payment Pending',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: order.paymentStatus ? Colors.green : Colors.orange,
+                    ),
                   ),
                 ],
               ),
+            ),
+            
+            const Divider(height: 32),
+            
+            /// ORDER ITEMS SECTION
+            if (order.orderItems.isNotEmpty)
+              _buildOrderItemsSection(order.orderItems),
+            
+            const SizedBox(height: 16),
+            
+            /// ISSUED BY SECTION
+            _buildDetailSection(
+              title: 'Issued By',
+              icon: Icons.assignment_ind,
+              children: [
+                _buildDetailRow('Name', order.issuedBy),
+                _buildDetailRow('Phone', order.issuerPhoneNumber),
+              ],
+            ),
+            
+            const SizedBox(height: 16),
+            
+            /// ADDITIONAL INFO
+            _buildDetailSection(
+              title: 'Additional Information',
+              icon: Icons.info_outline,
+              children: [
+                _buildDetailRow('Order Date', order.date),
+                _buildDetailRow('Shop ID', order.shopId.toString()),
+                _buildDetailRow('User ID', order.userId.toString()),
+                _buildDetailRow('Status', order.status),
+              ],
             ),
           ],
         ),
@@ -2852,46 +3038,32 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     );
   }
 
+  /// Helper widget for detail section
   Widget _buildDetailSection({
     required String title,
     required IconData icon,
     required List<Widget> children,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                Icon(icon, size: 18, color: Colors.teal.shade700),
-                const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.teal.shade700,
-                  ),
-                ),
-              ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 16, color: Colors.grey.shade600),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade700,
+              ),
             ),
-          ),
-          const Divider(height: 0),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              children: children,
-            ),
-          ),
-        ],
-      ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ...children,
+      ],
     );
   }
 
@@ -2955,118 +3127,4 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
       ),
     );
   }
-
-  Widget _buildItemsSection(List<dynamic> items) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                Icon(Icons.shopping_bag, size: 18, color: Colors.teal.shade700),
-                const SizedBox(width: 8),
-                Text(
-                  'Consignment Items',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.teal.shade700,
-                  ),
-                ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.teal.shade100,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '${items.length} items',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.teal.shade900,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 0),
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: items.length,
-            separatorBuilder: (_, __) => const Divider(height: 0),
-            itemBuilder: (context, index) {
-              final item = items[index];
-              return Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item['name'] ?? 'Unnamed Item',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildItemInfo(
-                            label: 'Value',
-                            value: 'TZS ${NumberFormat('#,##0').format((item['value'] ?? 0).toInt())}',
-                          ),
-                        ),
-                        Expanded(
-                          child: _buildItemInfo(
-                            label: 'Quantity',
-                            value: '${item['quantity'] ?? '1'}',
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildItemInfo({required String label, required String value}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey.shade600,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
-  }
-
 }

@@ -36,6 +36,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   int officeId = 0;
   int shopId = 0;
   String companyName = "";
+  String shopName = "";
   String userName = "";
   String userPhoneNumber = "";
 
@@ -72,6 +73,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         officeId = profile.officeId;
         shopId = profile.shopId;
         companyName = profile.companyName;
+        shopName = profile.shopName;
         userName = profile.firstName;
         userPhoneNumber = profile.phoneNumber;
       });
@@ -92,6 +94,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         officeId = profile.officeId;
         shopId = profile.shopId;
         companyName = profile.companyName;
+        shopName = profile.shopName;
         userName = profile.firstName;
         userPhoneNumber = profile.phoneNumber;
       });
@@ -140,6 +143,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           shopId = responseData['shop_id'] ?? 0;
           role = responseData['role'];
           companyName = responseData['company_name']  ?? '';
+          shopName = responseData['shop_name']  ?? '';
           userName = responseData['first_name'];
           userPhoneNumber = '${responseData['phone_number']}';
         });
@@ -147,6 +151,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         profile!.role =  responseData['role'];
         profile.companyId =  responseData['company_id']  ?? 0;
         profile.companyName =  responseData['company_name']  ?? '';
+        profile.shopName = responseData['shop_name']  ?? '';
         await _storageService.saveUserProfile(profile);
       }
     } on SocketException catch (e) {
@@ -674,11 +679,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ),
         const SizedBox(height: 10),
         (!isWideScreen) ? CategoryGrid(
-          userId: userId, role: role, companyId: companyId, officeId: officeId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, refreshMethod: _reloadUserProfile,
+          userId: userId, role: role, companyId: companyId, officeId: officeId, shopId: shopId, companyName: companyName, shopName: shopName, userName: userName, userPhoneNumber: userPhoneNumber, refreshMethod: _reloadUserProfile,
         ) :
         CategoryGrid2(
           events: filteredEvents,
-          userId: userId, role: role, companyId: companyId, officeId: officeId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, refreshMethod: _reloadUserProfile,
+          userId: userId, role: role, companyId: companyId, officeId: officeId, shopId: shopId, companyName: companyName, shopName: shopName, userName: userName, userPhoneNumber: userPhoneNumber, refreshMethod: _reloadUserProfile,
           // isWideScreen: isWideScreen,
         ),
       ],

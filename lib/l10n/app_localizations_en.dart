@@ -48,6 +48,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cargos => 'Cargos';
 
   @override
+  String get myOrders => 'My Orders';
+
+  @override
   String officeCargos(Object officeName) {
     return '$officeName Cargos';
   }
@@ -89,6 +92,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addConsignment => 'Add Consignment';
 
   @override
+  String get placeOrder => 'Place Order';
+
+  @override
   String get success => 'Success';
 
   @override
@@ -111,6 +117,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get to => 'Destination';
+
+  @override
+  String get selectProduct => 'Select Product';
+
+  @override
+  String get customerName => 'Customer Name';
+
+  @override
+  String get customerPhoneNumber => 'Customer Phone Number';
 
   @override
   String get passingThrough => 'Passing Through';
@@ -167,6 +182,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get itemName => 'Item Name';
 
   @override
+  String get orderItems => 'Order Items';
+
+  @override
   String get price => 'Price';
 
   @override
@@ -201,11 +219,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pleaseEnterSenderName => 'Please enter sender name';
 
   @override
+  String get pleaseEnterCustomerName => 'Please enter customer name';
+
+  @override
   String get senderNameMaxLength =>
       'Sender name must be 100 characters or less';
 
   @override
+  String get customerNameMaxLength =>
+      'Customer name must be 100 characters or less';
+
+  @override
   String get pleaseEnterSenderPhone => 'Please enter sender phone number';
+
+  @override
+  String get pleaseEnterCustomerPhone => 'Please enter customer phone number';
 
   @override
   String get senderPhoneMaxLength =>
@@ -684,4 +712,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pleaseEnterBusName => 'Please enter bus name';
+
+  @override
+  String get productName => 'Product name';
+
+  @override
+  String get pleaseEnterProductName => 'Please enter product name';
+
+  @override
+  String get noOrdersYet => 'No Orders Yet';
+
+  @override
+  String get orderReceivedSuccessfully => 'Order received successfully';
 }
