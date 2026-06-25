@@ -2847,25 +2847,6 @@ Widget _buildOrderItemTile(OrderItem item) {
                       },
                     ),
                   ),
-                  SizedBox(
-                    width: 32,
-                    child: IconButton(
-                      icon: const Icon(Icons.print),
-                      color: Colors.red,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      visualDensity: VisualDensity.compact,
-                      onPressed: () {
-                        if (Platform.isWindows) {
-                          debugPrint("Printing via cable...");
-                          _printCableReceipt(order);
-                        } else {
-                          debugPrint("Printing via Bluetooth...");
-                          _printBluetoothReceipt2(order);
-                        }
-                      },
-                    ),
-                  ),
                 ],
               ),
             ),
