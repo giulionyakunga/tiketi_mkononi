@@ -180,6 +180,7 @@
   "consignmentsYouCreateWillAppearHere": "Consignments you create will appear here",
   "tryAgain": "Try Again",
   "add": "Add",
+  "add2": "Add",
   "search": "Search",
   "all": "All",
   "parcels": "Parcels",
@@ -212,9 +213,17 @@
   "myOffices": "My Offices",
   "pleaseEnterBusRegistrationNumber": "Please enter bus registration number",
   "pleaseEnterBusName": "Please enter bus name",
+  "product": "Product",
+  "products": "Products",
   "productName": "Product name",
   "pleaseEnterProductName": "Please enter product name",
   "pleaseEnterCustomerPhone": "Please enter customer phone number",
   "noOrdersYet": "No Orders Yet",
-  "orderReceivedSuccessfully": "Order received successfully"
+  "yourOrdersWillAppearHere": "Your orders will appear here",
+  "orderReceivedSuccessfully": "Order received successfully",
+  "totalRevenue": "Total Revenue",
+  "totalSales": "Total Sales",
+  "save": "Save",
+  "noProductsFound": "No Products Found",
+  "productsYouAddWillAppearHere": "Products you add will appear here"
 }

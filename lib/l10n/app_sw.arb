@@ -180,6 +180,7 @@
   "consignmentsYouCreateWillAppearHere": "Shehena utakazounda zitaonekana hapa",
   "tryAgain": "Jaribu Tena",
   "add": "Ongeza",
+  "add2": "Weka",
   "search": "Tafuta",
   "all": "Zote",
   "parcels": "Vifurushi",
@@ -212,9 +213,17 @@
   "myOffices": "Ofisi Zangu",
   "pleaseEnterBusRegistrationNumber": "Tafadhali jaza namba ya usajiri ya basi",
   "pleaseEnterBusName": "Tafadhali jaza jina la basi",
+  "product": "Bidhaa",
+  "products": "Bidhaa",
   "productName": "Jina la bidhaa",
   "pleaseEnterProductName": "Tafadhali jaza jina la bidhaa",
   "pleaseEnterCustomerPhone": "Tafadhali jaza namba ya simu ya mteja",
   "noOrdersYet": "Bado hakuna oda",
-  "orderReceivedSuccessfully": "Oda imepokelewa kikamilifu"
+  "yourOrdersWillAppearHere": "Oda zako zitaonekana hapa",
+  "orderReceivedSuccessfully": "Oda imepokelewa kikamilifu",
+  "totalRevenue": "Jumla ya Mapato",
+  "totalSales": "Jumla ya Mauzo", 
+  "save": "Hifadhi",
+  "noProductsFound": "Hakuna bidhaa iliyopatikana",
+  "productsYouAddWillAppearHere": "Bidhaa unazoweka zitaonekana hapa"
 }

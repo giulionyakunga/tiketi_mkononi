@@ -623,6 +623,9 @@ class AppLocalizationsSw extends AppLocalizations {
   String get add => 'Ongeza';
 
   @override
+  String get add2 => 'Weka';
+
+  @override
   String get search => 'Tafuta';
 
   @override
@@ -723,6 +726,12 @@ class AppLocalizationsSw extends AppLocalizations {
   String get pleaseEnterBusName => 'Tafadhali jaza jina la basi';
 
   @override
+  String get product => 'Bidhaa';
+
+  @override
+  String get products => 'Bidhaa';
+
+  @override
   String get productName => 'Jina la bidhaa';
 
   @override
@@ -732,5 +741,21 @@ class AppLocalizationsSw extends AppLocalizations {
   String get noOrdersYet => 'Bado hakuna oda';
 
   @override
+  String get yourOrdersWillAppearHere => 'Oda zako zitaonekana hapa';
+
+  @override
   String get orderReceivedSuccessfully => 'Oda imepokelewa kikamilifu';
+
+  @override
+  String get totalSales => 'Jumla ya Mauzo';
+
+  @override
+  String get save => 'Hifadhi';
+
+  @override
+  String get noProductsFound => 'Hakuna bidhaa iliyopatikana';
+
+  @override
+  String get productsYouAddWillAppearHere =>
+      'Bidhaa unazoweka zitaonekana hapa';
 }

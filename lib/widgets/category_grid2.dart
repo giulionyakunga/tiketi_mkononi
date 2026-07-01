@@ -117,7 +117,7 @@ class CategoryGrid2 extends StatelessWidget {
       if ((role == 'transporter') || (role == 'cargo_transporter') || (role == 'transport_office_attendant') || (role == 'cargo_office_attendant'))
       Category(name: AppLocalizations.of(context)!.cargo, value: 'Cargo', icon: Icons.local_shipping, color: Colors.teal),
       if ((role == 'shop_owner') || (role == 'shop_attendant'))
-      Category(name: AppLocalizations.of(context)!.myOrders, value: 'My Orders', icon: Icons.shopping_cart, color: Colors.green),
+      Category(name: AppLocalizations.of(context)!.myOrders, value: 'My Orders', icon: Icons.shopping_cart, color: Colors.teal),
       Category(name: AppLocalizations.of(context)!.sports, value: 'Sports', icon: Icons.sports_basketball, color: Colors.red),
       Category(name: AppLocalizations.of(context)!.comedy, value: 'Comedy', icon: Icons.theater_comedy, color: Colors.brown),
       Category(name: AppLocalizations.of(context)!.fun, value: 'Fun', icon: Icons.beach_access, color: Colors.amber[500]!),
@@ -213,7 +213,7 @@ class CategoryGrid2 extends StatelessWidget {
                         );
                       }
                     }
-                  } if(categories[index].value == 'My Orders'){
+                  } else if(categories[index].value == 'My Orders'){
                     if(role == 'shop_attendant'){
                       if (shopId != null) {
                         await Navigator.push(

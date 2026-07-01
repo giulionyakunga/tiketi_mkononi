@@ -205,6 +205,14 @@ class _SendReminderMessagesPageState extends State<SendReminderMessagesPage> wit
             debugPrint('Failed to open Excel file: $e');
           }
         }
+
+        // Clear the file selection
+        setState(() {
+          base64File = "";
+          fileName = null;
+          fileType = null;
+          fileType2 = null;
+        });
       } else if (response.statusCode == 302) {
         _handleHTTPRedirect();
       } else {

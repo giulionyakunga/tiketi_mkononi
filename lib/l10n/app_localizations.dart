@@ -1184,6 +1184,12 @@ abstract class AppLocalizations {
   /// **'Add'**
   String get add;
 
+  /// No description provided for @add2.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get add2;
+
   /// No description provided for @search.
   ///
   /// In en, this message translates to:
@@ -1376,6 +1382,18 @@ abstract class AppLocalizations {
   /// **'Please enter bus name'**
   String get pleaseEnterBusName;
 
+  /// No description provided for @product.
+  ///
+  /// In en, this message translates to:
+  /// **'Product'**
+  String get product;
+
+  /// No description provided for @products.
+  ///
+  /// In en, this message translates to:
+  /// **'Products'**
+  String get products;
+
   /// No description provided for @productName.
   ///
   /// In en, this message translates to:
@@ -1394,11 +1412,41 @@ abstract class AppLocalizations {
   /// **'No Orders Yet'**
   String get noOrdersYet;
 
+  /// No description provided for @yourOrdersWillAppearHere.
+  ///
+  /// In en, this message translates to:
+  /// **'Your orders will appear here'**
+  String get yourOrdersWillAppearHere;
+
   /// No description provided for @orderReceivedSuccessfully.
   ///
   /// In en, this message translates to:
   /// **'Order received successfully'**
   String get orderReceivedSuccessfully;
+
+  /// No description provided for @totalSales.
+  ///
+  /// In en, this message translates to:
+  /// **'Total Sales'**
+  String get totalSales;
+
+  /// No description provided for @save.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get save;
+
+  /// No description provided for @noProductsFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No Products Found'**
+  String get noProductsFound;
+
+  /// No description provided for @productsYouAddWillAppearHere.
+  ///
+  /// In en, this message translates to:
+  /// **'Products you add will appear here'**
+  String get productsYouAddWillAppearHere;
 }
 
 class _AppLocalizationsDelegate

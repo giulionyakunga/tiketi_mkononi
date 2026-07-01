@@ -614,6 +614,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get add => 'Add';
 
   @override
+  String get add2 => 'Add';
+
+  @override
   String get search => 'Search';
 
   @override
@@ -714,6 +717,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pleaseEnterBusName => 'Please enter bus name';
 
   @override
+  String get product => 'Product';
+
+  @override
+  String get products => 'Products';
+
+  @override
   String get productName => 'Product name';
 
   @override
@@ -723,5 +732,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noOrdersYet => 'No Orders Yet';
 
   @override
+  String get yourOrdersWillAppearHere => 'Your orders will appear here';
+
+  @override
   String get orderReceivedSuccessfully => 'Order received successfully';
+
+  @override
+  String get totalSales => 'Total Sales';
+
+  @override
+  String get save => 'Save';
+
+  @override
+  String get noProductsFound => 'No Products Found';
+
+  @override
+  String get productsYouAddWillAppearHere =>
+      'Products you add will appear here';
 }

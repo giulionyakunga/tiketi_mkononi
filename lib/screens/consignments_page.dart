@@ -357,58 +357,59 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
       ),
 
       floatingActionButton: Column(
-  mainAxisSize: MainAxisSize.min,
-  crossAxisAlignment: CrossAxisAlignment.end,
-  children: [
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
 
-    // ➕ Add Button (Primary)
-    FloatingActionButton.extended(
-      heroTag: "addBtn",
-      backgroundColor: Colors.teal,
-      tooltip: "Add Consignment",
-      onPressed: () {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => AddConsignmentPage(
-              userId: widget.userId,
-              companyId: widget.companyId,
-              companyName: widget.companyName,
-              officeId: widget.officeId,
-              userName: widget.userName,
-              userPhoneNumber: widget.userPhoneNumber,
-              isReplacableScreen: true,
+          // ➕ Add Button (Primary)
+          FloatingActionButton.extended(
+            heroTag: "addBtn",
+            backgroundColor: Colors.teal,
+            tooltip: "Add Consignment",
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => AddConsignmentPage(
+                    userId: widget.userId,
+                    companyId: widget.companyId,
+                    companyName: widget.companyName,
+                    officeId: widget.officeId,
+                    userName: widget.userName,
+                    userPhoneNumber: widget.userPhoneNumber,
+                    isReplacableScreen: true,
+                  ),
+                ),
+              );
+              _fetchConsignments();
+            },
+            icon: const Icon(Icons.add, color: Colors.white),
+            label: Text(
+              AppLocalizations.of(context)!.add,
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
             ),
           ),
-        );
-      },
-      icon: const Icon(Icons.add, color: Colors.white),
-      label: const Text(
-        "Add",
-        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+
+          const SizedBox(height: 12),
+
+          // 🔍 Search Button
+          FloatingActionButton(
+            heroTag: "searchBtn",
+            backgroundColor: Colors.grey.shade800,
+            mini: true,
+            tooltip: "Search",
+            onPressed: () {
+              setState(() {
+                _isSearchBarVisible = !_isSearchBarVisible;
+                _searchController.clear();
+                _onSearchChanged();
+              });
+            },
+            child: const Icon(Icons.search, color: Colors.white),
+          ),
+          
+        ],
       ),
-    ),
-
-    const SizedBox(height: 12),
-
-    // 🔍 Search Button
-    FloatingActionButton(
-      heroTag: "searchBtn",
-      backgroundColor: Colors.grey.shade800,
-      mini: true,
-      tooltip: "Search",
-      onPressed: () {
-        setState(() {
-          _isSearchBarVisible = !_isSearchBarVisible;
-          _searchController.clear();
-          _onSearchChanged();
-        });
-      },
-      child: const Icon(Icons.search, color: Colors.white),
-    ),
-    
-  ],
-),
       
     );
   }
@@ -992,7 +993,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Total Revenue',
+                AppLocalizations.of(context)!.totalRevenue,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Colors.teal[600],
                   fontWeight: FontWeight.w500,
@@ -1461,23 +1462,11 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
     List<int> bytes = [];
 
-    bytes += generator.text("********************************",
-      styles: const PosStyles(
-        align: PosAlign.center,
-      )
-    );
-
     bytes += generator.text(widget.companyName,
       styles: const PosStyles(
         align: PosAlign.center,
         bold: true,
         height: PosTextSize.size1,
-      )
-    );
-
-    bytes += generator.text("********************************",
-      styles: const PosStyles(
-        align: PosAlign.center,
       )
     );
 
@@ -1513,28 +1502,16 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
     final items = consignment['consignment_items'] ?? [];
 
-    DateTime now = DateTime.now();
-    String formattedDateTime = DateFormat('d/M/H H:m').format(now);
+    DateTime consignmentDate = DateTime.parse(consignment['createdAt']);
+    String formattedDateTime = DateFormat('d/M/H H:m').format(consignmentDate);
 
     List<int> bytes = [];
 
-    bytes += generator.text("********************************",
-      styles: const PosStyles(
-        align: PosAlign.center,
-      )
-    );
-
-    bytes += generator.text(widget.companyName,
+    bytes += generator.text(widget.companyName.toUpperCase(),
       styles: const PosStyles(
         align: PosAlign.center,
         bold: true,
         height: PosTextSize.size1,
-      )
-    );
-
-    bytes += generator.text("********************************",
-      styles: const PosStyles(
-        align: PosAlign.center,
       )
     );
 
@@ -1722,24 +1699,12 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
     List<int> bytes = [];
 
-    bytes += generator.text("********************************",
-      styles: const PosStyles(
-        align: PosAlign.center,
-      )
-    );
-
-    bytes += generator.text(widget.companyName,
+    bytes += generator.text(widget.companyName.toUpperCase(),
       styles: const PosStyles(
         align: PosAlign.center,
         bold: true,
         height: PosTextSize.size2,
         width: PosTextSize.size2,
-      )
-    );
-
-    bytes += generator.text("********************************",
-      styles: const PosStyles(
-        align: PosAlign.center,
       )
     );
 
@@ -1837,8 +1802,8 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
     final items = consignment['consignment_items'] ?? [];
 
-    DateTime now = DateTime.now();
-    String formattedDateTime = DateFormat('d/M/H H:m').format(now);
+    DateTime consignmentDate = DateTime.parse(consignment['createdAt']);
+    String formattedDateTime = DateFormat('d/M/H H:m').format(consignmentDate);
 
     String data = SimpleCodec.encode(jsonEncode({
       "cid": consignment['id'],
@@ -1863,19 +1828,8 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                 pw.SizedBox(height: 6),
 
                 /// COMPANY NAME
-                // pw.Center(
-                //   child: pw.Text(
-                //     widget.companyName,
-                //     style: pw.TextStyle(
-                //       font: customFont,
-                //       fontSize: 10,
-                //       fontWeight: pw.FontWeight.bold,
-                //     ),
-                //   ),
-                // ),
-
                 pw.Text(
-                  widget.companyName,
+                  widget.companyName.toUpperCase(),
                   style: pw.TextStyle(font: customFont, fontSize: 10),
                 ),
 
@@ -1900,11 +1854,6 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                 ),
 
                 pw.SizedBox(height: 6),
-
-                pw.Text(
-                  "********************************",
-                  style: pw.TextStyle(font: customFont),
-                ),
 
                 /// PACKAGE INFO
                 pw.Text(

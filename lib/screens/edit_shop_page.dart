@@ -6,29 +6,27 @@ import 'dart:convert';
 
 import 'package:tiketi_mkononi/env.dart';
 import 'package:tiketi_mkononi/l10n/app_localizations.dart';
+import 'package:tiketi_mkononi/models/shop.dart';
 
-class EditOfficePage extends StatefulWidget {
+class EditShopPage extends StatefulWidget {
   final int userId;
-  final int companyId;
-  final int officeId;
-  final String officeName;
-  final String officeLocation;
+  final Shop shop;
 
-  const EditOfficePage({Key? key, required this.userId, required this.companyId, required this.officeId, required this.officeName, required this.officeLocation}) : super(key: key);
+  const EditShopPage({Key? key, required this.userId, required this.shop}) : super(key: key);
 
   @override
-  _EditOfficePageState createState() => _EditOfficePageState();
+  _EditShopPageState createState() => _EditShopPageState();
 }
 
-class _EditOfficePageState extends State<EditOfficePage> {
+class _EditShopPageState extends State<EditShopPage> {
   final TextEditingController _emailController = TextEditingController();
   Map<String, dynamic>? _userData;
-  List<dynamic> officeAttendants = [];
+  List<dynamic> shopAttendants = [];
   bool _isLoading = false;
   bool _isLoading2 = false;
-  final TextEditingController _officeNameController = TextEditingController();
-  final TextEditingController _officeLocationController = TextEditingController();
-  bool _isOfficeAttendant = false;
+  final TextEditingController _shopNameController = TextEditingController();
+  final TextEditingController _shopLocationController = TextEditingController();
+  bool _isShopAttendant = false;
   String _errorMessage = '';
   bool _searchPerformed = false;
   final _formKey = GlobalKey<FormState>();
@@ -37,9 +35,9 @@ class _EditOfficePageState extends State<EditOfficePage> {
   @override
   void initState() {
     super.initState();
-    _officeNameController.text = widget.officeName;
-    _officeLocationController.text = widget.officeLocation;
-    getOfficeAttendants();
+    _shopNameController.text = widget.shop.name;
+    _shopLocationController.text = widget.shop.location;
+    getOhopAttendants();
   }
 
   @override
@@ -48,35 +46,35 @@ class _EditOfficePageState extends State<EditOfficePage> {
     super.dispose();
   }
 
-  Future<void> _saveOffice({bool useDNS = true}) async {
+  Future<void> _saveShop({bool useDNS = true}) async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading2 = true);
 
     try {
       final uri = useDNS
-          ? Uri.parse('${backend_url}api/edit_office/')
-          : Uri.parse('${backend_url_with_fallback_ip}edit_office/');
+          ? Uri.parse('${backend_url}api/edit_shop/')
+          : Uri.parse('${backend_url_with_fallback_ip}edit_shop/');
 
       final response = await http.post(
         uri,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'user_id': widget.userId,
-          'office_id': widget.officeId,
-          'office_name': _officeNameController.text.trim(),
-          'office_location': _officeLocationController.text.trim(),
+          'shop_id': widget.shop.id,
+          'shop_name': _shopNameController.text.trim(),
+          'shop_location': _shopLocationController.text.trim(),
         }),
       );
 
       if (response.statusCode == 200) {
         _showSuccessDialog(); 
       } else {
-        _showSnackBar('Failed to edit office');
+        _showSnackBar('Failed to edit shop');
       }
     } on SocketException catch (e) {
       if ((e.osError?.errorCode == 7 || e.osError?.errorCode == 11001) && useDNS) {
-        await _saveOffice(useDNS: false);
+        await _saveShop(useDNS: false);
         return;
       }
       _showSnackBar('Network error. Please check your connection');
@@ -88,33 +86,33 @@ class _EditOfficePageState extends State<EditOfficePage> {
   }
 
   
-  Future<void> _deleteOffice({bool useDNS = true}) async {
+  Future<void> _deleteShop({bool useDNS = true}) async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading2 = true);
 
     try {
       final uri = useDNS
-          ? Uri.parse('${backend_url}api/delete_office/')
-          : Uri.parse('${backend_url_with_fallback_ip}delete_office/');
+          ? Uri.parse('${backend_url}api/delete_shop/')
+          : Uri.parse('${backend_url_with_fallback_ip}delete_shop/');
 
       final response = await http.post(
         uri,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'user_id': widget.userId,
-          'office_id': widget.officeId,
+          'shop_id': widget.shop.id,
         }),
       );
 
       if (response.statusCode == 200) {
         _showSuccessDialog2(); 
       } else {
-        _showSnackBar('Failed to delete office');
+        _showSnackBar('Failed to delete shop');
       }
     } on SocketException catch (e) {
       if ((e.osError?.errorCode == 7 || e.osError?.errorCode == 11001) && useDNS) {
-        await _saveOffice(useDNS: false);
+        await _saveShop(useDNS: false);
         return;
       }
       _showSnackBar('Network error. Please check your connection');
@@ -134,10 +132,10 @@ class _EditOfficePageState extends State<EditOfficePage> {
           children: [
             Icon(Icons.check_circle, color: Colors.green),
             SizedBox(width: 8),
-            Text('Office Edited'),
+            Text('Shop Edited'),
           ],
         ),
-        content: const Text('Your office has been edited successfully.'),
+        content: const Text('Your shop has been edited successfully.'),
         actions: [
           TextButton(
             onPressed: () {
@@ -159,10 +157,10 @@ class _EditOfficePageState extends State<EditOfficePage> {
           children: [
             Icon(Icons.check_circle, color: Colors.green),
             SizedBox(width: 8),
-            Text('Office Deleted'),
+            Text('Shop Deleted'),
           ],
         ),
-        content: const Text('Your office has been deleted successfully.'),
+        content: const Text('Your shop has been deleted successfully.'),
         actions: [
           TextButton(
             onPressed: () {
@@ -204,11 +202,11 @@ class _EditOfficePageState extends State<EditOfficePage> {
   }
 
 
-  Future<void> getOfficeAttendants({bool useDNS = true}) async {
+  Future<void> getOhopAttendants({bool useDNS = true}) async {
     try {
 
-      final Uri uri = useDNS ?   Uri.parse('${backend_url}api/office_attendants/${widget.officeId}') 
-      : Uri.parse('${backend_url_with_fallback_ip}office_attendants/${widget.officeId}'); // Use IP
+      final Uri uri = useDNS ?   Uri.parse('${backend_url}api/shop_attendants/${widget.shop.id}') 
+      : Uri.parse('${backend_url_with_fallback_ip}shop_attendants/${widget.shop.id}'); // Use IP
 
       final response = await http.get(
         uri,
@@ -221,11 +219,11 @@ class _EditOfficePageState extends State<EditOfficePage> {
         final List<dynamic> jsonList = jsonDecode(response.body);
 
         setState(() {
-          officeAttendants = jsonList;
+          shopAttendants = jsonList;
         });
       } else {
         setState(() {
-          officeAttendants = [];
+          shopAttendants = [];
         });
       }
     } on SocketException catch (e) {
@@ -242,7 +240,7 @@ class _EditOfficePageState extends State<EditOfficePage> {
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await getOfficeAttendants(useDNS: false); // Recursive retry
+          await getOhopAttendants(useDNS: false); // Recursive retry
 
           return;
         }
@@ -252,7 +250,7 @@ class _EditOfficePageState extends State<EditOfficePage> {
     } catch (e) {
       setState(() {
         _errorMessage = 'Error connecting to server';
-        officeAttendants = [];
+        shopAttendants = [];
       });
     } finally {
       setState(() {
@@ -277,8 +275,8 @@ class _EditOfficePageState extends State<EditOfficePage> {
       _searchPerformed = true;
     });
 
-    final Uri uri = useDNS ?   Uri.parse('${backend_url}api/find_office_attendant_by_email/$email/${widget.officeId}') 
-    : Uri.parse('${backend_url_with_fallback_ip}find_office_attendant_by_email/$email/${widget.officeId}'); // Use IP
+    final Uri uri = useDNS ?   Uri.parse('${backend_url}api/find_shop_attendant_by_email/$email/${widget.shop.id}') 
+    : Uri.parse('${backend_url_with_fallback_ip}find_shop_attendant_by_email/$email/${widget.shop.id}'); // Use IP
 
     try {
       final response = await http.get(
@@ -292,7 +290,7 @@ class _EditOfficePageState extends State<EditOfficePage> {
         final data = json.decode(response.body);
         setState(() {
           _userData = data;
-          _isOfficeAttendant = data['is_office_attendant'] ?? false;
+          _isShopAttendant = data['is_shop_attendant'] ?? false;
         });
       } else {
         setState(() {
@@ -333,42 +331,42 @@ class _EditOfficePageState extends State<EditOfficePage> {
     }
   }
 
-  Future<void> _toggleOfficeAttendantStatus(bool value, int officeAttendantId, String officeAttendantName, {bool useDNS = true}) async {
-    debugPrint(' >>>>>>>>>>>>>>>>>>>>>>>>>>>... _toggleOfficeAttendantStatus: $value');
-    debugPrint(' >>>>>>>>>>>>>>>>>>>>>>>>>>>... _toggleOfficeAttendantStatus2: $value');
+  Future<void> _toggleShopAttendantStatus(bool value, int shopAttendantId, String shopAttendantName, {bool useDNS = true}) async {
+    debugPrint(' >>>>>>>>>>>>>>>>>>>>>>>>>>>... _toggleShopAttendantStatus: $value');
+    debugPrint(' >>>>>>>>>>>>>>>>>>>>>>>>>>>... _toggleShopAttendantStatus2: $value');
 
     setState(() {
       _isLoading = true;
     });
 
-    final Uri uri = useDNS ? Uri.parse('${backend_url}api/set_office_attendant/${widget.officeId}/${widget.companyId}/${widget.userId}') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}set_office_attendant/${widget.officeId}/${widget.companyId}/${widget.userId}'); // Use IP
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/set_shop_attendant/${widget.shop.id}/${widget.userId}') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}set_shop_attendant/${widget.shop.id}/${widget.userId}'); // Use IP
 
     try {
       final response = await http.post(
         uri,
         headers: {'Content-Type': 'application/json'},
-        body: json.encode({'set_office_attendant': value, 'office_attendant_id': officeAttendantId }),
+        body: json.encode({'set_shop_attendant': value, 'shop_attendant_id': shopAttendantId }),
       );
 
       if (response.statusCode == 200) {
-        getOfficeAttendants();
+        getOhopAttendants();
         
-        if(response.body == "Office attendant added successfully!") {
+        if(response.body == "Shop attendant added successfully!") {
           setState(() {
-            _isOfficeAttendant = value;
+            _isShopAttendant = value;
           });
 
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('${officeAttendantName} is now an attendant for this office'),
+              content: Text('${shopAttendantName} is now an attendant for this shop'),
               backgroundColor: Colors.green,
             ),
           );
-        } else if(response.body == "Office attendant removed successfully!") {
+        } else if(response.body == "Shop attendant removed successfully!") {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('${officeAttendantName} is no longer an attendant for this office'),
+              content: Text('${shopAttendantName} is no longer an attendant for this shop'),
               backgroundColor: Colors.green,
             ),
           );
@@ -383,7 +381,7 @@ class _EditOfficePageState extends State<EditOfficePage> {
       } else if (response.statusCode == 302) {
         _handleHTTPRedirect();
       } else {
-        throw Exception('Failed to update office attendant status');
+        throw Exception('Failed to update shop attendant status');
       }
     } on SocketException catch (e) {
       debugPrint('Network error occurred:');
@@ -399,7 +397,7 @@ class _EditOfficePageState extends State<EditOfficePage> {
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await _toggleOfficeAttendantStatus(value, officeAttendantId, officeAttendantName, useDNS: false); // Recursive retry
+          await _toggleShopAttendantStatus(value, shopAttendantId, shopAttendantName, useDNS: false); // Recursive retry
 
           return;
         }
@@ -467,7 +465,7 @@ class _EditOfficePageState extends State<EditOfficePage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete'),
-        content: const Text('Are you sure you want to delete this office?'),
+        content: const Text('Are you sure you want to delete this shop?'),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(15),
         ),
@@ -478,7 +476,7 @@ class _EditOfficePageState extends State<EditOfficePage> {
           ),
           TextButton(
             onPressed: () {
-              _deleteOffice();
+              _deleteShop();
             },
             child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),
@@ -492,7 +490,7 @@ class _EditOfficePageState extends State<EditOfficePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Edit Office'),
+        title: const Text('Edit Shop'),
         centerTitle: true,
         elevation: 0,
         actions: [
@@ -514,43 +512,43 @@ class _EditOfficePageState extends State<EditOfficePage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
 
-            /// ================== EDIT OFFICE ==================
+            /// ================== EDIT shop ==================
             Form(
               key: _formKey,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Edit Office Info',
+                    'Edit Shop Info',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Change office information.',
+                    'Change shop information.',
                     style: TextStyle(color: Colors.grey),
                   ),
                   const SizedBox(height: 24),
 
                   TextFormField(
-                    controller: _officeNameController,
+                    controller: _shopNameController,
                     decoration: _buildInputDecoration(
-                      'Office Name',
+                      'Shop Name',
                       prefixIcon: Icons.apartment,
                     ),
                     validator: (value) => value == null || value.trim().isEmpty
-                        ? 'Office name is required'
+                        ? 'Shop name is required'
                         : null,
                   ),
                   const SizedBox(height: 16),
 
                   TextFormField(
-                    controller: _officeLocationController,
+                    controller: _shopLocationController,
                     decoration: _buildInputDecoration(
-                      'Office Location',
+                      'Shop Location',
                       prefixIcon: Icons.location_on,
                     ),
                     validator: (value) => value == null || value.trim().isEmpty
-                        ? 'Office location is required'
+                        ? 'Shop location is required'
                         : null,
                   ),
                   const SizedBox(height: 32),
@@ -559,7 +557,7 @@ class _EditOfficePageState extends State<EditOfficePage> {
                     width: double.infinity,
                     height: 48,
                     child: ElevatedButton(
-                      onPressed: _isLoading2 ? null : _saveOffice,
+                      onPressed: _isLoading2 ? null : _saveShop,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.teal,
                         shape: RoundedRectangleBorder(
@@ -586,7 +584,7 @@ class _EditOfficePageState extends State<EditOfficePage> {
 
             /// ================== SEARCH USER ==================
             Text(
-              'Assign Office Attendant',
+              'Assign Shop Attendant',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: Colors.blueGrey[800],
@@ -594,7 +592,7 @@ class _EditOfficePageState extends State<EditOfficePage> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Search for a user by email to assign them as attendants for this office.',
+              'Search for a user by email to assign them as attendants for this shop.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Colors.blueGrey[600],
                   ),
@@ -709,14 +707,14 @@ class _EditOfficePageState extends State<EditOfficePage> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text(
-                            'Office Attendant Status:',
+                            'Shop Attendant Status:',
                             style: TextStyle(fontWeight: FontWeight.bold),
                           ),
                           Switch(
-                            value: _isOfficeAttendant,
+                            value: _isShopAttendant,
                             onChanged: _isLoading
                                 ? null
-                                : (value) => _toggleOfficeAttendantStatus(value, _userData!['id'], _userData!['first_name']),
+                                : (value) => _toggleShopAttendantStatus(value, _userData!['id'], _userData!['first_name']),
                             activeColor: Colors.green,
                           ),
                         ],
@@ -729,11 +727,11 @@ class _EditOfficePageState extends State<EditOfficePage> {
               const SizedBox(height: 8),
 
               Text(
-                _isOfficeAttendant
-                    ? 'This user can attend your office'
-                    : 'This user cannot attend your office',
+                _isShopAttendant
+                    ? 'This user can attend your shop'
+                    : 'This user cannot attend your shop',
                 style: TextStyle(
-                  color: _isOfficeAttendant
+                  color: _isShopAttendant
                       ? Colors.green
                       : Colors.grey,
                   fontStyle: FontStyle.italic,
@@ -746,7 +744,7 @@ class _EditOfficePageState extends State<EditOfficePage> {
 
             /// ================== CURRENT ATTENDANTS ==================
             Text(
-              'Current Office Attendants',
+              'Current Shop Attendants',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: Colors.blueGrey[800],
@@ -758,9 +756,9 @@ class _EditOfficePageState extends State<EditOfficePage> {
             ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: officeAttendants.length,
+              itemCount: shopAttendants.length,
               itemBuilder: (context, index) {
-                final officeAttendant = officeAttendants[index];
+                final shopAttendant = shopAttendants[index];
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 16.0),
@@ -780,8 +778,8 @@ class _EditOfficePageState extends State<EditOfficePage> {
                               CircleAvatar(
                                 backgroundColor: Colors.blue[100],
                                 child: Text(
-                                  officeAttendant['first_name'][0] +
-                                      officeAttendant['last_name'][0],
+                                  shopAttendant['first_name'][0] +
+                                      shopAttendant['last_name'][0],
                                   style: const TextStyle(
                                       color: Colors.blue),
                                 ),
@@ -792,14 +790,14 @@ class _EditOfficePageState extends State<EditOfficePage> {
                                     CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    '${officeAttendant['first_name']} ${officeAttendant['last_name']}',
+                                    '${shopAttendant['first_name']} ${shopAttendant['last_name']}',
                                     style: const TextStyle(
                                         fontWeight:
                                             FontWeight.bold,
                                         fontSize: 16),
                                   ),
                                   Text(
-                                    officeAttendant['email'],
+                                    shopAttendant['email'],
                                     style: TextStyle(
                                         color:
                                             Colors.grey[600]),
@@ -811,7 +809,7 @@ class _EditOfficePageState extends State<EditOfficePage> {
                           const SizedBox(height: 16),
 
                           Text(
-                            'Phone: ${officeAttendant['phone_number']}',
+                            'Phone: ${shopAttendant['phone_number']}',
                             style:
                                 TextStyle(color: Colors.grey[600]),
                           ),
@@ -823,21 +821,20 @@ class _EditOfficePageState extends State<EditOfficePage> {
                                 MainAxisAlignment.spaceBetween,
                             children: [
                               const Text(
-                                'Office Attendant Status:',
+                                'Shop Attendant Status:',
                                 style: TextStyle(
                                     fontWeight:
                                         FontWeight.bold),
                               ),
                               Switch(
-                                value: (officeAttendant['office_id'] ==
-                                    widget.officeId),
+                                value: (shopAttendant['shop_id'] == widget.shop.id),
                                 onChanged: _isLoading
                                     ? null
                                     : (value) =>
-                                        _toggleOfficeAttendantStatus(
+                                        _toggleShopAttendantStatus(
                                           value,
-                                          officeAttendant['id'],
-                                          officeAttendant['first_name']
+                                          shopAttendant['id'],
+                                          shopAttendant['first_name']
                                         ),
                                 activeColor: Colors.green,
                               ),

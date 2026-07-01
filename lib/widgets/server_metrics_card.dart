@@ -4,12 +4,13 @@ import 'package:tiketi_mkononi/models/server_metrics.dart'; // For date formatti
 
 class ServerMetricsCard extends StatelessWidget {
   final ServerMetrics serverMetrics;
+  final Function refreshMethod;
   
-  const ServerMetricsCard({super.key, required this.serverMetrics});
+  const ServerMetricsCard({super.key, required this.serverMetrics, required this.refreshMethod});
 
   @override
   Widget build(BuildContext context) {
-    final formattedDate = DateFormat('MMM dd, yyyy - hh:mm a').format(
+    var formattedDate = DateFormat('MMM dd, yyyy - hh:mm a').format(
       DateTime.parse(serverMetrics.timestamp).toLocal()
     );
     
@@ -37,10 +38,16 @@ class ServerMetricsCard extends StatelessWidget {
                     color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
-                Chip(
+                ActionChip(
                   backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                  onPressed: () async {
+                    await refreshMethod();
+                    formattedDate = DateFormat('MMM dd, yyyy - hh:mm a').format(
+                      DateTime.parse(serverMetrics.timestamp).toLocal()
+                    );
+                  },
                   label: Text(
-                    'Live',
+                    'Refresh',
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.onPrimaryContainer,
                     ),
@@ -50,7 +57,7 @@ class ServerMetricsCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Updated: $formattedDate',
+              'Updated: $formattedDate', 
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Colors.grey.shade600,
               ),

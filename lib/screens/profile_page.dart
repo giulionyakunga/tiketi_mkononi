@@ -651,11 +651,48 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
     );
   }
 
+  void _showShopDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Access Restricted'),
+        content: const Text(
+          'This feature is available only to registered Tiketi Mkononi shop owners.'
+          'If you would like to get shop management services, please submit an application to become an approved shop owners.'
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ApplyToBeShopOwnerPage(userId: userId),
+                ),
+              );
+            },
+            child: const Text(
+              'Apply Now',
+              style: TextStyle(color: Colors.green),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildOtherApps(BuildContext context) {
     final otherApps = [
       _buildActionTile(
         context,
-        icon: Icons.security,
+        icon: Icons.menu_book_outlined,
         iconColor: Colors.teal,
         title: 'My Book of Accounts',
         onTap: () async {
@@ -667,6 +704,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
           );
         },
       ),
+
       _buildActionTile(
         context,
         icon: Icons.print,
@@ -681,26 +719,41 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
           );
         },
       ),
-      if((role == "shop_attendant") && (shopId > 0))
+      
+      if((role == "admin") || (role == "shop_owner") || (role == "shop_attendant") || (role == "user"))
       _buildActionTile(
         context,
         icon: Icons.shopping_cart,
         iconColor: Colors.teal,
-        title: 'Sales Book',
+        title: AppLocalizations.of(context)!.myOrders,
         onTap: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => OrdersPage(userId: userId, shopId: shopId, shopName: shopName, userName: userName, userPhoneNumber: userPhoneNumber, role: role),
-            ),
-          );
+          if(role == "shop_owner") {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ShopsPage(userId: userId, role: role, userName: userName, userPhoneNumber: userPhoneNumber),
+              ),
+            );
+          } else if(role == "shop_attendant") {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => OrdersPage(userId: userId, shopId: shopId, shopName: shopName, userName: userName, userPhoneNumber: userPhoneNumber, role: role),
+              ),
+            );
+          } else {
+            _showShopDialog(context);
+
+          }
         },
       ),
+
+      if((role == "admin") || (role == "cargo_transporter") || (role == "cargo_office_attendant") || (role == "transporter") || (role == "transport_office_attendant") || (role == "user"))
       _buildActionTile(
         context,
         icon: Icons.local_shipping,
         iconColor: Colors.teal,
-        title: 'Cargo',
+        title: AppLocalizations.of(context)!.cargo,
         onTap: () async {
           if ((role == 'transporter') || (role == 'cargo_transporter') || (role == 'transport_office_attendant') || (role == 'cargo_office_attendant')) {
             await Navigator.push(
@@ -714,11 +767,13 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
           }
         },
       ),
+
+      if((role == "admin") || (role == "transporter") || (role == "transport_office_attendant") || (role == "user"))
       _buildActionTile(
         context,
         icon: Icons.directions_bus,
         iconColor: Colors.orange,
-        title: 'Buses',
+        title: AppLocalizations.of(context)!.buses,
         onTap: () async {
           if(role == 'transporter'){
             await Navigator.push(
@@ -900,7 +955,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
           },
         ),
 
-        if(role == "cargo_transporter")
+        if(role == "cargo_transporter") 
         _buildActionTile(
           context,
           icon: Icons.business,
@@ -916,6 +971,64 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
             );
           },
         ),
+
+        if(role == "cargo_office_attendant") 
+        _buildActionTile(
+          context,
+          icon: Icons.business,
+          iconColor: Colors.teal,
+          title: 'My Offices',
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => AddConsignmentPage(userId: userId, companyId: companyId, companyName:companyName, officeId: officeId, userName: userName, userPhoneNumber: userPhoneNumber, isReplacableScreen: false),
+              ),
+            );
+          },
+        ),
+
+
+
+
+        if(role == "transporter") 
+        _buildActionTile(
+          context,
+          icon: Icons.business,
+          iconColor: Colors.teal,
+          title: 'My Offices',
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => OfficesPage(userId: userId, companyId: companyId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, role: role),
+              ),
+            );
+          },
+        ),
+
+        if(role == "transport_office_attendant") 
+        _buildActionTile(
+          context,
+          icon: Icons.business,
+          iconColor: Colors.teal,
+          title: 'My Offices',
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                    builder: (context) => FindBusRoutesPage(userId: userId, officeId: officeId, companyId: companyId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, role: role),
+              ),
+            );
+          },
+        ),
+
+
+
+
 
         if(role == "user")
         _buildActionTile(

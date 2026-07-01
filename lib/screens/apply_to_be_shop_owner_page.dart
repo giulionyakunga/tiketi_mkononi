@@ -110,8 +110,8 @@ class _ApplyToBeShopOwnerPageState
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Become a Shop Owner'),
-        backgroundColor: Colors.indigo,
+        title: const Text('Become a Shop Owner'), 
+        backgroundColor: Colors.teal[800],
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
@@ -187,7 +187,7 @@ class _ApplyToBeShopOwnerPageState
                 onPressed: _applied ? null : _submitApplication,
                 style: ElevatedButton.styleFrom(
                   backgroundColor:
-                      _applied ? Colors.green : Colors.indigo,
+                      _applied ? Colors.green : Colors.teal[800],
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -240,8 +240,8 @@ class _ApplyToBeShopOwnerPageState
   Widget _feature(IconData icon, String title, String desc) {
     return ListTile(
       leading: CircleAvatar(
-        backgroundColor: Colors.indigo.withOpacity(0.1),
-        child: Icon(icon, color: Colors.indigo),
+        backgroundColor: Colors.teal.withOpacity(0.1),
+        child: Icon(icon, color: Colors.teal),
       ),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
       subtitle: Text(desc),

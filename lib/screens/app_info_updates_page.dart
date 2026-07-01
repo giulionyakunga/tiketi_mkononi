@@ -521,7 +521,7 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
                   _buildUpdateButton(context),
                 ],
                 if(_hasReceivedServerMetrics) SizedBox(height: isLargeScreen ? 40 : 24),
-                if(_hasReceivedServerMetrics) ServerMetricsCard(serverMetrics: serverMetrics),
+                if(_hasReceivedServerMetrics) ServerMetricsCard(serverMetrics: serverMetrics, refreshMethod: getServerMetrics),
                 
                 SizedBox(height: isLargeScreen ? 40 : 24),
 

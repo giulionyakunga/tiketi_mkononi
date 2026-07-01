@@ -1,9 +1,13 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:tiketi_mkononi/screens/add_shop_attendant_page.dart';
+import 'package:intl/intl.dart';
+import 'package:tiketi_mkononi/models/shop.dart';
 import 'package:tiketi_mkononi/screens/add_shop_page.dart';
+import 'package:tiketi_mkononi/screens/edit_shop_page.dart';
 import 'package:tiketi_mkononi/screens/orders_page.dart';
+import 'package:tiketi_mkononi/screens/products_page.dart';
 import '../env.dart';
 
 class ShopsPage extends StatefulWidget {
@@ -21,7 +25,9 @@ class ShopsPage extends StatefulWidget {
 class _ShopsPageState extends State<ShopsPage> {
   bool _loading = true;
   String? _error;
-  List<Map<String, dynamic>> _shops = [];
+  List<Shop> _shops = [];
+  int orderCount = 0;
+  int wingasCount = 0;
 
   @override
   void initState() {
@@ -29,26 +35,60 @@ class _ShopsPageState extends State<ShopsPage> {
     _fetchShops();
   }
 
-  Future<void> _fetchShops() async {
+  Future<void> _fetchShops({bool useDNS = true}) async {
     try {
       setState(() {
         _loading = true;
         _error = null;
       });
 
-      final uri = Uri.parse('${backend_url}api/shops/${widget.userId}');
+      String dateStr = DateFormat('d-M-yyyy').format(DateTime.now());
+      DateTime _orderDate = DateFormat('d-M-yyyy').parse(dateStr);
+
+      final uri = useDNS ? Uri.parse('${backend_url}api/shops/${widget.userId}/${DateFormat('d-M-yyyy').format(_orderDate)}')
+      : Uri.parse('${backend_url_with_fallback_ip}shops/${widget.userId}/${DateFormat('d-M-yyyy').format(_orderDate)}');
+
       final response = await http.get(uri);
+      debugPrint("response.body : ${response.body}");
 
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
-        setState(() {
-          _shops = List<Map<String, dynamic>>.from(decoded);
-        });
+
+        final dynamic responseData = jsonDecode(response.body);
+      
+        List<Shop> shops = [];
+        
+        if (responseData is List) {
+          shops = responseData.map((json) => Shop.fromJson(json)).toList();
+        } else if (responseData is Map && responseData.containsKey('data')) {
+          shops = (responseData['data'] as List)
+              .map((json) => Shop.fromJson(json))
+              .toList();
+        }
+
+        // If there's at least one shop, extract its data
+        if (shops.isNotEmpty) {
+          setState(() {
+            _shops = shops;
+          });
+        } else {
+          setState(() {
+            _error = 'No shop data found';
+          });
+        }
+
+        debugPrint('Loaded ${_shops.length} shops');
       } else {
         _error = 'Failed to load shops';
       }
+    } on SocketException catch (e) {
+      if ((e.osError?.errorCode == 7 || e.osError?.errorCode == 11001) && useDNS) {
+        await _fetchShops(useDNS: false);
+        return;
+      } 
+      _error = 'Network error. Please check your connection.';
     } catch (e) {
-      _error = 'Network error. Please try again.';
+      _error = 'An error occurred. Please try again later.';
+      debugPrint('An error occurred: ${e.toString()}');
     } finally {
       setState(() => _loading = false);
     }
@@ -75,7 +115,7 @@ class _ShopsPageState extends State<ShopsPage> {
                         padding: const EdgeInsets.all(16),
                         itemCount: _shops.length,
                         itemBuilder: (_, index) {
-                          final shop = _shops[index];
+                          final Shop shop = _shops[index];
                           return _shopCard(shop);
                         },
                       ),
@@ -97,16 +137,18 @@ class _ShopsPageState extends State<ShopsPage> {
     );
   }
 
-  Widget _shopCard(Map<String, dynamic> shop) {
+  Widget _shopCard(Shop shop) {
     return InkWell(
       borderRadius: BorderRadius.circular(12),
-      onTap: () {
-        Navigator.push(
+      onTap: () async {
+        await Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => OrdersPage(userId: widget.userId, shopId: shop['id'], shopName: shop['name'], userName: widget.userName, userPhoneNumber: widget.userPhoneNumber, role: widget.role),
+            builder: (context) => OrdersPage(userId: widget.userId, shopId: shop.id, shopName: shop.name, userName: widget.userName, userPhoneNumber: widget.userPhoneNumber, role: widget.role),
           ),
         );
+
+        _fetchShops();
       },
       child: Card(
         margin: const EdgeInsets.only(bottom: 16),
@@ -135,7 +177,7 @@ class _ShopsPageState extends State<ShopsPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          shop['name'] ?? 'Unnamed Shop',
+                          shop.name,
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -143,63 +185,86 @@ class _ShopsPageState extends State<ShopsPage> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          shop['location'] ?? 'Location not specified',
+                          shop.location,
                           style: TextStyle(color: Colors.grey[600]),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 5),
                         Row(
                           children: [
                             _chip(
-                              icon: Icons.people,
-                              label: '${shop['wingas'] ?? 0} Wingas',
+                              icon: Icons.inventory,
+                              label: '${shop.productCount} Products',
                             ),
-                            const SizedBox(width: 10),
+                            const SizedBox(width: 5),
                             _chip(
                               icon: Icons.trending_up,
-                              label: 'Sales: ${shop['total_sales'] ?? 0}',
+                              label: 'Orders: ${shop.orderCount}',
                             ),
                           ],
                         ),
                       ],
                     ),
                   ),
-                  const Icon(Icons.chevron_right, color: Colors.grey),
+
+                  if((widget.userId == shop.userId))
+                  InkWell(
+                    onTap: () {
+                      // your action here
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ProductsPage(
+                            userId: widget.userId,
+                            shop: shop,
+                          ),
+                        ),
+                      );
+                    },
+                    child: const Icon(
+                      Icons.chevron_right,
+                      // size: 14,
+                      color: Colors.grey,
+                    ),
+                  )
                 ],
               ),
             ),
-
-             Padding(
-                padding: const EdgeInsets.only(
-                  top: 0,
-                  left: 16,
-                  right: 16,
-                  bottom: 4,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    InkWell(
-                      onTap: () {
-                        // your action here
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => AddShopAttendantPage(
-                              userId: widget.userId,
-                              shopId: shop['id'],      // pass what you need
-                            ),
+                    
+            if((widget.userId == shop.userId))
+            Padding(
+              padding: const EdgeInsets.only(
+                top: 0,
+                left: 16,
+                right: 16,
+                bottom: 4,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  InkWell(
+                    onTap: () async {
+                      // your action here
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => EditShopPage(
+                            userId: widget.userId,
+                            shop: shop,
                           ),
-                        );
-                      },
-                      child: const Icon(
-                        Icons.edit,
-                        size: 14,
-                        color: Colors.grey,
-                      ),
-                    )
-                  ],
-                )
+                        ),
+                      );
+                      _fetchShops();
+                    },
+                    child: const Icon(
+                      Icons.edit,
+                      size: 14,
+                      color: Colors.grey,
+                    ),
+                  )
+                ],
               )
+            ),
+            const SizedBox(height: 10),
           ]
         )
       ),
@@ -215,11 +280,11 @@ class _ShopsPageState extends State<ShopsPage> {
       ),
       child: Row(
         children: [
-          Icon(icon, size: 14, color: Colors.indigo),
+          Icon(icon, size: 12, color: Colors.indigo),
           const SizedBox(width: 6),
           Text(
             label,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
           ),
         ],
       ),

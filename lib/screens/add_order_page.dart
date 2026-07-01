@@ -15,6 +15,7 @@ import 'package:http/http.dart' as http;
 import 'package:tiketi_mkononi/l10n/app_localizations.dart';
 import 'package:tiketi_mkononi/models/Order.dart';
 import 'package:tiketi_mkononi/models/product.dart';
+import 'package:tiketi_mkononi/models/shop.dart';
 import 'package:tiketi_mkononi/screens/orders_page.dart';
 import 'package:tiketi_mkononi/screens/platform_detector_stub.dart';
 import 'package:tiketi_mkononi/screens/qr_scanner_cargo_page.dart';
@@ -50,6 +51,7 @@ class _AddOrderPageState extends State<AddOrderPage> {
   bool _isLoading = false;
   bool _isPaid = true;
   late final StorageService _storageService;
+  Shop? shop;
 
   List<BluetoothInfo> devices = [];
   BluetoothInfo? selectedPrinter;
@@ -62,6 +64,8 @@ class _AddOrderPageState extends State<AddOrderPage> {
   List<OrderItem> _orderItems = [];
   late Order _addedOrder;
   List<Product> productsList = [];
+  int totalQuantity = 0;
+  double totalPrice = 0;
   
   String selectedPaymentMethod = 'MIXX BY YAS';
   final List<String> paymentMethods = ['MIXX BY YAS', 'M-PESA', 'AIRTEL MONEY', 'HALOPESA', 'AZAMPESA'];
@@ -75,6 +79,8 @@ class _AddOrderPageState extends State<AddOrderPage> {
   @override
   void initState() {
     super.initState();
+    getShopProducts();
+    _fetchShop();
     _initializeServices();
     _addOrderItem();
     if (Platform.isWindows) {
@@ -82,7 +88,6 @@ class _AddOrderPageState extends State<AddOrderPage> {
       _loadSelectedPrinter();
     }
     _loadNumberOfReceipts();
-
     loadAndMatchPrinter();
   }
 
@@ -108,10 +113,8 @@ class _AddOrderPageState extends State<AddOrderPage> {
       }
 
       getUserRole();
-      getShopProducts();
     }
   }
-
   
   Future<void> getShopProducts({bool useDNS = true}) async {
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/shop_products/${widget.shopId}') // Original URL 
@@ -160,6 +163,40 @@ class _AddOrderPageState extends State<AddOrderPage> {
       debugPrint('Error getting offices: $e');
     } finally {
       debugPrint('Process finished');
+    }
+  }
+
+  Future<void> _fetchShop({bool useDNS = true}) async {
+    try {
+
+      final uri = useDNS ? Uri.parse('${backend_url}api/shop/${widget.shopId}')
+      : Uri.parse('${backend_url_with_fallback_ip}shop/${widget.shopId}');
+
+      final response = await http.get(uri);
+      debugPrint("response.body : ${response.body}");
+
+      if (response.statusCode == 200) {
+
+        final dynamic responseData = jsonDecode(response.body);
+
+
+        if (responseData is List && responseData.isNotEmpty) {
+          // The first item in the list is the shop data
+          setState(() {
+            shop = Shop.fromJson(responseData[0] as Map<String, dynamic>);
+          });
+        } else {
+          // Handle error
+          throw Exception('Invalid response format');
+        }
+      }
+    } on SocketException catch (e) {
+      if ((e.osError?.errorCode == 7 || e.osError?.errorCode == 11001) && useDNS) {
+        await _fetchShop(useDNS: false);
+        return;
+      } 
+    } catch (e) {
+      debugPrint('An error occurred: ${e.toString()}');
     }
   }
 
@@ -281,6 +318,16 @@ class _AddOrderPageState extends State<AddOrderPage> {
 
       _orderItemsVersion++; // Increment version
       _priceControllers.add(TextEditingController(text: '0'));
+
+      totalQuantity = _orderItems.fold(
+        0,
+        (sum, item) => sum + item.quantity,
+      );
+
+      totalPrice = _orderItems.fold(
+        0,
+        (sum, item) => sum + (item.price * item.quantity),
+      );
     });
   }
 
@@ -344,7 +391,7 @@ class _AddOrderPageState extends State<AddOrderPage> {
       for (var j = i + 1; j < _orderItems.length; j++) {
         if (orderItem.name.trim() == _orderItems[j].name.trim()) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Item names should be different')),
+            SnackBar(content: Text(AppLocalizations.of(context)!.itemNamesShouldBeDifferent)),
           );
           return false;
         }
@@ -378,7 +425,7 @@ class _AddOrderPageState extends State<AddOrderPage> {
 
     double totalPrice = 0.0;
     for (var item in _orderItems) {
-      totalPrice += item.price;
+      totalPrice += (item.price * item.quantity);
     }
 
     String dateStr = DateFormat('d-M-yyyy').format(DateTime.now());
@@ -527,7 +574,7 @@ class _AddOrderPageState extends State<AddOrderPage> {
                         dense: true,  
                         visualDensity: const VisualDensity(vertical: -4),
                         title: Text(
-                          "Receipts ${pkg["number_of_receipts"]} - TSH ${pkg["price"]}",
+                          "Receipts ${pkg["number_of_receipts"]} - TSH ${NumberFormat('#,##0').format(pkg["price"])}",
                           style: const TextStyle(fontSize: 12),
                         ),
                         value: pkg["number_of_receipts"],
@@ -605,7 +652,7 @@ class _AddOrderPageState extends State<AddOrderPage> {
                             );
                           }
                         },
-                        child: const Text("Lipa"),
+                        child: _isLoading ? const CircularProgressIndicator() : const Text("Lipa"),
                       ),
                     ) 
                   ],
@@ -652,7 +699,9 @@ class _AddOrderPageState extends State<AddOrderPage> {
 
       debugPrint('Selected payment method 2: $selectedPaymentMethod2');
 
-    try {
+    try { 
+      setState(() => _isLoading = true);
+
       final response = await http.post(
         uri,
         headers: {
@@ -712,6 +761,8 @@ class _AddOrderPageState extends State<AddOrderPage> {
       _handleSocketException(e);
     } catch (e) {
       print("Payment error: $e");
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -854,8 +905,8 @@ class _AddOrderPageState extends State<AddOrderPage> {
 
   Widget _buildOrderItemNameInputField(int index) {
     return Autocomplete<Product>(
-      displayStringForOption: (Product option) => option.name,
-      
+      displayStringForOption: (Product option) => '${option.brand} ${option.name}',
+
       initialValue: TextEditingValue(
         text: _orderItems[index].name,
       ),
@@ -866,7 +917,7 @@ class _AddOrderPageState extends State<AddOrderPage> {
         }
         
         return productsList.where((product) =>
-            product.name.toLowerCase().contains(textEditingValue.text.toLowerCase()));
+            (product.brand+ ' ' + product.name).toLowerCase().contains(textEditingValue.text.toLowerCase()));
 
       },
 
@@ -876,6 +927,11 @@ class _AddOrderPageState extends State<AddOrderPage> {
           _orderItems[index].name = selection.name;
           _orderItems[index].price = selection.price;
           _priceControllers[index].text = selection.price.toStringAsFixed(0);
+
+          totalPrice = _orderItems.fold(
+            0,
+            (sum, item) => sum + (item.price * item.quantity),
+          );
         });
       },
 
@@ -894,8 +950,11 @@ class _AddOrderPageState extends State<AddOrderPage> {
               orElse: () => Product(
                 id: 0,
                 shopId: 0,
-                name: '',
-                price: 0,
+                name: value.toUpperCase(),
+                brand: '',
+                unit: '', 
+                price: _orderItems[index].price,
+                quantity: _orderItems[index].quantity,
                 createdAt: DateTime.now(),
                 updatedAt: DateTime.now(),
               ),
@@ -904,6 +963,12 @@ class _AddOrderPageState extends State<AddOrderPage> {
             setState(() {
               _orderItems[index].name = product.name;
               _orderItems[index].price = product.price;
+              _orderItems[index].quantity = product.quantity;
+
+              totalPrice = _orderItems.fold(
+                0,
+                (sum, item) => sum + (item.price * item.quantity),
+              );
             });
           },
           
@@ -933,7 +998,7 @@ class _AddOrderPageState extends State<AddOrderPage> {
 
                   return ListTile(
                     dense: true,
-                    title: Text('${option.name} - TSH ${option.price.toStringAsFixed(0)}'),
+                    title: Text('${option.brand} ${option.name} ${option.unit} - TSH ${NumberFormat('#,##0').format(option.price)}'),
                     onTap: () => onSelected(option),
                   );
                 },
@@ -998,6 +1063,16 @@ class _AddOrderPageState extends State<AddOrderPage> {
                 if (item.quantity > 1) {
                   setState(() {
                     item.quantity--;
+
+                    totalQuantity = _orderItems.fold(
+                      0,
+                      (sum, item) => sum + item.quantity,
+                    );
+
+                    totalPrice = _orderItems.fold(
+                      0,
+                      (sum, item) => sum + (item.price * item.quantity),
+                    );
                   });
                 }
               },
@@ -1049,6 +1124,16 @@ class _AddOrderPageState extends State<AddOrderPage> {
               onTap: () {
                 setState(() {
                   item.quantity++;
+
+                  totalQuantity = _orderItems.fold(
+                    0,
+                    (sum, item) => sum + item.quantity,
+                  );
+
+                  totalPrice = _orderItems.fold(
+                    0,
+                    (sum, item) => sum + (item.price * item.quantity),
+                  );
                 });
               },
               borderRadius: const BorderRadius.only(
@@ -1217,19 +1302,34 @@ class _AddOrderPageState extends State<AddOrderPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          '${AppLocalizations.of(context)!.placeOrder}: ${widget.shopName}',
-          style: TextStyle(
-            fontSize: 15,
-          ),
-        ),       
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              AppLocalizations.of(context)!.placeOrder,
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            Text(
+              shop != null ? '${widget.shopName} - ${shop!.location}' : widget.shopName,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.white,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+
         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
         actions: [
           IconButton(
-            icon: const Icon(Icons.shopping_cart),
             onPressed: () {
-              
               if(widget.isReplacableScreen) {
                 Navigator.pushReplacement(
                   context,
@@ -1246,21 +1346,54 @@ class _AddOrderPageState extends State<AddOrderPage> {
                 );
               }
             },
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(Icons.shopping_cart),
+
+                if (_orderItems.isNotEmpty) 
+                Positioned(
+                  right: -6,
+                  top: -6,
+                  child: Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 18,
+                      minHeight: 18,
+                    ),
+                    child: Text(
+                      '$totalQuantity',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-          IconButton(
-            icon: const Icon(Icons.qr_code_scanner),
-            onPressed: () {
-              // (kIsWeb) ? 
-              //   _handleQRCodeScannerUnavailablility()
-              // :
-              // Navigator.push(
-              //   context,
-              //   MaterialPageRoute(
-              //     builder: (context) => QRScannerCargoPage(userId: widget.userId, companyId: widget.companyId, shopName: widget.shopName, officeId: widget.officeId, userName: widget.userName, userPhoneNumber: widget.userPhoneNumber),
-              //   ),
-              // );
-            },
-          ),
+
+          // IconButton(
+          //   icon: const Icon(Icons.qr_code_scanner),
+          //   onPressed: () {
+          //     // (kIsWeb) ? 
+          //     //   _handleQRCodeScannerUnavailablility()
+          //     // :
+          //     // Navigator.push(
+          //     //   context,
+          //     //   MaterialPageRoute(
+          //     //     builder: (context) => QRScannerCargoPage(userId: widget.userId, companyId: widget.companyId, shopName: widget.shopName, officeId: widget.officeId, userName: widget.userName, userPhoneNumber: widget.userPhoneNumber),
+          //     //   ),
+          //     // );
+          //   },
+          // ),
           PopupMenuButton<String>(
             padding: EdgeInsets.zero,
             tooltip: 'More Options',
@@ -1392,10 +1525,42 @@ class _AddOrderPageState extends State<AddOrderPage> {
                         },
                       ),
                       const SizedBox(height: 16),
-                      Text(
-                        AppLocalizations.of(context)!.orderItems,
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+
+                      Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                          Text(
+                              AppLocalizations.of(context)!.orderItems,
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+
+                          // Total Price at top right
+                          Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                  color: Colors.teal.shade100,
+                                  borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                    Text(
+                                      "TZS${NumberFormat('#,##0.00').format(totalPrice)}",
+                                      style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.teal.shade800,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                          ),
+                        ],
                       ),
+
+
+
                       const SizedBox(height: 8),
                       ..._orderItems.asMap().entries.map((entry) {
                         return _buildOrderItemField(entry.key, isLargeScreen);
@@ -1409,6 +1574,8 @@ class _AddOrderPageState extends State<AddOrderPage> {
                         ),
                       ),
                       const SizedBox(height: 24),
+
+
                       SizedBox(
                         width: isLargeScreen ? 400 : double.infinity,
                         child: ElevatedButton(
@@ -1419,13 +1586,36 @@ class _AddOrderPageState extends State<AddOrderPage> {
                           ),
                           child: _isLoading 
                               ? const CircularProgressIndicator()
-                              : Text(
-                                  AppLocalizations.of(context)!.placeOrder,
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    color: Colors.white,
-                                  ),
+                              : 
+                              Text(
+                                AppLocalizations.of(context)!.placeOrder,
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  color: Colors.white,
                                 ),
+                              ),
+
+                              // Column(
+                              //   children: [
+                              //     Text(
+                              //       AppLocalizations.of(context)!.placeOrder,
+                              //       style: TextStyle(
+                              //         fontSize: 16,
+                              //         color: Colors.white,
+                              //       ),
+                              //     ),
+
+                              //     Text(
+                              //       "TZS${NumberFormat('#,##0.00').format(totalPrice)}",
+                              //       style: TextStyle(
+                              //           fontSize: 9,
+                              //           fontWeight: FontWeight.w500,
+                              //           color: Colors.teal.shade800,
+                              //       ),
+                              //     ),
+                              //   ]
+                              // )
+                              
                         ),
                       ),
                     ],
@@ -1465,10 +1655,42 @@ class _AddOrderPageState extends State<AddOrderPage> {
                     },
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    AppLocalizations.of(context)!.orderItems,
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+
+                  Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                      Text(
+                          AppLocalizations.of(context)!.orderItems,
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+
+                      // Total Price at top right
+                      Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                              color: Colors.teal.shade100,
+                              borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                                Text(
+                                  "TZS${NumberFormat('#,##0.00').format(totalPrice)}",
+                                  style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.teal.shade800,
+                                  ),
+                                ),
+                            ],
+                          ),
+                      ),
+                    ],
                   ),
+
+
+
                   const SizedBox(height: 8),
                   ..._orderItems.asMap().entries.map((entry) {
                     return _buildOrderItemField(entry.key, isLargeScreen);
@@ -1491,13 +1713,35 @@ class _AddOrderPageState extends State<AddOrderPage> {
                         backgroundColor: Colors.teal[800],
                       ),
                       child: _isLoading ? const CircularProgressIndicator()
-                      : Text(
+                      : 
+                      Text(
                         AppLocalizations.of(context)!.placeOrder,
                         style: TextStyle(
                           fontSize: 18,
                           color: Colors.white,
                         ),
                       ),
+
+                        // Column(
+                        //   children: [
+                        //     Text(
+                        //       AppLocalizations.of(context)!.placeOrder,
+                        //       style: TextStyle(
+                        //         fontSize: 16,
+                        //         color: Colors.white,
+                        //       ),
+                        //     ),
+
+                        //     Text(
+                        //       "TZS${NumberFormat('#,##0.00').format(totalPrice)}",
+                        //       style: TextStyle(
+                        //           fontSize: 9,
+                        //           fontWeight: FontWeight.w500,
+                        //           color: Colors.teal.shade800,
+                        //       ),
+                        //     ),
+                        //   ]
+                        // ),
                     ),
                   ),
                 ],
@@ -1612,28 +1856,16 @@ class _AddOrderPageState extends State<AddOrderPage> {
 
     final items = order.orderItems;
 
-    DateTime now = DateTime.now();
-    String formattedDateTime = DateFormat('d/M/H H:m').format(now);
+    DateTime orderDate = order.createdAt;
+    String formattedDateTime = DateFormat('d/M/H H:m').format(orderDate);
 
     List<int> bytes = [];
 
-    bytes += generator.text("********************************",
-      styles: const PosStyles(
-        align: PosAlign.center,
-      )
-    );
-
-    bytes += generator.text(widget.shopName,
+    bytes += generator.text(widget.shopName.toUpperCase(),
       styles: const PosStyles(
         align: PosAlign.center,
         bold: true,
         height: PosTextSize.size1,
-      )
-    );
-
-    bytes += generator.text("********************************",
-      styles: const PosStyles(
-        align: PosAlign.center,
       )
     );
 
@@ -1644,6 +1876,11 @@ class _AddOrderPageState extends State<AddOrderPage> {
 
     bytes += generator.text(
       "Order No: ${order.orderId}",
+      styles: const PosStyles(align: PosAlign.center),
+    );
+
+    bytes += generator.text(
+      "  ",
       styles: const PosStyles(align: PosAlign.center),
     );
 
@@ -1666,6 +1903,10 @@ class _AddOrderPageState extends State<AddOrderPage> {
       PosColumn(text: order.paymentStatus ? "Paid" : "Not Paid", width: 6),
     ]);
 
+    bytes += generator.text(
+      "  ",
+      styles: const PosStyles(align: PosAlign.center),
+    );
 
     bytes += generator.text(
       "Customer Details",
@@ -1680,11 +1921,19 @@ class _AddOrderPageState extends State<AddOrderPage> {
       PosColumn(text: order.customerPhoneNumber, width: 6),
     ]);
 
+    bytes += generator.text(
+      "  ",
+      styles: const PosStyles(align: PosAlign.center),
+    );
 
+    bytes += generator.text(
+      "Order Items",
+      styles: const PosStyles(bold: true),
+    );
 
     int totalAmount = 0;
     // Items
-    if(items.length > 1) {
+    if(items.length > 0) {
       for (var item in items) {
         totalAmount += (item.price as num).toInt() * (item.quantity as num).toInt();
         bytes += generator.row([
@@ -1743,8 +1992,18 @@ class _AddOrderPageState extends State<AddOrderPage> {
     );
 
     bytes += generator.text(
+      "  ",
+      styles: const PosStyles(align: PosAlign.center),
+    );
+
+    bytes += generator.text(
       receiptFooter,
       styles: const PosStyles(align: PosAlign.center)
+    );
+
+    bytes += generator.text(
+      "  ",
+      styles: const PosStyles(align: PosAlign.center),
     );
 
     bytes += generator.text(
@@ -1776,8 +2035,8 @@ class _AddOrderPageState extends State<AddOrderPage> {
 
     final items = order.orderItems;
 
-    DateTime now = DateTime.now();
-    String formattedDateTime = DateFormat('d/M/H H:m').format(now);
+    DateTime orderDate = order.createdAt;
+    String formattedDateTime = DateFormat('d/M/H H:m').format(orderDate);
 
     String data = SimpleCodec.encode(jsonEncode({
       "oid": order.id,
@@ -1804,7 +2063,7 @@ class _AddOrderPageState extends State<AddOrderPage> {
                 /// COMPANY NAME
                 pw.Center(
                   child: pw.Text(
-                    widget.shopName,
+                    widget.shopName.toUpperCase(),
                     style: pw.TextStyle(
                       font: customFont,
                       fontSize: 12,
@@ -1825,11 +2084,6 @@ class _AddOrderPageState extends State<AddOrderPage> {
                 ),
 
                 pw.SizedBox(height: 6),
-
-                pw.Text(
-                  "********************************",
-                  style: pw.TextStyle(font: customFont),
-                ),
 
                 /// PACKAGE INFO
                 pw.Text(
@@ -1968,10 +2222,6 @@ class _AddOrderPageState extends State<AddOrderPage> {
                   ),
                 ),
 
-                pw.Text(
-                  "********************************",
-                  style: pw.TextStyle(font: customFont),
-                ),
               ],
             ),
           );

@@ -18,6 +18,7 @@ import 'package:tiketi_mkononi/env.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:tiketi_mkononi/l10n/app_localizations.dart';
 import 'package:tiketi_mkononi/models/order.dart';
+import 'package:tiketi_mkononi/models/shop.dart';
 import 'package:tiketi_mkononi/screens/add_order_page.dart';
 import 'package:tiketi_mkononi/services/SimpleCodec.dart';
 import 'package:excel/excel.dart' hide Border;
@@ -42,7 +43,7 @@ class _OrdersPageState extends State<OrdersPage> {
   bool _isLoading = true;
   String? _error;
   List<Order> _orders = [];
-  double totalCollection = 0;
+  double totalSales = 0;
   Order? _selectedOrder;
   bool _showDetails = false;
   DateTime _selectedDate = DateTime.now();
@@ -54,11 +55,13 @@ class _OrdersPageState extends State<OrdersPage> {
   final TextEditingController _searchController = TextEditingController();
   bool _isSearchBarVisible = false;
   String receiptFooter = "Karibu Sana";
-
+  Shop? shop;
 
   @override
   void initState() {
     super.initState();
+    _fetchShop();
+
     String dateStr = DateFormat('d-M-yyyy').format(DateTime.now());
     _selectedDate = DateFormat('d-M-yyyy').parse(dateStr);
 
@@ -70,6 +73,42 @@ class _OrdersPageState extends State<OrdersPage> {
   
     loadAndMatchPrinter();
 
+  }
+
+
+  Future<void> _fetchShop({bool useDNS = true}) async {
+    try {
+
+      final uri = useDNS ? Uri.parse('${backend_url}api/shop/${widget.shopId}')
+      : Uri.parse('${backend_url_with_fallback_ip}shop/${widget.shopId}');
+
+      final response = await http.get(uri);
+      debugPrint("response.body : ${response.body}");
+
+      if (response.statusCode == 200) {
+
+        final dynamic responseData = jsonDecode(response.body);
+
+
+        if (responseData is List && responseData.isNotEmpty) {
+          // The first item in the list is the shop data
+          setState(() {
+            shop = Shop.fromJson(responseData[0] as Map<String, dynamic>);
+          });
+        } else {
+          // Handle error
+          throw Exception('Invalid response format');
+        }
+
+      }
+    } on SocketException catch (e) {
+      if ((e.osError?.errorCode == 7 || e.osError?.errorCode == 11001) && useDNS) {
+        await _fetchShop(useDNS: false);
+        return;
+      } 
+    } catch (e) {
+      debugPrint('An error occurred: ${e.toString()}');
+    }
   }
 
   @override
@@ -198,14 +237,14 @@ class _OrdersPageState extends State<OrdersPage> {
           ordersList = (responseData['data'] as List).map((e) => Order.fromJson(e)).toList();
         }
 
-        double totalPaidAmount = 0;
+        double totalPrice = 0;
 
         for (var order in ordersList) {
-          totalPaidAmount += (order.totalPrice).toDouble();
+          totalPrice += (order.totalPrice).toDouble();
         }
 
         setState(() {
-          totalCollection = totalPaidAmount;
+          totalSales = totalPrice;
           _orders = ordersList;
         });
         
@@ -285,13 +324,29 @@ class _OrdersPageState extends State<OrdersPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          
-          '${AppLocalizations.of(context)!.myOrders}: ${widget.shopName}',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600
-          ),
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              AppLocalizations.of(context)!.myOrders,
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            Text(
+              shop != null
+                  ? '${widget.shopName} - ${shop!.location}'
+                  : widget.shopName,
+              style: const TextStyle(
+                fontSize: 11,
+                color: Colors.white,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
         ),
         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
@@ -360,8 +415,8 @@ class _OrdersPageState extends State<OrdersPage> {
       heroTag: "addBtn",
       backgroundColor: Colors.teal,
       tooltip: "Add Order",
-      onPressed: () {
-        Navigator.pushReplacement(
+      onPressed: () async {
+        await Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => AddOrderPage(
@@ -374,10 +429,11 @@ class _OrdersPageState extends State<OrdersPage> {
             ),
           ),
         );
+        _fetchOrders();
       },
       icon: const Icon(Icons.add, color: Colors.white),
-      label: const Text(
-        "Add",
+      label: Text(
+        AppLocalizations.of(context)!.add2,
         style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
       ),
     ),
@@ -886,7 +942,7 @@ class _OrdersPageState extends State<OrdersPage> {
             ),
             const SizedBox(height: 12),
             Text(
-              AppLocalizations.of(context)!.cargosYouAddWillAppearHere,
+              AppLocalizations.of(context)!.yourOrdersWillAppearHere,
               style: TextStyle(fontSize: 16, color: Colors.grey),
             ),
           ],
@@ -914,7 +970,7 @@ class _OrdersPageState extends State<OrdersPage> {
     }
 
     setState(() {
-      totalCollection = totalPaidAmount;
+      totalSales = totalPaidAmount;
     });
 
     return Column(
@@ -940,7 +996,7 @@ class _OrdersPageState extends State<OrdersPage> {
           child: Column(
             children: [
               Text(
-                'TSH ${NumberFormat('#,##0').format(totalCollection)}',
+                'TSH ${NumberFormat('#,##0').format(totalSales)}',
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: Colors.teal[700],
@@ -950,7 +1006,7 @@ class _OrdersPageState extends State<OrdersPage> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Total Revenue',
+                AppLocalizations.of(context)!.totalSales,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Colors.teal[600],
                   fontWeight: FontWeight.w500,
@@ -1480,7 +1536,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                     ),
                                   ),
                                   Text(
-                                    'TZS${(item.price * item.quantity).toStringAsFixed(2)}',
+                                    'TZS ${NumberFormat('#,##0').format(item.price * item.quantity)}',
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w500,
@@ -1672,7 +1728,10 @@ class _OrdersPageState extends State<OrdersPage> {
     final items = order.orderItems;
 
     DateTime now = DateTime.now();
-    String formattedDateTime = DateFormat('d/M/H H:m').format(now);
+    String duplicateDateTime = DateFormat('d/M/H H:m').format(now);
+
+    DateTime orderDate = order.createdAt;
+    String formattedDateTime = DateFormat('d/M/H H:m').format(orderDate);
 
     List<int> bytes = [];
 
@@ -1682,7 +1741,7 @@ class _OrdersPageState extends State<OrdersPage> {
       )
     );
 
-    bytes += generator.text(widget.shopName,
+    bytes += generator.text("KOPI YA PILI ${duplicateDateTime}",
       styles: const PosStyles(
         align: PosAlign.center,
         bold: true,
@@ -1693,6 +1752,19 @@ class _OrdersPageState extends State<OrdersPage> {
     bytes += generator.text("********************************",
       styles: const PosStyles(
         align: PosAlign.center,
+      )
+    );
+
+    bytes += generator.text(
+      "  ",
+      styles: const PosStyles(align: PosAlign.center),
+    );
+
+    bytes += generator.text(widget.shopName.toUpperCase(),
+      styles: const PosStyles(
+        align: PosAlign.center,
+        bold: true,
+        height: PosTextSize.size1,
       )
     );
 
@@ -1863,7 +1935,7 @@ class _OrdersPageState extends State<OrdersPage> {
                 /// COMPANY NAME
                 pw.Center(
                   child: pw.Text(
-                    widget.shopName,
+                    widget.shopName.toUpperCase(),
                     style: pw.TextStyle(
                       font: customFont,
                       fontSize: 12,

@@ -654,6 +654,8 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                       child: ElevatedButton(
                         onPressed: () async {
                           if(selectedReceiptPackages != null && selectedReceiptPackages! > 0) {
+                            debugPrint(" >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Paying...");
+                            setState(() => _isLoading = true);
                             await _sendPaymentRequest(
                               phoneController.text.trim(),
                               selectedReceiptPackages,
@@ -665,7 +667,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                             );
                           }
                         },
-                        child: const Text("Lipa"),
+                        child: _isLoading ? const CircularProgressIndicator() : Text("Lipa $_isLoading"),
                       ),
                     ) 
                   ],
@@ -713,6 +715,8 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       debugPrint('Selected payment method 2: $selectedPaymentMethod2');
 
     try {
+      setState(() => _isLoading = true);
+
       final response = await http.post(
         uri,
         headers: {
@@ -772,6 +776,8 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       _handleSocketException(e);
     } catch (e) {
       print("Payment error: $e");
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -1873,28 +1879,16 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
     final items = consignment['consignment_items'] ?? [];
 
-    DateTime now = DateTime.now();
-    String formattedDateTime = DateFormat('d/M/H H:m').format(now);
+    DateTime consignmentDate = DateTime.parse(consignment['createdAt']);
+    String formattedDateTime = DateFormat('d/M/H H:m').format(consignmentDate);
 
     List<int> bytes = [];
 
-    bytes += generator.text("********************************",
-      styles: const PosStyles(
-        align: PosAlign.center,
-      )
-    );
-
-    bytes += generator.text(widget.companyName,
+    bytes += generator.text(widget.companyName.toUpperCase(),
       styles: const PosStyles(
         align: PosAlign.center,
         bold: true,
         height: PosTextSize.size1,
-      )
-    );
-
-    bytes += generator.text("********************************",
-      styles: const PosStyles(
-        align: PosAlign.center,
       )
     );
 
@@ -2038,8 +2032,18 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     );
 
     bytes += generator.text(
+      "  ",
+      styles: const PosStyles(align: PosAlign.center),
+    );
+
+    bytes += generator.text(
       receiptFooter,
       styles: const PosStyles(align: PosAlign.center)
+    );
+
+    bytes += generator.text(
+      "  ",
+      styles: const PosStyles(align: PosAlign.center),
     );
 
     bytes += generator.text(
@@ -2084,24 +2088,12 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
     List<int> bytes = [];
 
-    bytes += generator.text("********************************",
-      styles: const PosStyles(
-        align: PosAlign.center,
-      )
-    );
-
-    bytes += generator.text(widget.companyName,
+    bytes += generator.text(widget.companyName.toUpperCase(),
       styles: const PosStyles(
         align: PosAlign.center,
         bold: true,
         height: PosTextSize.size2,
         width: PosTextSize.size2,
-      )
-    );
-
-    bytes += generator.text("********************************",
-      styles: const PosStyles(
-        align: PosAlign.center,
       )
     );
 
@@ -2200,8 +2192,8 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
     final items = consignment['consignment_items'] ?? [];
 
-    DateTime now = DateTime.now();
-    String formattedDateTime = DateFormat('d/M/H H:m').format(now);
+    DateTime consignmentDate = DateTime.parse(consignment['createdAt']);
+    String formattedDateTime = DateFormat('d/M/H H:m').format(consignmentDate);
 
     String data = SimpleCodec.encode(jsonEncode({
       "cid": packageId,
@@ -2228,7 +2220,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                 /// COMPANY NAME
                 pw.Center(
                   child: pw.Text(
-                    widget.companyName,
+                    widget.companyName.toUpperCase(),
                     style: pw.TextStyle(
                       font: customFont,
                       fontSize: 12,
@@ -2251,11 +2243,6 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                 ),
 
                 pw.SizedBox(height: 6),
-
-                pw.Text(
-                  "********************************",
-                  style: pw.TextStyle(font: customFont),
-                ),
 
                 /// PACKAGE INFO
                 pw.Text(
@@ -2443,10 +2430,6 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                   ),
                 ),
 
-                pw.Text(
-                  "********************************",
-                  style: pw.TextStyle(font: customFont),
-                ),
               ],
             ),
           );

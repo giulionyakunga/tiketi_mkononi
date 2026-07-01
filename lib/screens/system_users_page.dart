@@ -20,10 +20,12 @@ class SystemUsersPage extends StatefulWidget {
 
 class _SystemUsersPageState extends State<SystemUsersPage> {
   List<UserProfile> users = [];
+  int userId2 = 0;
 
   @override
   void initState() {
     super.initState();
+    userId2 = widget.userId - 100;
     fetchUsers();
   }
 
@@ -95,8 +97,8 @@ class _SystemUsersPageState extends State<SystemUsersPage> {
    /// Fetch users from backend
   Future<void> fetchUsers({bool useDNS = true}) async {
 
-    final Uri uri = useDNS ? Uri.parse('${backend_url}api/get_users_only_by_admin/${widget.userId}')
-    : Uri.parse('${backend_url_with_fallback_ip}get_users_only_by_admin/${widget.userId}');
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/get_users_only_by_admin/${userId2}')
+    : Uri.parse('${backend_url_with_fallback_ip}get_users_only_by_admin/${userId2}');
 
     try {
 

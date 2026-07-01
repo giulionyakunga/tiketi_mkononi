@@ -323,7 +323,7 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                             selectedAmount,
                           );
                         },
-                        child: const Text("Lipa"),
+                        child: _isLoading ? const CircularProgressIndicator() : const Text("Lipa"),
                       ),
                     )
                   ],
@@ -368,6 +368,8 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
       }
 
     try {
+      setState(() => _isLoading = true);
+
       final response = await http.post(
         uri,
         headers: {
@@ -425,6 +427,8 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
       }      
     } catch (e) {
       print("Payment error: $e");
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
