@@ -7,7 +7,7 @@ import 'package:tiketi_mkononi/models/bus_route.dart';
 class BusTicketCard extends StatelessWidget {
   final BusTicket ticket;
   final BusRoute busRoute;
-  final Function(BusTicket) printTickets;
+  final Function(BusTicket, {bool isDuplicate}) printTickets;
   final bool isCancelled;
 
   const BusTicketCard({
@@ -254,7 +254,7 @@ class BusTicketCard extends StatelessWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () => printTickets(ticket),
+            onPressed: () => printTickets(ticket, isDuplicate: true),
             child: const Text('Print'),
           ),
           TextButton(

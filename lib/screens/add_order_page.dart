@@ -639,8 +639,10 @@ class _AddOrderPageState extends State<AddOrderPage> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: () async {
+                        onPressed: _isLoading ? null : () async {
                           if(selectedReceiptPackages != null && selectedReceiptPackages! > 0) {
+                            setState(() => _isLoading = true);
+
                             await _sendPaymentRequest(
                               phoneController.text.trim(),
                               selectedReceiptPackages,
@@ -697,9 +699,7 @@ class _AddOrderPageState extends State<AddOrderPage> {
         selectedPaymentMethod2 = 'Azampesa';
       }
 
-      debugPrint('Selected payment method 2: $selectedPaymentMethod2');
-
-    try { 
+    try {
       setState(() => _isLoading = true);
 
       final response = await http.post(
@@ -1857,7 +1857,7 @@ class _AddOrderPageState extends State<AddOrderPage> {
     final items = order.orderItems;
 
     DateTime orderDate = order.createdAt;
-    String formattedDateTime = DateFormat('d/M/H H:m').format(orderDate);
+    String formattedDateTime = DateFormat('d/M/y H:m').format(orderDate);
 
     List<int> bytes = [];
 
@@ -1866,12 +1866,17 @@ class _AddOrderPageState extends State<AddOrderPage> {
         align: PosAlign.center,
         bold: true,
         height: PosTextSize.size1,
+        width: PosTextSize.size1,
       )
     );
 
     bytes += generator.text(
       "ORDER RECEIPT",
-      styles: const PosStyles(align: PosAlign.center),
+      styles: const PosStyles(
+        align: PosAlign.center,
+        height: PosTextSize.size2,
+        width: PosTextSize.size2,
+      ),
     );
 
     bytes += generator.text(
@@ -1886,7 +1891,11 @@ class _AddOrderPageState extends State<AddOrderPage> {
 
     bytes += generator.row([
       PosColumn(text: "Customer Name", width: 6),
-      PosColumn(text: order.customerName, width: 6),
+      PosColumn(
+        text: order.customerName, 
+        width: 6,
+        styles: const PosStyles(bold: true),
+      ),
     ]);
     
     double totalPrice = double.tryParse(
@@ -1895,12 +1904,20 @@ class _AddOrderPageState extends State<AddOrderPage> {
 
     bytes += generator.row([
       PosColumn(text: "Total Price", width: 6),
-      PosColumn(text: 'TZS ${NumberFormat('#,##0').format(totalPrice)}', width: 6),
+      PosColumn(
+        text: 'TZS ${NumberFormat('#,##0').format(totalPrice)}', 
+        width: 6,
+        styles: const PosStyles(bold: true),
+      ),
     ]);
 
     bytes += generator.row([
       PosColumn(text: "Payment Status", width: 6),
-      PosColumn(text: order.paymentStatus ? "Paid" : "Not Paid", width: 6),
+      PosColumn(
+        text: order.paymentStatus ? "PAID" : "NOT PAID",
+        width: 6,
+        styles: const PosStyles(bold: true),
+      ),
     ]);
 
     bytes += generator.text(
@@ -1931,16 +1948,45 @@ class _AddOrderPageState extends State<AddOrderPage> {
       styles: const PosStyles(bold: true),
     );
 
+    bytes += generator.row([
+      PosColumn(
+        text: 'Product',
+        width: 6,
+        styles: const PosStyles(bold: true),
+      ),
+      PosColumn(
+        text: 'Qty',
+        width: 2,
+        styles: const PosStyles(bold: true, align: PosAlign.center),
+      ),
+      PosColumn(
+        text: "Price",
+        width: 4,
+        styles: const PosStyles(bold: true, align: PosAlign.right),
+      ),
+    ]);
+
     int totalAmount = 0;
     // Items
     if(items.length > 0) {
       for (var item in items) {
         totalAmount += (item.price as num).toInt() * (item.quantity as num).toInt();
-        bytes += generator.row([
+
+        bytes += generator.row([ 
           PosColumn(
-              text: "${item.name} x${item.quantity}", width: 8),
+            text: item.name,
+            width: 6,
+          ),
           PosColumn(
-              text: "TZS ${NumberFormat('#,##0').format(((item.price)))}", width: 4, styles: const PosStyles(align: PosAlign.right)),
+            text: item.quantity.toString(),
+            width: 2,
+            styles: const PosStyles(bold: true, align: PosAlign.center),
+          ),
+          PosColumn(
+            text: "TZS${NumberFormat('#,##0').format(item.price)}",
+            width: 4,
+            styles: const PosStyles(align: PosAlign.right),
+          ),
         ]);
       }
 
@@ -1951,8 +1997,12 @@ class _AddOrderPageState extends State<AddOrderPage> {
       );
 
       bytes += generator.row([
-        PosColumn(text: "Total Amount", width: 6),
-        PosColumn(text: "TZS ${NumberFormat('#,##0').format(totalAmount)}", width: 6, styles: const PosStyles(align: PosAlign.right)),
+        PosColumn(
+          text: "Total Amount", 
+          width: 6,
+          styles: const PosStyles(bold: true),
+        ),
+        PosColumn(text: "TZS ${NumberFormat('#,##0').format(totalAmount)}", width: 6, styles: const PosStyles(bold: true, align: PosAlign.right)),
       ]);
 
       bytes += generator.text("--------------------------------",
@@ -1961,7 +2011,6 @@ class _AddOrderPageState extends State<AddOrderPage> {
         )
       );
     }
-
 
     bytes += generator.text(
       "Issued By:",
@@ -1979,6 +2028,11 @@ class _AddOrderPageState extends State<AddOrderPage> {
       PosColumn(text: "Date", width: 6),
       PosColumn(text: formattedDateTime, width: 6),
     ]);
+
+    bytes += generator.text(
+      "  ",
+      styles: const PosStyles(align: PosAlign.center),
+    );
 
     // QR
     String data = SimpleCodec.encode(jsonEncode({
@@ -2036,7 +2090,7 @@ class _AddOrderPageState extends State<AddOrderPage> {
     final items = order.orderItems;
 
     DateTime orderDate = order.createdAt;
-    String formattedDateTime = DateFormat('d/M/H H:m').format(orderDate);
+    String formattedDateTime = DateFormat('d/M/y H:m').format(orderDate);
 
     String data = SimpleCodec.encode(jsonEncode({
       "oid": order.id,
@@ -2132,7 +2186,7 @@ class _AddOrderPageState extends State<AddOrderPage> {
                 pw.SizedBox(height: 6),
 
                 /// ITEMS
-                if ((items.length > 1) && (items.length <= 10)) ...[
+                if ((items.length > 0) && (items.length <= 10)) ...[
                   pw.SizedBox(height: 6),
 
                   pw.Text(

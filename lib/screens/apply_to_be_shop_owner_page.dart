@@ -114,7 +114,7 @@ class _ApplyToBeShopOwnerPageState
         backgroundColor: Colors.teal[800],
         foregroundColor: Colors.white,
       ),
-      body: SingleChildScrollView(
+      body: SingleChildScrollView( 
         padding: EdgeInsets.symmetric(
           horizontal: isLargeScreen ? 40 : 20,
           vertical: 24,
@@ -126,7 +126,7 @@ class _ApplyToBeShopOwnerPageState
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Color(0xFF3F51B5), Color(0xFF1A237E)],
+                  colors: [Color(0xFF00796B), Color(0xFF004D40)],
                 ),
                 borderRadius: BorderRadius.circular(12),
               ),

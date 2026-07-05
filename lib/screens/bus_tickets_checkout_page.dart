@@ -316,12 +316,20 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: () async {
-                          await _sendPaymentRequest(
-                            phoneController.text.trim(),
-                            selectedReceiptPackages,
-                            selectedAmount,
-                          );
+                        onPressed: _isLoading ? null : () async {
+                          if(selectedReceiptPackages != null && selectedReceiptPackages! > 0) {
+                            setState(() => _isLoading = true);
+
+                            await _sendPaymentRequest(
+                              phoneController.text.trim(),
+                              selectedReceiptPackages,
+                              selectedAmount,
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Tafadhali chagua kifurushi")),
+                            );
+                          }
                         },
                         child: _isLoading ? const CircularProgressIndicator() : const Text("Lipa"),
                       ),
@@ -2678,7 +2686,7 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
     await PrintBluetoothThermal.writeBytes(bytes);
   }
 
-  Future<void> _printBluetoothReceipt(BusTicket busTicket) async {
+  Future<void> _printBluetoothReceipt(BusTicket busTicket, {bool isDuplicate = false}) async {
     if (selectedPrinter == null) {
       await _refreshBluetoothPrinters();
       if (selectedPrinter == null) return;
@@ -2702,13 +2710,7 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
     final profile = await CapabilityProfile.load();
     final generator = Generator(PaperSize.mm58, profile);
 
-    List<int> bytes = [];
-
-    bytes += generator.text("********************************",
-      styles: const PosStyles(
-        align: PosAlign.center,
-      )
-    );
+    List<int> bytes = []; 
 
     bytes += generator.text(widget.companyName,
       styles: const PosStyles(
@@ -2718,10 +2720,14 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
       )
     );
 
-    bytes += generator.text("********************************",
-      styles: const PosStyles(
-        align: PosAlign.center,
-      )
+    bytes += generator.text(
+      widget.busRoute.bus!.name,
+      styles: const PosStyles(align: PosAlign.center),
+    );
+
+    bytes += generator.text(
+      widget.busRoute.bus!.registrationNumber,
+      styles: const PosStyles(align: PosAlign.center),
     );
 
     bytes += generator.text(
@@ -2729,8 +2735,15 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
       styles: const PosStyles(align: PosAlign.center),
     );
 
+    if (isDuplicate) {
+      bytes += generator.text(
+        "DUPLICATE COPY",
+        styles: const PosStyles(align: PosAlign.center, bold: true),
+      );
+    }
+
     bytes += generator.text(
-      "",
+      " ",
       styles: const PosStyles(bold: true),
     );
 
@@ -2836,7 +2849,11 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
 
     bytes += generator.row([
       PosColumn(text: "Seat Number:", width: 6),
-      PosColumn(text: busTicket.seatNumber, width: 6),
+      PosColumn(
+        text: busTicket.seatNumber, 
+        width: 6,
+        styles: const PosStyles(bold: true),
+      ),
     ]);
 
     bytes += generator.text("--------------------------------",
@@ -2846,8 +2863,15 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
     );
 
     bytes += generator.row([
-      PosColumn(text: "Ticket Price:", width: 6),
-      PosColumn(text: "TZS ${NumberFormat('#,##0').format(busTicket.ticketPrice)}", width: 6, styles: const PosStyles(align: PosAlign.right)),
+      PosColumn(
+        text: "Ticket Price:", 
+        width: 6,
+        styles: const PosStyles(bold: true),
+      ),
+      PosColumn(
+        text: "TZS ${NumberFormat('#,##0').format(busTicket.ticketPrice)}", 
+        width: 6, 
+        styles: const PosStyles(bold: true, align: PosAlign.right)),
     ]);
 
     bytes += generator.text("--------------------------------",
@@ -2886,6 +2910,11 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
       PosColumn(text: '$hour:$minute:$second', width: 6),
     ]);
 
+    bytes += generator.text(
+      "",
+      styles: const PosStyles(bold: true),
+    );
+
     // QR
     String data = SimpleCodec.encode(jsonEncode({
       "tid": busTicket.id,
@@ -2895,6 +2924,11 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
     bytes += generator.qrcode(
       data,
       size: QRSize.size5,
+    );
+
+    bytes += generator.text(
+      "",
+      styles: const PosStyles(bold: true),
     );
 
     bytes += generator.text(

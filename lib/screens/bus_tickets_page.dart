@@ -13,7 +13,7 @@ import 'package:tiketi_mkononi/widgets/bus_ticket_card.dart';
 class BusTicketsPage extends StatefulWidget {
   final int userId;
   final BusRoute busRoute;
-  final Function(BusTicket) printTickets;
+  final Function(BusTicket, {bool isDuplicate}) printTickets;
   
   const BusTicketsPage({super.key, required this.userId, required this.busRoute, required this.printTickets});
 

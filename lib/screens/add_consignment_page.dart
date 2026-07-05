@@ -652,10 +652,10 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: () async {
+                        onPressed: _isLoading ? null : () async {
                           if(selectedReceiptPackages != null && selectedReceiptPackages! > 0) {
-                            debugPrint(" >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Paying...");
                             setState(() => _isLoading = true);
+
                             await _sendPaymentRequest(
                               phoneController.text.trim(),
                               selectedReceiptPackages,
@@ -667,7 +667,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                             );
                           }
                         },
-                        child: _isLoading ? const CircularProgressIndicator() : Text("Lipa $_isLoading"),
+                        child: _isLoading ? const CircularProgressIndicator() : Text("Lipa"),
                       ),
                     ) 
                   ],
@@ -1619,7 +1619,6 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                     },
 
                     fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
-                      controller.text = _toController.text;
 
                       return TextFormField(
                         controller: controller,
@@ -1879,8 +1878,8 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
     final items = consignment['consignment_items'] ?? [];
 
-    DateTime consignmentDate = DateTime.parse(consignment['createdAt']);
-    String formattedDateTime = DateFormat('d/M/H H:m').format(consignmentDate);
+    DateTime now = DateTime.now();
+    String formattedDateTime = DateFormat('d/M/y H:m').format(now);
 
     List<int> bytes = [];
 
@@ -1902,6 +1901,11 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       styles: const PosStyles(align: PosAlign.center),
     );
 
+    bytes += generator.text(
+      "  ",
+      styles: const PosStyles(align: PosAlign.center),
+    );
+
     bytes += generator.row([
       PosColumn(text: "Package Name", width: 6),
       PosColumn(text: consignment['package_name'] ?? '', width: 6),
@@ -1918,7 +1922,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
     bytes += generator.row([
       PosColumn(text: "Payment Status", width: 6),
-      PosColumn(text: consignment['payment_status'] ? "Paid" : "Not Paid", width: 6),
+      PosColumn(text: consignment['payment_status'] ? "PAID" : "NOT PAID", width: 6),
     ]);
 
     double paidAmount = double.tryParse(
@@ -1929,6 +1933,11 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       PosColumn(text: "Paid Amount", width: 6),
       PosColumn(text: 'TZS ${NumberFormat('#,##0').format(paidAmount)}', width: 6),
     ]);
+
+    bytes += generator.text(
+      "  ",
+      styles: const PosStyles(align: PosAlign.center),
+    );
 
     bytes += generator.text(
       "Route:",
@@ -1944,6 +1953,11 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       PosColumn(text: "To", width: 6),
       PosColumn(text: consignment['to'] ?? '', width: 6),
     ]);
+
+    bytes += generator.text(
+      "  ",
+      styles: const PosStyles(align: PosAlign.center),
+    );
 
     bytes += generator.text(
       "Sender:",
@@ -1971,16 +1985,55 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       PosColumn(text: consignment['receiver_phone_number'] ?? '', width: 6),
     ]);
 
+    bytes += generator.text(
+      "  ",
+      styles: const PosStyles(align: PosAlign.center),
+    );
+
     int totalAmount = 0;
     // Items
     if(items.length > 1) {
+      bytes += generator.text(
+        "Consignment Items",
+        styles: const PosStyles(bold: true),
+      );
+
+      bytes += generator.row([
+        PosColumn(
+          text: 'Name',
+          width: 6,
+          styles: const PosStyles(bold: true),
+        ),
+        PosColumn(
+          text: 'Qty',
+          width: 2,
+          styles: const PosStyles(bold: true, align: PosAlign.center),
+        ),
+        PosColumn(
+          text: "Price",
+          width: 4,
+          styles: const PosStyles(bold: true, align: PosAlign.right),
+        ),
+      ]);
+      
       for (var item in items) {
         totalAmount += (item['value'] as num).toInt() * (item['quantity'] as num).toInt();
-        bytes += generator.row([
+
+        bytes += generator.row([ 
           PosColumn(
-              text: "${item['name']} x${item['quantity']}", width: 8),
+            text: item['name'],
+            width: 6,
+          ),
           PosColumn(
-              text: "TZS ${NumberFormat('#,##0').format(((item['value'] ?? 0)))}", width: 4, styles: const PosStyles(align: PosAlign.right)),
+            text: item['quantity'].toString(),
+            width: 2,
+            styles: const PosStyles(bold: true, align: PosAlign.center),
+          ),
+          PosColumn(
+            text: "TZS${NumberFormat('#,##0').format(item['value'] ?? 0)}",
+            width: 4,
+            styles: const PosStyles(align: PosAlign.right),
+          ),
         ]);
       }
 
@@ -1991,8 +2044,12 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       );
 
       bytes += generator.row([
-        PosColumn(text: "Total Amount", width: 6),
-        PosColumn(text: "TZS ${NumberFormat('#,##0').format(totalAmount)}", width: 6, styles: const PosStyles(align: PosAlign.right)),
+        PosColumn(
+          text: "Total Amount", 
+          width: 6,
+          styles: const PosStyles(bold: true),
+        ),
+        PosColumn(text: "TZS ${NumberFormat('#,##0').format(totalAmount)}", width: 6, styles: const PosStyles(bold: true, align: PosAlign.right)),
       ]);
 
       bytes += generator.text("--------------------------------",
@@ -2002,6 +2059,10 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       );
     }
 
+    bytes += generator.text(
+      "  ",
+      styles: const PosStyles(align: PosAlign.center),
+    );
 
     bytes += generator.text(
       "Issued By:",
@@ -2019,6 +2080,11 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       PosColumn(text: "Date", width: 6),
       PosColumn(text: formattedDateTime, width: 6),
     ]);
+
+    bytes += generator.text(
+      "  ",
+      styles: const PosStyles(align: PosAlign.center),
+    );
 
     // QR
     String data = SimpleCodec.encode(jsonEncode({
@@ -2193,7 +2259,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     final items = consignment['consignment_items'] ?? [];
 
     DateTime consignmentDate = DateTime.parse(consignment['createdAt']);
-    String formattedDateTime = DateFormat('d/M/H H:m').format(consignmentDate);
+    String formattedDateTime = DateFormat('d/M/y H:m').format(consignmentDate);
 
     String data = SimpleCodec.encode(jsonEncode({
       "cid": packageId,

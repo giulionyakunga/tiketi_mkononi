@@ -740,7 +740,6 @@ class _OrdersPageState extends State<OrdersPage> {
     }
   }
 
-
   Future<void> exportAllPackages(List<Order> orders) async {
     if(orders.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1124,7 +1123,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                     Row(
                                       children: [
                                         Text(
-                                          '${order.orderItems.length} item${order.orderItems.length > 1 ? 's' : ''}',
+                                          '${order.orderItems.length} item${order.orderItems.length > 0 ? 's' : ''}',
                                           style: TextStyle(
                                             color: Colors.grey.shade600,
                                             fontSize: 12,
@@ -1728,10 +1727,10 @@ class _OrdersPageState extends State<OrdersPage> {
     final items = order.orderItems;
 
     DateTime now = DateTime.now();
-    String duplicateDateTime = DateFormat('d/M/H H:m').format(now);
+    String duplicateDateTime = DateFormat('d/M/y H:m').format(now);
 
     DateTime orderDate = order.createdAt;
-    String formattedDateTime = DateFormat('d/M/H H:m').format(orderDate);
+    String formattedDateTime = DateFormat('d/M/y H:m').format(orderDate);
 
     List<int> bytes = [];
 
@@ -1765,12 +1764,17 @@ class _OrdersPageState extends State<OrdersPage> {
         align: PosAlign.center,
         bold: true,
         height: PosTextSize.size1,
+        width: PosTextSize.size1,
       )
     );
 
     bytes += generator.text(
       "ORDER RECEIPT",
-      styles: const PosStyles(align: PosAlign.center),
+      styles: const PosStyles(
+        align: PosAlign.center,
+        height: PosTextSize.size2,
+        width: PosTextSize.size2,
+      ),
     );
 
     bytes += generator.text(
@@ -1778,9 +1782,18 @@ class _OrdersPageState extends State<OrdersPage> {
       styles: const PosStyles(align: PosAlign.center),
     );
 
-    bytes += generator.row([
+    bytes += generator.text(
+      "  ",
+      styles: const PosStyles(align: PosAlign.center),
+    );
+
+    bytes += generator.row([ 
       PosColumn(text: "Customer Name", width: 6),
-      PosColumn(text: order.customerName, width: 6),
+      PosColumn(
+        text: order.customerName, 
+        width: 6,
+        styles: const PosStyles(bold: true),
+      ),
     ]);
     
     double totalPrice = double.tryParse(
@@ -1789,14 +1802,26 @@ class _OrdersPageState extends State<OrdersPage> {
 
     bytes += generator.row([
       PosColumn(text: "Total Price", width: 6),
-      PosColumn(text: 'TZS ${NumberFormat('#,##0').format(totalPrice)}', width: 6),
+      PosColumn(
+        text: 'TZS ${NumberFormat('#,##0').format(totalPrice)}', 
+        width: 6,
+        styles: const PosStyles(bold: true),
+      ),
     ]);
 
     bytes += generator.row([
       PosColumn(text: "Payment Status", width: 6),
-      PosColumn(text: order.paymentStatus ? "Paid" : "Not Paid", width: 6),
+      PosColumn(
+        text: order.paymentStatus ? "PAID" : "NOT PAID",
+        width: 6,
+        styles: const PosStyles(bold: true),
+      ),
     ]);
 
+    bytes += generator.text(
+      "  ",
+      styles: const PosStyles(align: PosAlign.center),
+    );
 
     bytes += generator.text(
       "Customer Details",
@@ -1811,18 +1836,55 @@ class _OrdersPageState extends State<OrdersPage> {
       PosColumn(text: order.customerPhoneNumber, width: 6),
     ]);
 
+    bytes += generator.text(
+      "  ",
+      styles: const PosStyles(align: PosAlign.center),
+    );
 
+    bytes += generator.text(
+      "Order Items",
+      styles: const PosStyles(bold: true),
+    );
+
+    bytes += generator.row([
+      PosColumn(
+        text: 'Product',
+        width: 6,
+        styles: const PosStyles(bold: true),
+      ),
+      PosColumn(
+        text: 'Qty',
+        width: 2,
+        styles: const PosStyles(bold: true, align: PosAlign.center),
+      ),
+      PosColumn(
+        text: "Price",
+        width: 4,
+        styles: const PosStyles(bold: true, align: PosAlign.right),
+      ),
+    ]);
 
     int totalAmount = 0;
     // Items
-    if(items.length > 1) {
+    if(items.length > 0) { 
       for (var item in items) {
         totalAmount += (item.price as num).toInt() * (item.quantity as num).toInt();
-        bytes += generator.row([
+
+        bytes += generator.row([ 
           PosColumn(
-              text: "${item.name} x${item.quantity}", width: 8),
+            text: item.name,
+            width: 6,
+          ),
           PosColumn(
-              text: "TZS ${NumberFormat('#,##0').format(((item.price)))}", width: 4, styles: const PosStyles(align: PosAlign.right)),
+            text: item.quantity.toString(),
+            width: 2,
+            styles: const PosStyles(bold: true, align: PosAlign.center),
+          ),
+          PosColumn(
+            text: "TZS${NumberFormat('#,##0').format(item.price)}",
+            width: 4,
+            styles: const PosStyles(align: PosAlign.right),
+          ),
         ]);
       }
 
@@ -1833,8 +1895,12 @@ class _OrdersPageState extends State<OrdersPage> {
       );
 
       bytes += generator.row([
-        PosColumn(text: "Total Amount", width: 6),
-        PosColumn(text: "TZS ${NumberFormat('#,##0').format(totalAmount)}", width: 6, styles: const PosStyles(align: PosAlign.right)),
+        PosColumn(
+          text: "Total Amount", 
+          width: 6,
+          styles: const PosStyles(bold: true),
+        ),
+        PosColumn(text: "TZS ${NumberFormat('#,##0').format(totalAmount)}", width: 6, styles: const PosStyles(bold: true, align: PosAlign.right)),
       ]);
 
       bytes += generator.text("--------------------------------",
@@ -1843,7 +1909,6 @@ class _OrdersPageState extends State<OrdersPage> {
         )
       );
     }
-
 
     bytes += generator.text(
       "Issued By:",
@@ -1862,6 +1927,11 @@ class _OrdersPageState extends State<OrdersPage> {
       PosColumn(text: formattedDateTime, width: 6),
     ]);
 
+    bytes += generator.text(
+      "  ",
+      styles: const PosStyles(align: PosAlign.center),
+    );
+
     // QR
     String data = SimpleCodec.encode(jsonEncode({
       "oid": order.id,
@@ -1874,8 +1944,18 @@ class _OrdersPageState extends State<OrdersPage> {
     );
 
     bytes += generator.text(
+      "  ",
+      styles: const PosStyles(align: PosAlign.center),
+    );
+
+    bytes += generator.text(
       receiptFooter,
       styles: const PosStyles(align: PosAlign.center)
+    );
+
+    bytes += generator.text(
+      "  ",
+      styles: const PosStyles(align: PosAlign.center),
     );
 
     bytes += generator.text(
@@ -1908,7 +1988,7 @@ class _OrdersPageState extends State<OrdersPage> {
     final items = order.orderItems;
 
     DateTime now = DateTime.now();
-    String formattedDateTime = DateFormat('d/M/H H:m').format(now);
+    String formattedDateTime = DateFormat('d/M/y H:m').format(now);
 
     String data = SimpleCodec.encode(jsonEncode({
       "oid": order.id,
@@ -2009,7 +2089,7 @@ class _OrdersPageState extends State<OrdersPage> {
                 pw.SizedBox(height: 6),
 
                 /// ITEMS
-                if ((items.length > 1) && (items.length <= 10)) ...[
+                if ((items.length > 0) && (items.length <= 10)) ...[
                   pw.SizedBox(height: 6),
 
                   pw.Text(
@@ -2991,7 +3071,7 @@ Widget _buildOrderItemTile(OrderItem item) {
                 Icon(Icons.receipt_long, color: Colors.grey.shade600),
                 const SizedBox(width: 6),
                 Text(
-                  '${order.orderItems.length} item${order.orderItems.length > 1 ? 's' : ''}',
+                  '${order.orderItems.length} item${order.orderItems.length > 0 ? 's' : ''}',
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.grey.shade700,

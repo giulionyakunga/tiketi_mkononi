@@ -493,38 +493,38 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             if (isWideScreen)
-              SliverToBoxAdapter(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        Color.fromARGB(255, 240, 244, 247),
-                        Color.fromARGB(255, 240, 244, 247)
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Text(
-                        'Tiketi Mkononi',
-                        style: TextStyle(
-                          fontWeight: FontWeight.normal,
-                          fontSize: 28,
-                          color: Colors.orange[800],
-                        ),
-                      ),
-                      const Spacer(),
-                      SizedBox(
-                        width: 400,
-                        child: _buildSearchBar(isDarkMode),
-                      ),
+            SliverToBoxAdapter(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Color.fromARGB(255, 240, 244, 247),
+                      Color.fromARGB(255, 240, 244, 247)
                     ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
                 ),
+                child: Row(
+                  children: [
+                    Text(
+                      'Tiketi Mkononi',
+                      style: TextStyle(
+                        fontWeight: FontWeight.normal,
+                        fontSize: 28,
+                        color: Colors.orange[800],
+                      ),
+                    ),
+                    const Spacer(),
+                    SizedBox(
+                      width: 400,
+                      child: _buildSearchBar(isDarkMode),
+                    ),
+                  ],
+                ),
               ),
+            ),
             SliverPadding(
               padding: EdgeInsets.symmetric(
                 horizontal: isWideScreen ? 40 : 16,
