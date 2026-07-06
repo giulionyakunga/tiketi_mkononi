@@ -353,7 +353,18 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get topupReceipt => 'Topup Receipt';
+  String cardsBalance(Object balance) {
+    return 'Cards Balance: $balance';
+  }
+
+  @override
+  String get topupReceipts => 'Topup Receipts';
+
+  @override
+  String get topupCards => 'Topup Cards';
+
+  @override
+  String get viewCards => 'View Cards';
 
   @override
   String get exit => 'Exit';

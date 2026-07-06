@@ -46,6 +46,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
   int companyId = 0;
   int officeId = 0;
   int shopId = 0;
+  int paidSms = 0;
   String companyName = "";
   String shopName = "";
   String role = "user";
@@ -81,6 +82,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
         shopId = profile.shopId;
         shopName = profile.shopName;
         role = profile.role;
+        paidSms = profile.paidSms;
         _firstNameController.text = profile.firstName;
         _lastNameController.text = profile.lastName;
         _emailController.text = profile.email;
@@ -107,6 +109,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
           companyId = responseData['company_id'] ?? 0;
           officeId = responseData['office_id'] ?? 0;
           shopId = responseData['shop_id'] ?? 0;
+          paidSms = responseData['paid_sms'] ?? 0;
           role = responseData['role'];
           companyName = responseData['company_name'] ?? '';
           shopName = responseData['shop_name'] ?? '';
@@ -119,7 +122,10 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
         profile.companyName =  responseData['company_name']  ?? '';
         profile.shopId =  responseData['shop_id']  ?? 0;
         profile.shopName =  responseData['shop_name']  ?? '';
+        profile.paidSms =  responseData['paid_sms']  ?? 0;
         await _storageService.saveUserProfile(profile);
+
+        await _savePaidSmsBalance(profile.paidSms);
       }
     } on SocketException catch (e) {
       debugPrint('Network error occurred:');
@@ -149,6 +155,11 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
     } finally {
       debugPrint('Process finished');
     }
+  }
+
+  Future<void> _savePaidSmsBalance(int value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('paid_sms_balance', value);
   }
 
   Future<void> getShopInfo({bool useDNS = true}) async {

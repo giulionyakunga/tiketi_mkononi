@@ -104,17 +104,15 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
 
   Future<void> _initializeServices() async {
     final prefs = await SharedPreferences.getInstance();
-    receiptsBalance = prefs.getInt('receipts_balance') ?? 0;
+    receiptsBalance = prefs.getInt('paid_sms_balance') ?? 0;
     _storageService = StorageService(prefs);
     _loadUserProfile();
   }
 
   Future<void> _saveReceiptsBalance(int value) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('receipts_balance', value);
+    await prefs.setInt('paid_sms_balance', value);
   }
-
-
 
   void _loadUserProfile() {
     final profile = _storageService.getUserProfile();
@@ -175,9 +173,9 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
   }
 
   Future<void> getReceiptPackages({bool useDNS = true}) async {
-    final Uri uri = useDNS ? Uri.parse('${backend_url}api/receipt_packages') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}receipt_packages'); // Use IP
-        
+  final Uri uri = useDNS ? Uri.parse('${backend_url}api/receipt_packages_new/${widget.role}') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}receipt_packages_new/${widget.role}'); // Use IP 
+
     try {
       final response = await http.get(uri);
       if (response.statusCode == 200) {
@@ -252,7 +250,7 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                         dense: true,  
                         visualDensity: const VisualDensity(vertical: -4),
                         title: Text(
-                          "Receipts ${pkg["number_of_receipts"]} - TSH ${pkg["price"]}",
+                          "Receipts ${pkg["number_of_receipts"]} - TSH ${NumberFormat('#,##0').format(pkg["price"].toInt())}",
                           style: const TextStyle(fontSize: 12),
                         ),
                         value: pkg["number_of_receipts"],
@@ -673,7 +671,7 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                   const SizedBox(width: 4),  // Add spacing between text and price
                   Flexible(  // Make price flexible too
                     child: Text(
-                      'TSh ${widget.busRoute.ticketPrice.toString()}',
+                      'TSh ${NumberFormat('#,##0').format(widget.busRoute.ticketPrice.toInt())}',
                       style: const TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.bold,
@@ -943,7 +941,7 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
               ),
               _buildMenuItem(
                 icon: Icons.add_card,
-                text: AppLocalizations.of(context)!.topupReceipt,
+                text: AppLocalizations.of(context)!.topupReceipts,
                 value: 'topup_receipt',
               ),
               const PopupMenuDivider(),
@@ -2869,7 +2867,7 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
         styles: const PosStyles(bold: true),
       ),
       PosColumn(
-        text: "TZS ${NumberFormat('#,##0').format(busTicket.ticketPrice)}", 
+        text: "TZS ${NumberFormat('#,##0').format(busTicket.ticketPrice.toInt())}", 
         width: 6, 
         styles: const PosStyles(bold: true, align: PosAlign.right)),
     ]);

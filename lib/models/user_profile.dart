@@ -4,6 +4,7 @@ class UserProfile {
   String companyName;
   final int officeId;
   int shopId;
+  int paidSms;
   String shopName;
   final String firstName;
   final String middleName;
@@ -28,6 +29,7 @@ class UserProfile {
     required this.officeId,
     required this.shopId,
     required this.shopName,
+    required this.paidSms,
     required this.firstName,
     required this.middleName,
     required this.lastName,
@@ -53,6 +55,7 @@ class UserProfile {
       'office_id': officeId,
       'shop_id': shopId,
       'shopName': shopName,
+      'paid_sms': paidSms,
       'firstName': firstName,
       'middleName': middleName,
       'lastName': lastName,
@@ -77,6 +80,7 @@ class UserProfile {
       officeId: (json['office_id'] ?? 0) as int,
       shopId: (json['shop_id'] ?? 0) as int,
       shopName: (json['shop_name'] ?? '') as String,
+      paidSms: (json['paid_sms'] ?? 0) as int,
       firstName: json['firstName'] as String,
       middleName: json['middleName'] as String,
       lastName: json['lastName'] as String,
@@ -103,6 +107,7 @@ class UserProfile {
       officeId: (json['office_id'] ?? 0) as int,
       shopId: (json['shop_id'] ?? 0) as int,
       shopName: (json['shop_ame'] ?? '') as String,
+      paidSms: (json['paid_sms'] ?? 0) as int,
       firstName: json['first_name'] as String,
       middleName: json['middle_name'] as String,
       lastName: json['last_name'] as String,

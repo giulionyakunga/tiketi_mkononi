@@ -752,11 +752,29 @@ abstract class AppLocalizations {
   /// **'Receipts Balance: {balance}'**
   String receiptsBalance(Object balance);
 
-  /// No description provided for @topupReceipt.
+  /// No description provided for @cardsBalance.
   ///
   /// In en, this message translates to:
-  /// **'Topup Receipt'**
-  String get topupReceipt;
+  /// **'Cards Balance: {balance}'**
+  String cardsBalance(Object balance);
+
+  /// No description provided for @topupReceipts.
+  ///
+  /// In en, this message translates to:
+  /// **'Topup Receipts'**
+  String get topupReceipts;
+
+  /// No description provided for @topupCards.
+  ///
+  /// In en, this message translates to:
+  /// **'Topup Cards'**
+  String get topupCards;
+
+  /// No description provided for @viewCards.
+  ///
+  /// In en, this message translates to:
+  /// **'View Cards'**
+  String get viewCards;
 
   /// No description provided for @exit.
   ///

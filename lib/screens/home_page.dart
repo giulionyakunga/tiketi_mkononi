@@ -35,6 +35,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   int companyId = 0;
   int officeId = 0;
   int shopId = 0;
+  int paidSms = 0;
   String companyName = "";
   String shopName = "";
   String userName = "";
@@ -72,6 +73,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         companyId = profile.companyId;
         officeId = profile.officeId;
         shopId = profile.shopId;
+        paidSms = profile.paidSms;
         companyName = profile.companyName;
         shopName = profile.shopName;
         userName = profile.firstName;
@@ -93,6 +95,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         companyId = profile.companyId;
         officeId = profile.officeId;
         shopId = profile.shopId;
+        paidSms = profile.paidSms;
         companyName = profile.companyName;
         shopName = profile.shopName;
         userName = profile.firstName;
@@ -127,7 +130,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-    Future<void> getUserRole({bool useDNS = true}) async {
+  Future<void> getUserRole({bool useDNS = true}) async {
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/get_user_role/$userId') // Original URL 
     : Uri.parse('${backend_url_with_fallback_ip}get_user_role/$useDNS'); // Use IP
         
@@ -141,6 +144,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           companyId = responseData['company_id'] ?? 0;
           officeId = responseData['office_id'] ?? 0;
           shopId = responseData['shop_id'] ?? 0;
+          paidSms = responseData['paid_sms'] ?? 0;
           role = responseData['role'];
           companyName = responseData['company_name']  ?? '';
           shopName = responseData['shop_name']  ?? '';
@@ -151,8 +155,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         profile!.role =  responseData['role'];
         profile.companyId =  responseData['company_id']  ?? 0;
         profile.companyName =  responseData['company_name']  ?? '';
+        profile.paidSms =  responseData['paid_sms']  ?? 0;
         profile.shopName = responseData['shop_name']  ?? '';
         await _storageService.saveUserProfile(profile);
+
+        await _savePaidSmsBalance(profile.paidSms);
       }
     } on SocketException catch (e) {
       debugPrint('Network error occurred:');
@@ -182,6 +189,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     } finally {
       debugPrint('Process finished');
     }
+  }
+
+  Future<void> _savePaidSmsBalance(int value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('paid_sms_balance', value);
   }
 
   Future<void> fetchEvents({bool useDNS = true}) async {
@@ -267,8 +279,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
-  void refreshMethod() {
-    fetchEvents();
+  Future<void> refreshMethod() async {
+    await fetchEvents();
+    await getUserRole();
   }
 
   List<Event> _getFilteredEvents() {
@@ -486,7 +499,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: fetchEvents,
+        onRefresh: refreshMethod,
         color: Colors.orange[800],
         backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
         child: CustomScrollView(

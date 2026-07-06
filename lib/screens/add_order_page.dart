@@ -254,9 +254,9 @@ class _AddOrderPageState extends State<AddOrderPage> {
   }
 
   Future<void> getReceiptPackages({bool useDNS = true}) async {
-    final Uri uri = useDNS ? Uri.parse('${backend_url}api/receipt_packages') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}receipt_packages'); // Use IP
-        
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/receipt_packages_new/$role') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}receipt_packages_new/$role'); // Use 
+
     try {
       final response = await http.get(uri);
       if (response.statusCode == 200) {
@@ -1454,7 +1454,7 @@ class _AddOrderPageState extends State<AddOrderPage> {
               ),
               _buildMenuItem(
                 icon: Icons.add_card,
-                text: AppLocalizations.of(context)!.topupReceipt,
+                text: AppLocalizations.of(context)!.topupReceipts,
                 value: 'topup_receipt',
               ),
               const PopupMenuDivider(),
@@ -2344,7 +2344,7 @@ class _AddOrderPageState extends State<AddOrderPage> {
 
   Future<void> _saveReceiptsBalance(int value) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('receipts_balance', value);
+    await prefs.setInt('paid_sms_balance', value);
   }
 
   Future<void> _loadNumberOfReceipts() async {
@@ -2352,7 +2352,7 @@ class _AddOrderPageState extends State<AddOrderPage> {
 
     setState(() {
       _selectedNumberofReceiptsToPrint = prefs.getInt('number_of_receipts_to_print') ?? 1;
-      receiptsBalance = prefs.getInt('receipts_balance') ?? 0;
+      receiptsBalance = prefs.getInt('paid_sms_balance') ?? 0;
     });
   }
 

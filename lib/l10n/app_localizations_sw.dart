@@ -361,7 +361,18 @@ class AppLocalizationsSw extends AppLocalizations {
   }
 
   @override
-  String get topupReceipt => 'Nunua Risiti';
+  String cardsBalance(Object balance) {
+    return 'Salio la Kadi: $balance';
+  }
+
+  @override
+  String get topupReceipts => 'Nunua Risiti';
+
+  @override
+  String get topupCards => 'Nunua Kadi';
+
+  @override
+  String get viewCards => 'Ongalia Kadi';
 
   @override
   String get exit => 'Ondoka';

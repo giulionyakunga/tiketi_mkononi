@@ -200,7 +200,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
   Future<void> getUserRole({bool useDNS = true}) async {
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/get_user_role/$userId') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}get_user_role/$useDNS'); // Use IP
+    : Uri.parse('${backend_url_with_fallback_ip}get_user_role/$userId'); // Use IP
         
     try {
       final response = await http.get(uri);
@@ -251,9 +251,9 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
   }
 
   Future<void> getReceiptPackages({bool useDNS = true}) async {
-    final Uri uri = useDNS ? Uri.parse('${backend_url}api/receipt_packages') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}receipt_packages'); // Use IP
-        
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/receipt_packages_new/$role') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}receipt_packages_new/$role'); // Use IP
+
     try {
       final response = await http.get(uri);
       if (response.statusCode == 200) {
@@ -296,7 +296,6 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       debugPrint('Process finished');
     }
   }
-
 
   bool _isLargeScreen(BuildContext context) {
     return MediaQuery.of(context).size.width > 768;
@@ -587,7 +586,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                         dense: true,  
                         visualDensity: const VisualDensity(vertical: -4),
                         title: Text(
-                          "Receipts ${pkg["number_of_receipts"]} - TSH ${pkg["price"]}",
+                          "Receipts ${pkg["number_of_receipts"]} - TSH ${NumberFormat('#,##0').format(pkg["price"])}",
                           style: const TextStyle(fontSize: 12),
                         ),
                         value: pkg["number_of_receipts"],
@@ -1263,7 +1262,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
               ),
               _buildMenuItem(
                 icon: Icons.add_card,
-                text: AppLocalizations.of(context)!.topupReceipt,
+                text: AppLocalizations.of(context)!.topupReceipts,
                 value: 'topup_receipt',
               ),
               const PopupMenuDivider(),
@@ -2564,7 +2563,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
   Future<void> _saveReceiptsBalance(int value) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('receipts_balance', value);
+    await prefs.setInt('paid_sms_balance', value);
   }
 
   Future<void> _loadNumberOfReceipts() async {
@@ -2572,7 +2571,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
     setState(() {
       _selectedNumberofReceiptsToPrint = prefs.getInt('number_of_receipts_to_print') ?? 1;
-      receiptsBalance = prefs.getInt('receipts_balance') ?? 0;
+      receiptsBalance = prefs.getInt('paid_sms_balance') ?? 0;
     });
   }
 

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
@@ -10,6 +11,7 @@ import 'package:tiketi_mkononi/env.dart';
 import 'package:http/http.dart' as http;
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as path;
+import 'package:tiketi_mkononi/l10n/app_localizations.dart';
 import 'package:tiketi_mkononi/models/event.dart';
 import 'package:tiketi_mkononi/screens/card_view_page.dart';
 import 'package:tiketi_mkononi/screens/event_tickets_page.dart';
@@ -43,7 +45,11 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> with TickerProvid
   String _ticketType = '';
   double _ticketPrice = 0.0;
   final Map<String, double> ticketTypePriceMap = {};
+  String selectedPaymentMethod = 'MIXX BY YAS';
+  final List<String> paymentMethods = ['MIXX BY YAS', 'M-PESA', 'AIRTEL MONEY', 'HALOPESA', 'AZAMPESA'];
+  int cardsBalance = 0;
 
+  List<dynamic> cardPackages = [];
   
   bool useDNS = true;
   late TabController _tabController;
@@ -59,6 +65,8 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> with TickerProvid
     super.initState();
     _nameController.text = widget.event.name;
     _initializeServices();
+    _loadNumberOfCards();
+
     _getTicketTypes(widget.event.ticketTypes);
     _tabController = TabController(length: 2, vsync: this);
   }
@@ -347,15 +355,32 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> with TickerProvid
       );
 
       if (response.statusCode == 200) {
-        if (response.body == "Ticket added successfully!") {
+        final responseData = jsonDecode(response.body);
+        String message = responseData['message'];
+
+        setState(() {
+          cardsBalance = responseData['number_of_sms'] ?? 0;
+        });
+
+        _saveCardsBalance(cardsBalance);
+
+        if (message.trim() == "Ticket added successfully!") {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${response.body}')),
+            SnackBar(content: Text(message)),
+          );
+        } else if (message.trim() == "Kifurushi chako kimeisha!") {
+          await getCardPackages();
+          _payDialog();
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(message.trim())),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Response: ${response.body}')),
+            SnackBar(content: Text('Response: $message')),
           );
         }
+
       } else if (response.statusCode == 302) {
         _handleHTTPRedirect();
       } else {
@@ -1098,6 +1123,7 @@ Widget _buildFeatureChip(IconData icon, String label) {
           titleSpacing: 0,
           backgroundColor: const Color.fromARGB(255, 240, 244, 247),
           actions: [
+            if(role == 'admin')
             IconButton(
               icon: Icon(
                 Icons.remove_red_eye,
@@ -1112,19 +1138,56 @@ Widget _buildFeatureChip(IconData icon, String label) {
                 );
               },
             ),
-            IconButton(
-              icon: Icon(
-                Icons.receipt,
-                color: Colors.orange[800],
+            PopupMenuButton<String>(
+              padding: EdgeInsets.zero,
+              tooltip: 'More Options',
+              elevation: 8,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-              onPressed: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => EventTicketsPage(event: widget.event),
-                  ),
-                );
+              icon: Icon(
+                Icons.more_vert,
+                color: Colors.orange[800],
+                size: 22,
+              ),
+              onSelected: (value) async {
+                if (value == 'view_cards') {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => EventTicketsPage(event: widget.event),
+                    ),
+                  );
+                } else if (value == 'topup_cards') {
+                  await getCardPackages();
+                  _payDialog();
+                } else if (value == 'exit') {
+                  Navigator.pop(context);
+                }
               },
+              itemBuilder: (context) => [   
+                _buildMenuItem(
+                  icon: Icons.receipt,
+                  text: AppLocalizations.of(context)!.viewCards,
+                  value: 'view_cards',
+                ),           
+                _buildMenuItem(
+                  icon: Icons.account_balance_wallet,
+                  text: AppLocalizations.of(context)!.cardsBalance(cardsBalance.toString()),
+                  value: 'topup_cards',
+                ),
+                _buildMenuItem(
+                  icon: Icons.add_card,
+                  text: AppLocalizations.of(context)!.topupCards,
+                  value: 'topup_cards',
+                ),
+                const PopupMenuDivider(),
+                _buildMenuItem(
+                  icon: Icons.exit_to_app,
+                  text: AppLocalizations.of(context)!.exit,
+                  value: 'exit',
+                ),
+              ],
             ),
           ],
           bottom: TabBar(
@@ -1153,6 +1216,7 @@ Widget _buildFeatureChip(IconData icon, String label) {
         title: const Text('Generate Cards'),
         backgroundColor: const Color.fromARGB(255, 240, 244, 247),
         actions: [
+          if(role == 'admin')
           IconButton(
             icon: Icon(
               Icons.remove_red_eye,
@@ -1335,6 +1399,319 @@ Widget _buildFeatureChip(IconData icon, String label) {
         ),
       ),
     );
+  }
+
+  PopupMenuItem<String> _buildMenuItem({
+    required IconData icon,
+    required String text,
+    required String value,
+  }) {
+    return PopupMenuItem<String>(
+      value: value,
+      height: 44,
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 20,
+            color: Colors.grey.shade800,
+          ),
+          const SizedBox(width: 12),
+          Text(
+            text,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> getCardPackages({bool useDNS = true}) async {
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/receipt_packages_new/$role') // Original URL 
+    : Uri.parse('${backend_url_with_fallback_ip}receipt_packages_new/$role'); // Use IP
+
+    try {
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        debugPrint("response.body : ${response.body}");
+
+        final responseData = jsonDecode(response.body); // This is a List<dynamic>
+
+        if(responseData.length > 0) {
+          setState(() {
+            cardPackages = responseData;
+          });
+        } 
+      }
+    } on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await getCardPackages(useDNS: false); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
+          return;
+        }
+      }
+
+      _handleSocketException(e);
+    } catch (e) {
+      debugPrint('Error getting offices: $e');
+    } finally {
+      debugPrint('Process finished');
+    }
+  }
+
+  Future<void> _payDialog() async {
+    int? selectedReceiptPackages = cardPackages.isNotEmpty ? cardPackages[0]["number_of_receipts"] as int : null;
+    int? selectedAmount = cardPackages.isNotEmpty ? cardPackages[0]["price"] as int : null;
+
+    final TextEditingController phoneController = TextEditingController();
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+              title: const Text(
+                "Chagua kifurushi",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+
+                    const Divider(height: 4),
+                    
+                    /// Packages
+                    ...cardPackages
+                    .map((pkg) {
+                      return RadioListTile(
+                        dense: true,  
+                        visualDensity: const VisualDensity(vertical: -4),
+                        title: Text(
+                          "Kadi ${pkg["number_of_receipts"]} - TSH ${NumberFormat('#,##0').format(pkg["price"])}",
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        value: pkg["number_of_receipts"],
+                        groupValue: selectedReceiptPackages,
+                        onChanged: (value) {
+                          setState(() {
+                            selectedReceiptPackages = value;
+                            selectedAmount = pkg["price"] as int;
+                          });
+                        },
+                      );
+                    }),
+
+                    const SizedBox(height: 6),
+
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        "Njia ya Malipo",
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+
+                    const Divider(height: 10),
+
+                    /// Payment Methods
+                    Column(
+                      children: paymentMethods.map((method) {
+                        return RadioListTile(
+                          dense: true,
+                          visualDensity: const VisualDensity(vertical: -4),
+                          title: Text(method, style: const TextStyle(fontSize: 12)),
+                          value: method,
+                          groupValue: selectedPaymentMethod,
+                          onChanged: (value) {
+                            debugPrint('Selected payment method: $value');
+                            debugPrint('SselectedPaymentMethod: $selectedPaymentMethod');
+                            setState(() {
+                              selectedPaymentMethod = value.toString();
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+
+                    const SizedBox(height: 6),
+
+                    /// Phone
+                    TextField(
+                      controller: phoneController,
+                      keyboardType: TextInputType.phone,
+                      decoration: const InputDecoration(
+                        isDense: true,
+                        labelText: "Namba ya simu ya malipo",
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    /// Pay button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : () async {
+                          if(selectedReceiptPackages != null && selectedReceiptPackages! > 0) {
+                            setState(() => _isLoading = true);
+
+                            await _sendPaymentRequest(
+                              phoneController.text.trim(),
+                              selectedReceiptPackages,
+                              selectedAmount,
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Tafadhali chagua kifurushi")),
+                            );
+                          }
+                        },
+                        child: _isLoading ? const CircularProgressIndicator() : Text("Lipa"),
+                      ),
+                    ) 
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _sendPaymentRequest(
+    String phone,
+    int? receipts,
+    int? amount,
+    {bool useDNS = true}
+  ) async {
+
+    if (phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Phone number cannot be empty')),
+      );
+      return;
+    }
+
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/pay_daily_package/$userId') 
+    : Uri.parse('${backend_url_with_fallback_ip}pay_daily_package/$userId'); // Use IP
+
+      debugPrint('Selected payment method: $selectedPaymentMethod');
+
+      String selectedPaymentMethod2 = '';
+      if(selectedPaymentMethod == 'M-PESA') {
+        selectedPaymentMethod2 = 'Mpesa';
+      }else if(selectedPaymentMethod == 'MIXX BY YAS') {
+        selectedPaymentMethod2 = 'Tigo';
+      }else if(selectedPaymentMethod == 'AIRTEL MONEY') {
+        selectedPaymentMethod2 = 'Airtel';
+      }else if(selectedPaymentMethod == 'HALOPESA') {
+        selectedPaymentMethod2 = 'Halopesa';
+      }else if(selectedPaymentMethod == 'AZAMPESA') {
+        selectedPaymentMethod2 = 'Azampesa';
+      }
+
+      debugPrint('Selected payment method 2: $selectedPaymentMethod2');
+
+    try {
+      setState(() => _isLoading = true);
+
+      final response = await http.post(
+        uri,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: jsonEncode({
+          "phone_number": phone,
+          "receipts": receipts,
+          "amount": amount,
+          'selected_payment_method': selectedPaymentMethod2,
+        }),
+      );
+
+      debugPrint('phone_number: $phone');
+      debugPrint('receipts: $receipts');
+      debugPrint('amount: $amount');
+
+      if (response.statusCode == 200) {
+        if (response.body == "Processing payment!") { 
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Ombi la malipo limetumwa")),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(response.body)),
+          );
+        }
+
+        Navigator.pop(context);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Malipo yameshindwa")),
+        );
+      }
+    }  on SocketException catch (e) {
+      debugPrint('Network error occurred:');
+      debugPrint('- Exception type: ${e.runtimeType}');
+      debugPrint('- Message: ${e.message}');
+      
+      if (e.osError != null) {
+        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
+        debugPrint('  - OS message: ${e.osError!.message}');
+        debugPrint('  - errorCode: ${e.osError!.errorCode}');
+        debugPrint('  - useDNS: ${useDNS}');
+
+        // Retry with IP if DNS fails (errno = 7) and not already retrying
+        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
+          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
+          await _sendPaymentRequest(phone, receipts, amount, useDNS: false); // Recursive retry
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('use_dns', false);
+          return;
+        }
+      }
+
+      _handleSocketException(e);
+    } catch (e) {
+      print("Payment error: $e");
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _saveCardsBalance(int value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('paid_sms_balance', value);
+  }
+
+  Future<void> _loadNumberOfCards() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    setState(() {
+      cardsBalance = prefs.getInt('paid_sms_balance') ?? 0;
+    });
   }
 
   @override

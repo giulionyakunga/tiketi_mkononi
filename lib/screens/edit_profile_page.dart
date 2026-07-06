@@ -33,6 +33,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   int companyId = 0;
   int officeId = 0;
   int shopId = 0;
+  int paidSms = 0;
   String companyName = '';
   String shopName = '';
   final _firstNameController = TextEditingController();
@@ -75,6 +76,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         userId = profile.id;
         companyId = profile.companyId;
         officeId = profile.officeId;
+        paidSms = profile.paidSms;
         companyName = profile.companyName;
         shopName = profile.shopName;
         shopId = profile.shopId;
@@ -139,6 +141,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         companyId: companyId,
         officeId: officeId,
         shopId: shopId,
+        paidSms: paidSms,
         companyName: companyName,
         shopName: shopName,
         firstName: _firstNameController.text.trim(),
