@@ -221,7 +221,8 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
 
   void fetchEvent({bool useDNS = true}) async {
     if (!mounted) return;
-    widget.refreshMethod();
+
+    widget.refreshMethod(1);
 
     try {
       final Uri uri = widget.useDNS ? Uri.parse('${backend_url}api/get_event/${widget.event.id}/${userId}') // Original URL 
@@ -1106,7 +1107,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
               MaterialPageRoute(
                 builder: (context) => EditEventPage(
                   event: event,
-                  userId: userId,
+                  userId: userId, 
                   ticketTypesTicketsCount: ticketTypesTicketsCount,
                   refreshMethod: fetchEvent,
                 ),
@@ -1356,7 +1357,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
-                                          builder: (context) => GenerateCardsPage(event: event),
+                                          builder: (context) => GenerateCardsPage(event: event, refreshMethod: fetchEvent),
                                         ),
                                       );
                                     },
@@ -1671,7 +1672,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => GenerateCardsPage(event: event),
+                                  builder: (context) => GenerateCardsPage(event: event, refreshMethod: fetchEvent),
                                 ),
                               );
                             },

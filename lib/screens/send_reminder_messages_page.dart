@@ -1402,20 +1402,6 @@ class _SendReminderMessagesPageState extends State<SendReminderMessagesPage> wit
         title: const Text('Generate Cards'),
         backgroundColor: const Color.fromARGB(255, 240, 244, 247),
         actions: [
-          IconButton(
-            icon: Icon(
-              Icons.remove_red_eye,
-              color: Colors.orange[800],
-            ),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => CardViewPage(event: widget.event),
-                ),
-              );
-            },
-          ),
           ElevatedButton.icon(
             icon: Icon(
               Icons.logout,

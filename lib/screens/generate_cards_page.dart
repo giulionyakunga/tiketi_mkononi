@@ -21,8 +21,9 @@ import 'package:open_filex/open_filex.dart';
 
 class GenerateCardsPage extends StatefulWidget {
   final Event event;
+  final Function refreshMethod; 
 
-  const GenerateCardsPage({super.key, required this.event});
+  const GenerateCardsPage({super.key, required this.event, required this.refreshMethod});
 
   @override
   State<GenerateCardsPage> createState() => _GenerateCardsPageState();
@@ -1133,7 +1134,7 @@ Widget _buildFeatureChip(IconData icon, String label) {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => CardViewPage(event: widget.event),
+                    builder: (context) => CardViewPage(event: widget.event, refreshMethod: widget.refreshMethod),
                   ),
                 );
               },
@@ -1226,7 +1227,7 @@ Widget _buildFeatureChip(IconData icon, String label) {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => CardViewPage(event: widget.event),
+                  builder: (context) => CardViewPage(event: widget.event, refreshMethod: widget.refreshMethod),
                 ),
               );
             },

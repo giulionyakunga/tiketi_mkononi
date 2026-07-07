@@ -73,11 +73,11 @@ class _EventsPageState extends State<EventsPage> {
     });
   }
 
-  void _handleEventsUpdate({bool useDNS = true}) async {
+  void _handleEventsUpdate(int pageKey, {bool useDNS = true}) async {
     if (!mounted) return;
     try {
-      final Uri uri = useDNS ? Uri.parse('${backend_url}api/events/$userId?page=1&limit=$_pageSize') // Original URL 
-      : Uri.parse('${backend_url_with_fallback_ip}events/$userId?page=1&limit=$_pageSize'); // Use IP
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/events/$userId?page=$pageKey&limit=$_pageSize') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}events/$userId?page=$pageKey&limit=$_pageSize'); // Use IP
         
       final response = await http.get(uri);
 
@@ -110,7 +110,7 @@ class _EventsPageState extends State<EventsPage> {
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          _handleEventsUpdate(useDNS: false); // Recursive retry
+          _handleEventsUpdate(pageKey, useDNS: false); // Recursive retry
 
           final prefs = await SharedPreferences.getInstance();
           await prefs.setBool('use_dns', false);

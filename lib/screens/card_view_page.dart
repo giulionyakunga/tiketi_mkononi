@@ -47,8 +47,9 @@ class OverlayConfig {
 /// ===============================
 class CardViewPage extends StatefulWidget {
   final Event event;
+  final Function refreshMethod; 
 
-  const CardViewPage({super.key, required this.event});
+  const CardViewPage({super.key, required this.event, required this.refreshMethod});
 
   @override
   State<CardViewPage> createState() => _CardViewPageState();
@@ -119,7 +120,8 @@ class _CardViewPageState extends State<CardViewPage> {
       ); 
       
       if (response.statusCode == 200) { 
-        if (response.body == "Event updated successfully!") { 
+        if (response.body == "Event updated successfully!") {
+          widget.refreshMethod();
           ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text(response.body)), ); 
         } 
       } else if (response.statusCode == 302) { 
