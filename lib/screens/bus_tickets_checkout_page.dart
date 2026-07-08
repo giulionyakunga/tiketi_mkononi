@@ -247,7 +247,7 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                     ...receiptPackages
                     .map((pkg) {
                       return RadioListTile(
-                        dense: true,  
+                        dense: true,
                         visualDensity: const VisualDensity(vertical: -4),
                         title: Text(
                           "Receipts ${pkg["number_of_receipts"]} - TSH ${NumberFormat('#,##0').format(pkg["price"].toInt())}",

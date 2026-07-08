@@ -81,6 +81,7 @@ class Event {
   final String accountName;
   final String accountName2;
   final String accountName3;
+  final String language;
   
   Event({
     required this.id,
@@ -119,6 +120,7 @@ class Event {
     required this.accountName,
     required this.accountName2,
     required this.accountName3,
+    required this.language,
   });
 
   // Factory method to create an Event from JSON
@@ -163,6 +165,7 @@ class Event {
       accountName: json['account_name'] ?? '',
       accountName2: json['account_name_2'] ?? '',
       accountName3: json['account_name_3'] ?? '',
+      language: json['language'] ?? 'sw',
     );
   }
 }

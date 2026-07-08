@@ -70,6 +70,7 @@ class _PostEventPageState extends State<PostEventPage> {
   bool _isPaidEvent = true;
   bool _isDailyEvent = false;
   bool _isPublicEvent = true;
+  bool _isInSwahili = true;
   late final StorageService _storageService;
 
   final List<TicketType> _ticketTypes = [];
@@ -459,6 +460,7 @@ Future<void> _pickImage() async {
       'type': _isPaidEvent ? "paid" : "free",
       'daily_event': _isDailyEvent ? "yes" : "no",
       'visibility': _isPublicEvent ? "public" : "private",
+      'language': _isInSwahili ? "sw" : "en",
       'ticket_types': _ticketTypes.map((ticket) => {
         'name': ticket.name.trim(),
         'price': ticket.price,
@@ -1094,6 +1096,34 @@ Future<void> _pickImage() async {
     );
   }
 
+  Widget _buildEventLanguageToggle() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        const Text(
+          'Language',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        Row(
+          children: [
+            Text(
+              _isInSwahili ? 'Swahili' : 'English',
+              style: const TextStyle(fontSize: 14),
+            ),
+            const SizedBox(width: 8),
+            Switch(
+              value: _isInSwahili,
+              onChanged: (value) => setState(() {
+                _isInSwahili = value;
+              }),
+              activeColor: Colors.orange[800],
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _buildRowsAndSeatsField() {
    
     return Column(
@@ -1202,6 +1232,8 @@ Future<void> _pickImage() async {
                   _buildDailyEventToggle(),
                   const SizedBox(height: 6),
                   _buildEventVisibilityToggle(),
+                  const SizedBox(height: 6),
+                  _buildEventLanguageToggle(),
                   const SizedBox(height: 16),
                   _buildImagePicker(isLargeScreen),
                   const SizedBox(height: 16),

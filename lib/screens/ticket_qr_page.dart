@@ -1439,10 +1439,56 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
     String text = ""; 
     String extraInfoText = (widget.ticket.extraInfo.trim().isNotEmpty) ? ' ${widget.ticket.extraInfo}' : '';
 
-    if (widget.ticket.venue.toLowerCase().contains('nyumbani')) {
-      text = "Habari ${widget.ticket.userName},\nUmealikwa kwenye sherehe ya ${widget.ticket.eventName}, Itakayofanyika tarehe ${widget.ticket.date}, ${widget.ticket.venue}, kuanzia saa ${widget.ticket.time} ${getTimeOfDay(widget.ticket.time)}. Hii ni kadi yako. Fika nayo siku ya tukio. Namba ya kadi yako ni: ${widget.ticket.ticketCode} (${widget.ticket.ticketType})${extraInfoText}.\nBofya kiungo hiki kuthibitisha uwepo wako -> https://tiketimkononi.telabs.co.tz/confirm/attendance/${widget.ticket.eventId}/${widget.ticket.ticketCode}\nKiungo cha mahali -> ${widget.ticket.locationLink}\nKwa msaada piga namba ${widget.event!.organizerPhoneNumber}.\n#TiketiMkononi, #SimuYakoTiketiYako";
+    // if (widget.ticket.venue.toLowerCase().contains('nyumbani')) {
+    //   text = "Habari ${widget.ticket.userName},\nUmealikwa kwenye sherehe ya ${widget.ticket.eventName}, Itakayofanyika tarehe ${widget.ticket.date}, ${widget.ticket.venue}, kuanzia saa ${widget.ticket.time} ${getTimeOfDay(widget.ticket.time)}. Hii ni kadi yako. Fika nayo siku ya tukio. Namba ya kadi yako ni: ${widget.ticket.ticketCode} (${widget.ticket.ticketType})${extraInfoText}.\nBofya kiungo hiki kuthibitisha uwepo wako -> https://tiketimkononi.telabs.co.tz/confirm/attendance/${widget.ticket.eventId}/${widget.ticket.ticketCode}\nKiungo cha mahali -> ${widget.ticket.locationLink}\nKwa msaada piga namba ${widget.event!.organizerPhoneNumber}.\n#TiketiMkononi, #SimuYakoTiketiYako";
+    // } else {
+    //   text = "Habari ${widget.ticket.userName},\nUmealikwa kwenye sherehe ya ${widget.ticket.eventName}, Itakayofanyika tarehe ${widget.ticket.date}, katika ukumbi wa ${widget.ticket.venue}, kuanzia saa ${widget.ticket.time} ${getTimeOfDay(widget.ticket.time)}. Hii ni kadi yako. Fika nayo siku ya tukio. Namba ya kadi yako ni: ${widget.ticket.ticketCode} (${widget.ticket.ticketType})${extraInfoText}.\nBofya kiungo hiki kuthibitisha uwepo wako -> https://tiketimkononi.telabs.co.tz/confirm/attendance/${widget.ticket.eventId}/${widget.ticket.ticketCode}\nKiungo cha mahali -> ${widget.ticket.locationLink}\nKwa msaada piga namba ${widget.event!.organizerPhoneNumber}.\n#TiketiMkononi, #SimuYakoTiketiYako";
+    // }
+
+
+    if (widget.event!.language == "en") {
+      if (widget.ticket.venue.toLowerCase().contains('home')) {
+        text =
+            "Hello ${widget.ticket.userName},\n"
+            "You are invited to ${widget.ticket.eventName}, which will be held on ${widget.ticket.date} at ${widget.ticket.venue}, starting at ${widget.ticket.time} ${getTimeOfDay(widget.ticket.time)}. "
+            "This is your digital invitation card. Please present it on the day of the event. "
+            "Your ticket number is: ${widget.ticket.ticketCode} (${widget.ticket.ticketType})${extraInfoText}.\n"
+            "Click this link to confirm your attendance -> https://tiketimkononi.telabs.co.tz/confirm/attendance/${widget.ticket.eventId}/${widget.ticket.ticketCode}\n"
+            "Location -> ${widget.ticket.locationLink}\n"
+            "For assistance, call ${widget.event!.organizerPhoneNumber}.\n"
+            "#TiketiMkononi #YourPhoneYourTicket";
+      } else {
+        text =
+            "Hello ${widget.ticket.userName},\n"
+            "You are invited to ${widget.ticket.eventName}, which will be held on ${widget.ticket.date} at ${widget.ticket.venue}, starting at ${widget.ticket.time} ${getTimeOfDay(widget.ticket.time)}. "
+            "This is your digital invitation card. Please present it on the day of the event. "
+            "Your ticket number is: ${widget.ticket.ticketCode} (${widget.ticket.ticketType})${extraInfoText}.\n"
+            "Click this link to confirm your attendance -> https://tiketimkononi.telabs.co.tz/confirm/attendance/${widget.ticket.eventId}/${widget.ticket.ticketCode}\n"
+            "Location -> ${widget.ticket.locationLink}\n"
+            "For assistance, call ${widget.event!.organizerPhoneNumber}.\n"
+            "#TiketiMkononi #YourPhoneYourTicket";
+      }
     } else {
-      text = "Habari ${widget.ticket.userName},\nUmealikwa kwenye sherehe ya ${widget.ticket.eventName}, Itakayofanyika tarehe ${widget.ticket.date}, katika ukumbi wa ${widget.ticket.venue}, kuanzia saa ${widget.ticket.time} ${getTimeOfDay(widget.ticket.time)}. Hii ni kadi yako. Fika nayo siku ya tukio. Namba ya kadi yako ni: ${widget.ticket.ticketCode} (${widget.ticket.ticketType})${extraInfoText}.\nBofya kiungo hiki kuthibitisha uwepo wako -> https://tiketimkononi.telabs.co.tz/confirm/attendance/${widget.ticket.eventId}/${widget.ticket.ticketCode}\nKiungo cha mahali -> ${widget.ticket.locationLink}\nKwa msaada piga namba ${widget.event!.organizerPhoneNumber}.\n#TiketiMkononi, #SimuYakoTiketiYako";
+      // Swahili
+      if (widget.ticket.venue.toLowerCase().contains('nyumbani')) {
+        text =
+            "Habari ${widget.ticket.userName},\n"
+            "Umealikwa kwenye sherehe ya ${widget.ticket.eventName}, itakayofanyika tarehe ${widget.ticket.date}, ${widget.ticket.venue}, kuanzia saa ${widget.ticket.time} ${getTimeOfDay(widget.ticket.time)}. "
+            "Hii ni kadi yako. Fika nayo siku ya tukio. Namba ya kadi yako ni: ${widget.ticket.ticketCode} (${widget.ticket.ticketType})${extraInfoText}.\n"
+            "Bofya kiungo hiki kuthibitisha uwepo wako -> https://tiketimkononi.telabs.co.tz/confirm/attendance/${widget.ticket.eventId}/${widget.ticket.ticketCode}\n"
+            "Kiungo cha mahali -> ${widget.ticket.locationLink}\n"
+            "Kwa msaada piga namba ${widget.event!.organizerPhoneNumber}.\n"
+            "#TiketiMkononi #SimuYakoTiketiYako";
+      } else {
+        text =
+            "Habari ${widget.ticket.userName},\n"
+            "Umealikwa kwenye sherehe ya ${widget.ticket.eventName}, itakayofanyika tarehe ${widget.ticket.date}, katika ukumbi wa ${widget.ticket.venue}, kuanzia saa ${widget.ticket.time} ${getTimeOfDay(widget.ticket.time)}. "
+            "Hii ni kadi yako. Fika nayo siku ya tukio. Namba ya kadi yako ni: ${widget.ticket.ticketCode} (${widget.ticket.ticketType})${extraInfoText}.\n"
+            "Bofya kiungo hiki kuthibitisha uwepo wako -> https://tiketimkononi.telabs.co.tz/confirm/attendance/${widget.ticket.eventId}/${widget.ticket.ticketCode}\n"
+            "Kiungo cha mahali -> ${widget.ticket.locationLink}\n"
+            "Kwa msaada piga namba ${widget.event!.organizerPhoneNumber}.\n"
+            "#TiketiMkononi #SimuYakoTiketiYako";
+      }
     }
 
     // await Clipboard.setData(ClipboardData(text: text));
