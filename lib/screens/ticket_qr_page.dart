@@ -1404,6 +1404,10 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
   }
 
   String getTimeOfDay(String time24) {
+
+    if (widget.event!.language == "en") {
+      return "";
+    }
     // Parse "HH:mm"
     final parts = time24.split(':');
     if (parts.length != 2) return "Invalid time format";
