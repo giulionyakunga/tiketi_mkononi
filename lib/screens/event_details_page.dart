@@ -689,7 +689,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
             
             const SizedBox(height: 16),
             Text(
-              'Event Details',
+              (userId == event.userId) ? 'Event Details (${widget.event!.language.toUpperCase()})' : 'Event Information',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -1137,7 +1137,10 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: (event.category.toUpperCase() == "THEATER") ? const Text('Cinema Details') : const Text('Event Details'),
+        title: (event.category.toUpperCase() == "THEATER") ? const Text('Cinema Details') : 
+        Text(
+          (userId == event.userId) ? 'Event Details (${widget.event!.language.toUpperCase()})' : 'Event Information',
+        ),
         backgroundColor: const Color.fromARGB(255, 240, 244, 247),
       ),
       body: Center(
