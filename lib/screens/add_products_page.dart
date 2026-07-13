@@ -2,7 +2,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:open_filex/open_filex.dart';
+import 'package:open_file/open_file.dart';
+// import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
@@ -126,7 +127,7 @@ class _AddProductsPageState extends State<AddProductsPage> with TickerProviderSt
             await file.writeAsBytes(bytes, flush: true);
 
             // Open the Excel file
-            final result = await OpenFilex.open(filePath);
+            final result = await OpenFile.open(filePath);
 
             debugPrint('Open result: ${result.message}');
           } catch (e) {

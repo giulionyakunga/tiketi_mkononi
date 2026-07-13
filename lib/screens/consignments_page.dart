@@ -3,11 +3,12 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
+import 'package:open_file/open_file.dart';
 import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
-import 'package:open_filex/open_filex.dart';
+// import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -634,7 +635,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
           await file.writeAsBytes(excel.encode()!);
 
           // Open the file
-          await OpenFilex.open(filePath);
+          await OpenFile.open(filePath);
         
       }
     } catch (e) {
@@ -732,7 +733,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
           await file.writeAsBytes(excel.encode()!);
 
           // Open the file
-          await OpenFilex.open(filePath);
+          await OpenFile.open(filePath);
         
       }
     } catch (e) {
@@ -827,7 +828,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
           await file.writeAsBytes(excel.encode()!);
 
           // Open the file
-          await OpenFilex.open(filePath);
+          await OpenFile.open(filePath);
         
       }
     } catch (e) {

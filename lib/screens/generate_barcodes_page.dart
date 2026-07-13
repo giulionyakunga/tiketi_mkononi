@@ -17,7 +17,7 @@ import 'package:tiketi_mkononi/screens/card_view_page.dart';
 import 'package:tiketi_mkononi/screens/event_tickets_page.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:open_filex/open_filex.dart';
+// import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
 import 'package:intl/intl.dart';
 

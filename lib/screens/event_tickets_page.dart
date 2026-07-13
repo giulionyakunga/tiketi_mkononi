@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:open_file/open_file.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
@@ -17,7 +18,7 @@ import 'package:tiketi_mkononi/services/storage_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:excel/excel.dart' hide Border;  // Hide Excel's Border
 import 'package:path_provider/path_provider.dart';
-import 'package:open_filex/open_filex.dart';
+// import 'package:open_filex/open_filex.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 
@@ -205,7 +206,7 @@ class _EventTicketsPageState extends State<EventTicketsPage> with WidgetsBinding
           await file.writeAsBytes(excel.encode()!);
 
           // Open the file
-          await OpenFilex.open(filePath);
+          await OpenFile.open(filePath);
         }
       }
     } catch (e) {

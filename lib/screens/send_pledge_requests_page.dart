@@ -14,7 +14,7 @@ import 'package:tiketi_mkononi/screens/event_pledges_page.dart';
 import 'package:tiketi_mkononi/screens/event_tickets_page.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:open_filex/open_filex.dart';
+import 'package:open_file/open_file.dart';
 
 class SendPledgeRequestsPage extends StatefulWidget {
   final Event event;
@@ -144,7 +144,7 @@ class _SendPledgeRequestsPageState extends State<SendPledgeRequestsPage> {
             await file.writeAsBytes(bytes, flush: true);
 
             // Open the Excel file
-            final result = await OpenFilex.open(filePath);
+            final result = await OpenFile.open(filePath);
 
             debugPrint('Open result: ${result.message}');
           } catch (e) {
@@ -253,7 +253,7 @@ class _SendPledgeRequestsPageState extends State<SendPledgeRequestsPage> {
             await file.writeAsBytes(bytes, flush: true);
 
             // Open the Excel file
-            final result = await OpenFilex.open(filePath);
+            final result = await OpenFile.open(filePath);
 
             debugPrint('Open result: ${result.message}');
           } catch (e) {

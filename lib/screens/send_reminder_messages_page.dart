@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:open_file/open_file.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
@@ -13,7 +14,6 @@ import 'package:tiketi_mkononi/screens/card_view_page.dart';
 import 'package:tiketi_mkononi/screens/event_tickets_page.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:open_filex/open_filex.dart';
 
 class SendReminderMessagesPage extends StatefulWidget {
   final Event event;
@@ -198,7 +198,7 @@ class _SendReminderMessagesPageState extends State<SendReminderMessagesPage> wit
             await file.writeAsBytes(bytes, flush: true);
 
             // Open the Excel file
-            final result = await OpenFilex.open(filePath);
+            final result = await OpenFile.open(filePath);
 
             debugPrint('Open result: ${result.message}');
           } catch (e) {
@@ -371,7 +371,7 @@ class _SendReminderMessagesPageState extends State<SendReminderMessagesPage> wit
             await file.writeAsBytes(bytes, flush: true);
 
             // Open the Excel file
-            final result = await OpenFilex.open(filePath);
+            final result = await OpenFile.open(filePath);
 
             debugPrint('Open result: ${result.message}');
           } catch (e) {
