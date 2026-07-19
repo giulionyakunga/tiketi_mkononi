@@ -128,11 +128,11 @@ abstract class AppLocalizations {
   /// **'My Profile'**
   String get myProfile;
 
-  /// No description provided for @searchEvents.
+  /// No description provided for @searchEvent.
   ///
   /// In en, this message translates to:
-  /// **'searchEvents'**
-  String get searchEvents;
+  /// **'Search event'**
+  String get searchEvent;
 
   /// No description provided for @featuredEvents.
   ///

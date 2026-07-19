@@ -583,7 +583,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       ),
       child: SearchBar(
         controller: _searchController,
-        hintText: '${AppLocalizations.of(context)!.searchEvents}...',
+        hintText: '${AppLocalizations.of(context)!.searchEvent}...',
         hintStyle: WidgetStateTextStyle.resolveWith(
           (states) => TextStyle(
             color: isDarkMode ? Colors.white70 : Colors.grey[600],

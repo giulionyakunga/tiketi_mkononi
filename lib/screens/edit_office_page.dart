@@ -1,3 +1,6 @@
+// style this page to look good in large screens, like tablets and desktops. Use a grid layout for the offices instead of a list, and make sure the cards are responsive. Also, add some padding and spacing to make it look more appealing. 
+// give full code for the offices_page.dart file with the requested changes.
+
 import 'dart:io';
 
 import 'package:flutter/material.dart';

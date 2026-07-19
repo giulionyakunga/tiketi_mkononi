@@ -24,7 +24,7 @@ class AppLocalizationsSw extends AppLocalizations {
   String get myProfile => 'Wasifu Wangu';
 
   @override
-  String get searchEvents => 'Tafuta tukio';
+  String get searchEvent => 'Tafuta tukio';
 
   @override
   String get featuredEvents => 'Matukio Maarufu';

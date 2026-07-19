@@ -391,9 +391,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
     });
   }
   
-  Future<void> _submitConsignment({bool useDNS = true}) async {
-    _printCableFile();
-    
+  Future<void> _submitConsignment({bool useDNS = true}) async {    
     if (!_formKey.currentState!.validate()) {
       _scrollToFirstError();
       return;
@@ -479,7 +477,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
           _packageNameController.clear();
           _senderNameController.clear();
           _senderPhoneNumberController.clear();
-          _toController.clear();
+          // _toController.clear();
           _receiverNameController.clear();
           _receiverPhoneNumberController.clear();
           _packageValueController.clear();
@@ -2270,7 +2268,11 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
         pageFormat: const PdfPageFormat(pageWidth, double.infinity),
         build: (context) {
           return pw.Padding(
-            padding: const pw.EdgeInsets.symmetric(horizontal: 8),
+            padding: const pw.EdgeInsets.only(
+              top: 18,
+              left: 18,
+              right: 8,
+            ),
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
@@ -2301,7 +2303,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                         : "CONSIGNMENT RECEIPT",
                     style: pw.TextStyle(
                       font: customFont,
-                      fontSize: 11,
+                      fontSize: 10,
                       fontWeight: pw.FontWeight.bold,
                     ),
                   ),
@@ -2340,7 +2342,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
                 pw.Text(
                   "--------------------------------",
-                  style: pw.TextStyle(font: customFont),
+                  style: pw.TextStyle(font: customFont, fontSize: 9),
                 ),
 
                 /// ROUTE
@@ -2430,7 +2432,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
                 pw.Text(
                   "--------------------------------",
-                  style: pw.TextStyle(font: customFont),
+                  style: pw.TextStyle(font: customFont, fontSize: 9),
                 ),
 
                 /// ISSUED BY
@@ -2464,8 +2466,8 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                   child: pw.BarcodeWidget(
                     barcode: pw.Barcode.qrCode(),
                     data: data,
-                    width: 110,
-                    height: 110,
+                    width: 60,
+                    height: 60,
                   ),
                 ),
 
@@ -2509,38 +2511,6 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       );
     } else {
       await _selectCablePrinterDialog();
-    }
-  }
-
-  Future<void> _printCableFile() async {
-    debugPrint("Printing PDF file via cable...");
-
-    try {
-      // Load PDF file from assets
-      final pdfData = await rootBundle.load(
-        'assets/sample_doc.pdf',
-      );
-
-      final bytes = pdfData.buffer.asUint8List();
-
-      if (selectedCablePrinter != null) {
-        try {
-          await Printing.directPrintPdf(
-            printer: selectedCablePrinter!,
-            onLayout: (PdfPageFormat format) async => bytes,
-          );
-
-          debugPrint("Print success");
-        } catch (e, s) {
-          debugPrint("PRINT ERROR: $e");
-          debugPrint("$s");
-        }
-
-      } else {
-        await _selectCablePrinterDialog();
-      }
-    } catch (e) {
-      debugPrint("Print error: $e");
     }
   }
 

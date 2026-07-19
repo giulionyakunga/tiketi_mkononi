@@ -24,7 +24,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get myProfile => 'My Profile';
 
   @override
-  String get searchEvents => 'searchEvents';
+  String get searchEvent => 'Search event';
 
   @override
   String get featuredEvents => 'Featured Events';

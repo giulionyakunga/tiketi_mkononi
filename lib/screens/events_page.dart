@@ -305,7 +305,7 @@ class _EventsPageState extends State<EventsPage> {
         child: TextField(
           controller: _searchController,
           decoration: InputDecoration(
-            hintText: 'Search events...',
+            hintText: '${AppLocalizations.of(context)!.searchEvent}...',
             hintStyle: TextStyle(
               fontSize: isLargeScreen ? 16 : 14,
               color: colorScheme.onSurface.withOpacity(0.6),

@@ -846,7 +846,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
 
-    if (_isLoading) {
+    if (_isLoading && _consignments.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
 
@@ -1899,7 +1899,11 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
         pageFormat: const PdfPageFormat(pageWidth, double.infinity),
         build: (context) {
           return pw.Padding(
-            padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+            padding: const pw.EdgeInsets.only(
+              top: 18,
+              left: 18,
+              right: 8,
+            ),
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
@@ -1914,27 +1918,22 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                 /// COMPANY NAME
                 pw.Text(
                   widget.companyName.toUpperCase(),
-                  style: pw.TextStyle(font: customFont, fontSize: 10),
+                  style: pw.TextStyle(
+                    font: customFont, 
+                    fontSize: 12,
+                    fontWeight: pw.FontWeight.bold
+                  ),
                 ),
-
-                // pw.Center(
-                //   child: pw.Text(
-                //     consignment['is_parcel']
-                //         ? "PARCEL RECEIPT"
-                //         : "CONSIGNMENT RECEIPT",
-                //     style: pw.TextStyle(
-                //       font: customFont,
-                //       fontSize: 9,
-                //       fontWeight: pw.FontWeight.bold,
-                //     ),
-                //   ),
-                // ),
 
                 pw.Text(
                   consignment['is_parcel']
                   ? "PARCEL RECEIPT"
                   : "CONSIGNMENT RECEIPT",
-                  style: pw.TextStyle(font: customFont, fontSize: 10),
+                  style: pw.TextStyle(
+                    font: customFont,
+                    fontSize: 10,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
                 ),
 
                 pw.SizedBox(height: 6),
@@ -1970,7 +1969,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
                 pw.Text(
                   "--------------------------------",
-                  style: pw.TextStyle(font: customFont),
+                  style: pw.TextStyle(font: customFont, fontSize: 9),
                 ),
 
                 /// ROUTE
@@ -2099,8 +2098,8 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                   child: pw.BarcodeWidget(
                     barcode: pw.Barcode.qrCode(),
                     data: data,
-                    width: 110,
-                    height: 110,
+                    width: 60,
+                    height: 60,
                   ),
                 ),
 
