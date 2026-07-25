@@ -252,10 +252,10 @@ class AppLocalizationsSw extends AppLocalizations {
   String get pleaseSelectOrigin => 'Tafadhali chagua chanzo';
 
   @override
-  String get pleaseSelectDestination => 'Tafadhali chagua anakoenda';
+  String get pleaseSelectDestination => 'Tafadhali chagua unakoenda';
 
   @override
-  String get pleaseEnterDestination => 'Tafadhali jaza au chagua anakoenda';
+  String get pleaseEnterDestination => 'Tafadhali jaza au chagua unakoenda';
 
   @override
   String get pleaseEnterReceiverName => 'Tafadhali jaza jina la mpokeaji';
@@ -313,7 +313,7 @@ class AppLocalizationsSw extends AppLocalizations {
 
   @override
   String get originDestinationSame =>
-      'Chanzo na anakoenda haviwezi kuwa eneo moja.';
+      'Chanzo na unakoenda haviwezi kuwa eneo moja.';
 
   @override
   String get consignmentAddedSuccess => 'Kifurushi kimeongezwa kikamilifu.';

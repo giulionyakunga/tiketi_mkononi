@@ -425,7 +425,8 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
     try {
       final response = await http.get(uri);
 
-      if (response.statusCode == 200) {        
+      if (response.statusCode == 200) {    
+        debugPrint('Server metrics response: ${response.body}');    
         setState(() {
           serverMetrics = ServerMetrics.fromJson(jsonDecode(response.body));
           serverMetrics.dnsResolution = useDNS;

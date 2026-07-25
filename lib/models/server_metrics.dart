@@ -32,18 +32,18 @@ class ServerMetrics {
   factory ServerMetrics.fromJson(Map<String, dynamic> json) {
     return ServerMetrics(
       timestamp: json['timestamp'],
-      requestCount: json['requestCount'],
-      dailyActiveUsers: json['daily_active_users'],
+      requestCount: json['requestCount'] ?? 0,
+      dailyActiveUsers: json['daily_active_users'] ?? 0,
       monthyTotalTransactions: json['monthy_total_transactions'] ?? 0,
       lastMonthyTotalTransactions: json['last_monthy_total_transactions'] ?? 0,
       avgRequestDurationMs: json['avgRequestDurationMs'],
-      errorCount: json['errorCount'],
+      errorCount: json['errorCount'] ?? 0,
       memoryUsageMB: MemoryUsage.fromJson(json['memoryUsageMB']),
       cpuLoadAvg: CpuLoad.fromJson(json['cpuLoadAvg']),
       uptimeSeconds: json['uptimeSeconds'],
       dnsResolution: json['dns_resolution'] ?? true,
       smsBalance: json['sms_balance'] ?? 0,
-      smsBalance2: json['sms_balance_2'] ?? '',
+      smsBalance2: json['sms_balance_2'].toString(),
     );
   }
 }
@@ -60,12 +60,12 @@ class MemoryUsage {
   });
 
   factory MemoryUsage.fromJson(Map<String, dynamic> json) {
-    return MemoryUsage(
-      rss: json['rss'],
-      heapUsed: json['heapUsed'],
-      heapTotal: json['heapTotal'],
-    );
-  }
+  return MemoryUsage(
+    rss: json['rss'].toString(),
+    heapUsed: json['heapUsed'].toString(),
+    heapTotal: json['heapTotal'].toString(),
+  );
+}
 }
 
 class CpuLoad {
@@ -80,10 +80,10 @@ class CpuLoad {
   });
 
   factory CpuLoad.fromJson(Map<String, dynamic> json) {
-    return CpuLoad(
-      m1: json['1m'],
-      m5: json['5m'],
-      m15: json['15m'],
-    );
-  }
+  return CpuLoad(
+    m1: json['1m']?.toDouble() ?? 0.0,
+    m5: json['5m']?.toDouble() ?? 0.0,
+    m15: json['15m']?.toDouble() ?? 0.0,
+  );
+}
 }

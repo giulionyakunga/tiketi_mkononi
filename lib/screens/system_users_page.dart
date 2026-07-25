@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -20,12 +21,10 @@ class SystemUsersPage extends StatefulWidget {
 
 class _SystemUsersPageState extends State<SystemUsersPage> {
   List<UserProfile> users = [];
-  int userId2 = 0;
 
   @override
   void initState() {
     super.initState();
-    userId2 = widget.userId - 100;
     fetchUsers();
   }
 
@@ -97,8 +96,8 @@ class _SystemUsersPageState extends State<SystemUsersPage> {
    /// Fetch users from backend
   Future<void> fetchUsers({bool useDNS = true}) async {
 
-    final Uri uri = useDNS ? Uri.parse('${backend_url}api/get_users_only_by_admin/${userId2}')
-    : Uri.parse('${backend_url_with_fallback_ip}get_users_only_by_admin/${userId2}');
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/get_users_only_by_admin/${widget.userId}')
+    : Uri.parse('${backend_url_with_fallback_ip}get_users_only_by_admin/${widget.userId}');
 
     try {
 
@@ -111,7 +110,6 @@ class _SystemUsersPageState extends State<SystemUsersPage> {
       );
 
       if (response.statusCode == 200) {
-        
         List<dynamic> dataList = jsonDecode(response.body);
 
         if(dataList.length > 0) {
@@ -119,6 +117,9 @@ class _SystemUsersPageState extends State<SystemUsersPage> {
             users = dataList.map((json) => UserProfile.fromJson2(json)).toList();
           });
         }
+      } if (response.statusCode == 401) {
+        _showSnackBar('Your session has expired. Please sign in again.');
+        _showSessionExpiredDialog(context);
       } else {
         throw Exception('Failed to load users');
       }
@@ -148,6 +149,32 @@ class _SystemUsersPageState extends State<SystemUsersPage> {
     }
   }
 
+  void _showSessionExpiredDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Prevent dismissing without signing in
+      builder: (context) => AlertDialog(
+        title: const Text('Session Expired'),
+        content: const Text(
+          'Your session has expired. Please sign in again to continue using the application.',
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              context.go('/login');
+            },
+            child: const Text(
+              'Sign In',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildRequestCard(UserProfile user) {
     return Card(
