@@ -124,6 +124,8 @@ flutter:
     - assets/stearing.png
     - assets/tiketimkononi_logo.png
     - assets/fonts/poppins/Poppins-Regular.ttf
+    - assets/fonts/roboto/Roboto-Regular.ttf
+    - assets/fonts/inter/Inter_24pt-Regular.ttf
     - assets/sounds/error.mp3
     - assets/sounds/success.mp3
     - assets/sample_doc.pdf

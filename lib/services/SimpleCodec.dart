@@ -24,6 +24,7 @@ class SimpleCodec {
     'e': 'T',
     'c': 'U',
     'o': 'V',
+    's': 'W',
   };
 
   static final Map<String, String> _reverseMap =

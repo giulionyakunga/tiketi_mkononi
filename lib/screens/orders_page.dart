@@ -1981,12 +1981,20 @@ class _OrdersPageState extends State<OrdersPage> {
     // final logoData = await rootBundle.load('assets/telabs_logo.png');
     // final logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
 
-    final fontData = await rootBundle.load('assets/fonts/poppins/Poppins-Regular.ttf');
+    final fontData = await rootBundle.load('assets/fonts/inter/Inter_24pt-Regular.ttf');
     final customFont = pw.Font.ttf(fontData);
 
     const pageWidth = 226.0;
 
     final items = order.orderItems;
+
+    int totalAmount = 0;
+    // Items
+    if(items.length > 0) { 
+      for (var item in items) {
+        totalAmount += (item.price as num).toInt() * (item.quantity as num).toInt();
+      }
+    }
 
     DateTime now = DateTime.now();
     String formattedDateTime = DateFormat('d/M/y H:m').format(now);
@@ -2019,7 +2027,7 @@ class _OrdersPageState extends State<OrdersPage> {
                     widget.shopName.toUpperCase(),
                     style: pw.TextStyle(
                       font: customFont,
-                      fontSize: 12,
+                      fontSize: 11,
                       fontWeight: pw.FontWeight.bold,
                     ),
                   ),
@@ -2030,7 +2038,21 @@ class _OrdersPageState extends State<OrdersPage> {
                     "ORDER RECEIPT",
                     style: pw.TextStyle(
                       font: customFont,
-                      fontSize: 11,
+                      fontSize: 13,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                ),
+
+                pw.SizedBox(height: 6),
+
+                /// PACKAGE INFO
+                pw.Center(
+                  child: pw.Text(
+                  "Order No: ${order.orderId}",
+                    style: pw.TextStyle(
+                      font: customFont,
+                      fontSize: 10,
                       fontWeight: pw.FontWeight.bold,
                     ),
                   ),
@@ -2039,79 +2061,105 @@ class _OrdersPageState extends State<OrdersPage> {
                 pw.SizedBox(height: 6),
 
                 pw.Text(
-                  "********************************",
-                  style: pw.TextStyle(font: customFont),
-                ),
-
-                /// PACKAGE INFO
-                pw.Text(
-                  "Order No: ${order.id}",
-                  style: pw.TextStyle(font: customFont),
+                  "Name: ${order.customerName}",
+                  style: pw.TextStyle(
+                    font: customFont,
+                    fontSize: 10,
+                    fontWeight: pw.FontWeight.normal,
+                  ),
                 ),
 
                 pw.Text(
                   "Total Price: ${order.totalPrice}",
-                  style: pw.TextStyle(font: customFont),
+                  style: pw.TextStyle(
+                    font: customFont,
+                    fontSize: 10,
+                    fontWeight: pw.FontWeight.normal,
+                  ),
                 ),
 
                 pw.Text(
                   "Payment Status: ${order.paymentStatus ? "Paid" : "Not Paid"}",
-                  style: pw.TextStyle(font: customFont),
+                  style: pw.TextStyle(
+                    font: customFont,
+                    fontSize: 10,
+                    fontWeight: pw.FontWeight.normal,
+                  ),
                 ),
 
                 pw.SizedBox(height: 6),
 
-                pw.Text(
-                  "--------------------------------",
-                  style: pw.TextStyle(font: customFont),
-                ),
-
-                pw.SizedBox(height: 6),
-
-                /// SENDER
+                /// CUSTOMER
                 pw.Text(
                   "Customer Details",
                   style: pw.TextStyle(
                     font: customFont,
+                    fontSize: 11,
                     fontWeight: pw.FontWeight.bold,
                   ),
                 ),
 
                 pw.Text(
                   "Name: ${order.customerName}",
-                  style: pw.TextStyle(font: customFont),
+                  style: pw.TextStyle(
+                    font: customFont,
+                    fontSize: 10,
+                    fontWeight: pw.FontWeight.normal,
+                  ),
                 ),
 
                 pw.Text(
-                  "Phone: ${order.customerPhoneNumber}",
-                  style: pw.TextStyle(font: customFont),
+                  "Phone number: ${order.customerPhoneNumber}",
+                  style: pw.TextStyle(
+                    font: customFont,
+                    fontSize: 10,
+                    fontWeight: pw.FontWeight.normal,
+                  ),
                 ),
 
                 pw.SizedBox(height: 6),
 
                 /// ITEMS
-                if ((items.length > 0) && (items.length <= 10)) ...[
-                  pw.SizedBox(height: 6),
-
+                if (items.length > 0) ...[
                   pw.Text(
                     "Items",
                     style: pw.TextStyle(
                       font: customFont,
+                      fontSize: 11,
                       fontWeight: pw.FontWeight.bold,
                     ),
                   ),
 
-                  pw.SizedBox(height: 4),
+                  pw.SizedBox(height: 2),
 
                   for (int i = 0; i < items.length; i++)
                     pw.Text(
                       "${i + 1}. ${items[i].name} (x${items[i].quantity})  "
                       "TZS ${NumberFormat('#,##0').format(((items[i].price) * items[i].quantity).toInt())}",
-                      style: pw.TextStyle(font: customFont),
+                      style: pw.TextStyle(
+                        font: customFont,
+                        fontSize: 10,
+                        fontWeight: pw.FontWeight.normal,
+                      ),
                     ),
                 ],
 
-                pw.SizedBox(height: 6),
+                pw.Text(
+                  "--------------------------------",
+                  style: pw.TextStyle(
+                    font: customFont,
+                    fontWeight: pw.FontWeight.normal,
+                  ),
+                ),
+
+                pw.Text(
+                  "Total Amount: ${totalAmount}",
+                  style: pw.TextStyle(
+                    font: customFont,
+                    fontSize: 10,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
 
                 pw.Text(
                   "--------------------------------",
@@ -2123,23 +2171,36 @@ class _OrdersPageState extends State<OrdersPage> {
                   "Issued By",
                   style: pw.TextStyle(
                     font: customFont,
+                    fontSize: 11,
                     fontWeight: pw.FontWeight.bold,
                   ),
                 ),
 
                 pw.Text(
                   "Name: ${order.issuedBy}",
-                  style: pw.TextStyle(font: customFont),
+                  style: pw.TextStyle(
+                    font: customFont,
+                    fontSize: 10,
+                    fontWeight: pw.FontWeight.normal,
+                  ),
                 ),
 
                 pw.Text(
                   "Phone: ${order.issuerPhoneNumber}",
-                  style: pw.TextStyle(font: customFont),
+                  style: pw.TextStyle(
+                    font: customFont,
+                    fontSize: 10,
+                    fontWeight: pw.FontWeight.normal,
+                  ),
                 ),
 
                 pw.Text(
                   "Date: ${formattedDateTime}",
-                  style: pw.TextStyle(font: customFont),
+                  style: pw.TextStyle(
+                    font: customFont,
+                    fontSize: 10,
+                    fontWeight: pw.FontWeight.normal,
+                  ),
                 ),
 
                 pw.SizedBox(height: 14),
@@ -2160,7 +2221,11 @@ class _OrdersPageState extends State<OrdersPage> {
                 pw.Center(
                   child: pw.Text(
                     receiptFooter,
-                    style: pw.TextStyle(font: customFont),
+                    style: pw.TextStyle(
+                      font: customFont,
+                      fontSize: 10,
+                      fontWeight: pw.FontWeight.normal,
+                    ),
                   ),
                 ),
 
@@ -2169,14 +2234,22 @@ class _OrdersPageState extends State<OrdersPage> {
                 pw.Center(
                   child: pw.Text(
                     "Powered by Tiketi Mkononi",
-                    style: pw.TextStyle(font: customFont, fontSize: 10),
+                    style: pw.TextStyle(
+                      font: customFont,
+                      fontSize: 10,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
                   ),
                 ),
 
                 pw.Center(
                   child: pw.Text(
                     "Email:tiketimkononi@telabs.co.tz",
-                    style: pw.TextStyle(font: customFont, fontSize: 9),
+                    style: pw.TextStyle(
+                      font: customFont,
+                      fontSize: 9,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
                   ),
                 ),
 
