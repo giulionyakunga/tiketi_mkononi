@@ -2607,7 +2607,7 @@ class _OrdersPageState extends State<OrdersPage> {
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
-                  'Order Details',
+                  'Order Details2',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -3005,167 +3005,179 @@ Widget _buildOrderItemTile(OrderItem item) {
             ),
             
             const Divider(),
-            
-            /// ORDER ID AND STATUS
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Order #${order.orderId}',
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
+
+            // Scrollable content
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+              
+                    /// ORDER ID AND STATUS
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Order #${order.orderId}',
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _getStatusColor(order.status).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            order.status.toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: _getStatusColor(order.status),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _getStatusColor(order.status).withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    order.status.toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: _getStatusColor(order.status),
+                    
+                    const SizedBox(height: 12),
+                    
+                    /// CUSTOMER INFO
+                    Row(
+                      children: [
+                        Icon(Icons.person_outline, color: Colors.grey.shade600),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            order.customerName,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        Icon(Icons.phone_outlined, color: Colors.grey.shade600),
+                        const SizedBox(width: 6),
+                        Text(
+                          order.customerPhoneNumber,
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ],
                     ),
-                  ),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 12),
-            
-            /// CUSTOMER INFO
-            Row(
-              children: [
-                Icon(Icons.person_outline, color: Colors.grey.shade600),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    order.customerName,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
+                    
+                    const SizedBox(height: 12),
+              
+                    /// ORDER SUMMARY
+                    Row(
+                      children: [
+                        Icon(Icons.receipt_long, color: Colors.grey.shade600),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${order.orderItems.length} item${order.orderItems.length > 0 ? 's' : ''}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Container(
+                          width: 4,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade400,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Icon(Icons.attach_money, color: Colors.grey.shade600),
+                        const SizedBox(width: 6),
+                        Text(
+                          'TZS${order.totalPrice.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.teal,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ),
-                Icon(Icons.phone_outlined, color: Colors.grey.shade600),
-                const SizedBox(width: 6),
-                Text(
-                  order.customerPhoneNumber,
-                  style: const TextStyle(fontSize: 14),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 12),
-            
-            /// ORDER SUMMARY
-            Row(
-              children: [
-                Icon(Icons.receipt_long, color: Colors.grey.shade600),
-                const SizedBox(width: 6),
-                Text(
-                  '${order.orderItems.length} item${order.orderItems.length > 0 ? 's' : ''}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey.shade700,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Container(
-                  width: 4,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade400,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Icon(Icons.attach_money, color: Colors.grey.shade600),
-                const SizedBox(width: 6),
-                Text(
-                  'TZS${order.totalPrice.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.teal,
-                  ),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 12),
-            
-            /// PAYMENT STATUS
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: order.paymentStatus 
-                    ? Colors.green.withOpacity(0.1) 
-                    : Colors.orange.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    order.paymentStatus 
-                        ? Icons.check_circle_outline 
-                        : Icons.pending_outlined,
-                    size: 18,
-                    color: order.paymentStatus ? Colors.green : Colors.orange,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    order.paymentStatus ? 'Payment Completed' : 'Payment Pending',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: order.paymentStatus ? Colors.green : Colors.orange,
+                    
+                    const SizedBox(height: 12),
+                    
+                    /// PAYMENT STATUS
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: order.paymentStatus 
+                            ? Colors.green.withOpacity(0.1) 
+                            : Colors.orange.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            order.paymentStatus 
+                                ? Icons.check_circle_outline 
+                                : Icons.pending_outlined,
+                            size: 18,
+                            color: order.paymentStatus ? Colors.green : Colors.orange,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            order.paymentStatus ? 'Payment Completed' : 'Payment Pending',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: order.paymentStatus ? Colors.green : Colors.orange,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            
-            const Divider(height: 32),
-            
-            /// ORDER ITEMS SECTION
-            if (order.orderItems.isNotEmpty)
-              _buildOrderItemsSection(order.orderItems),
-            
-            const SizedBox(height: 16),
-            
-            /// ISSUED BY SECTION
-            _buildDetailSection(
-              title: 'Issued By',
-              icon: Icons.assignment_ind,
-              children: [
-                _buildDetailRow('Name', order.issuedBy),
-                _buildDetailRow('Phone', order.issuerPhoneNumber),
-              ],
-            ),
-            
-            const SizedBox(height: 16),
-            
-            /// ADDITIONAL INFO
-            _buildDetailSection(
-              title: 'Additional Information',
-              icon: Icons.info_outline,
-              children: [
-                _buildDetailRow('Order Date', order.date),
-                _buildDetailRow('Shop ID', order.shopId.toString()),
-                _buildDetailRow('User ID', order.userId.toString()),
-                _buildDetailRow('Status', order.status),
-              ],
-            ),
+                    
+                    const Divider(height: 32),
+              
+                    /// ORDER ITEMS SECTION
+                    if (order.orderItems.isNotEmpty)
+                      _buildOrderItemsSection(order.orderItems),
+                    
+                    const SizedBox(height: 16),
+                    
+                    /// ISSUED BY SECTION
+                    _buildDetailSection(
+                      title: 'Issued By',
+                      icon: Icons.assignment_ind,
+                      children: [
+                        _buildDetailRow('Name', order.issuedBy),
+                        _buildDetailRow('Phone', order.issuerPhoneNumber),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 16),
+                    
+                    /// ADDITIONAL INFO
+                    _buildDetailSection(
+                      title: 'Additional Information',
+                      icon: Icons.info_outline,
+                      children: [
+                        _buildDetailRow('Order Date', order.date),
+                        _buildDetailRow('Shop ID', order.shopId.toString()),
+                        _buildDetailRow('User ID', order.userId.toString()),
+                        _buildDetailRow('Status', order.status),
+                      ],
+                    ),
+                  
+                  ]
+                )
+              )
+            )
           ],
         ),
       ),

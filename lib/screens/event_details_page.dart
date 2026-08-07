@@ -1379,7 +1379,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                       minimumSize: Size.zero,
                                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                     ),
-                                    onPressed: (userId == event.userId)
+                                    onPressed: ((userId == event.userId) || (userId == event.ticketScannerId))
                                         ? () {
                                             Navigator.push(
                                               context,
@@ -1691,7 +1691,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                         // Ticket count
                         TextButton(
                           style: _compactBtnStyle,
-                          onPressed: (userId == event.userId)
+                          onPressed: ((userId == event.userId) || (userId == event.ticketScannerId))
                           ? () {
                               Navigator.push(
                                 context,
