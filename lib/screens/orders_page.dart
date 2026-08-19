@@ -152,7 +152,7 @@ class _OrdersPageState extends State<OrdersPage> {
         child: TextField(
           controller: _searchController,
           decoration: InputDecoration(
-            hintText: 'Search package or sender name...',
+            hintText: 'Search order or customer name',
             hintStyle: TextStyle(
               fontSize: isLargeScreen ? 16 : 14,
               color: colorScheme.onSurface.withOpacity(0.6),
@@ -524,20 +524,20 @@ class _OrdersPageState extends State<OrdersPage> {
           setState(() {
             _paymentFilter = 'all';
           });
+        } else if (value == 'paid') {
+          setState(() {
+            _paymentFilter = value;
+          });
         } else if (value == 'unpaid') {
           setState(() {
             _paymentFilter = value;
           });
         } else if (value == 'export_unpaid') {
-          exportUnpaidPackages(_orders);
+          exportOrders(_orders, type: 0);
         } else if (value == 'export_paid') {
-          exportPaidPackages(_orders);
+          exportOrders(_orders, type: 1);
         } else if (value == 'export_all') {
-          exportAllPackages(_orders);
-        } else if (value == 'paid') {
-          setState(() {
-            _paymentFilter = value;
-          });
+          exportOrders(_orders);
         }
       },
       child: AnimatedContainer(
@@ -573,17 +573,31 @@ class _OrdersPageState extends State<OrdersPage> {
     );
   }
   
-  Future<void> exportUnpaidPackages(List<Order> orders) async {
+  Future<void> exportOrders(List<Order> orders, {int type = 2}) async {
     if(orders.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('No orders found')),
       );
       return;
     }
+
+    String fileName = 'All_Orders.xlsx';
     
+    if(type == 0) {
+      fileName = 'Paid_Orders.xlsx';
+      orders = orders.where((c) {
+        return (c.paymentStatus == false);
+      }).toList();
+    } else if(type == 1) {
+      fileName = 'UnPaid_Orders.xlsx';
+      orders = orders.where((c) {
+        return (c.paymentStatus == true);
+      }).toList();
+  } else {
     orders = orders.where((c) {
-      return (c.paymentStatus == false);
+      return (c.paymentStatus == true); 
     }).toList();
+  }
 
     // Create a new Excel document
     final excel = Excel.createExcel();
@@ -603,11 +617,10 @@ class _OrdersPageState extends State<OrdersPage> {
 
     // Add order data
     for (final order in orders) {
-
       // Convert orders items to a readable string
       final items = (order.orderItems as List)
           .map((item) =>
-              "${item['name']} (x${item['quantity']}) - ${item['value']}")
+              "${item.name} (x${item.quantity}) - TZS${NumberFormat('#,##0.00').format(item.price)}") 
           .join(", ");
 
       sheet.appendRow([
@@ -627,187 +640,10 @@ class _OrdersPageState extends State<OrdersPage> {
     try {
       if(kIsWeb) { 
         // Trigger download in browser
-        excel.save(fileName: 'Unpaid_Packages.xlsx');
+        excel.save(fileName: fileName);
       } else {
-        // if(share) {
-        //     // 2. Save to a temporary file (mobile only)
-        //     final dir = await getTemporaryDirectory();
-        //     final file = File('${dir.path}/Unpaid_Packages.xlsx');
-        //     await file.writeAsBytes(excel.encode()!);
-
-        //     // 3. Share the file
-        //     await Share.shareXFiles(
-        //       [XFile(file.path)],  // Wrap in XFile
-        //       text: 'Check out this tickets data! 📊',  // Optional text
-        //     );
-        // }else {
-
           final directory = await getTemporaryDirectory();
-          final filePath = '${directory.path}/Unpaid_Packages.xlsx';
-          final file = File(filePath);
-          await file.writeAsBytes(excel.encode()!);
-
-          // Open the file
-          await OpenFile.open(filePath);
-        
-      }
-    } catch (e) {
-      print('Error exporting to Excel: $e');
-      // Handle error (show a snackbar or dialog)
-    }
-  }
-
-  Future<void> exportPaidPackages(List<Order> orders) async {
-    if(orders.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No orders found')),
-      );
-      return;
-    }
-
-    orders = orders.where((c) {
-      return c.paymentStatus == true;
-    }).toList();
-
-    // Create a new Excel document
-    final excel = Excel.createExcel();
-    final Sheet sheet = excel.sheets['Sheet1']!;
-
-    // Add header row
-    sheet.appendRow([
-      'Order ID',
-      'Customer Name',
-      'Customer Phone',
-      'Total Price',
-      'Payment Status',
-      'Items',
-      'Issued By',
-      'Issuer Phone'
-    ]);
-
-    // Add order data
-    for (final order in orders) {
-
-      // Convert order items to a readable string
-      final items = (order.orderItems as List)
-          .map((item) =>
-              "${item['name']} (x${item['quantity']}) - ${item['value']}")
-          .join(", ");
-
-      sheet.appendRow([
-        order.orderId,
-        order.customerName,
-        order.customerPhoneNumber,
-        order.totalPrice,
-        order.paymentStatus ? 'Paid' : 'Unpaid',
-        items,
-        order.issuedBy,
-        order.issuerPhoneNumber,
-      ]);
-    }
-
-
-    // Save the file
-    try {
-      if(kIsWeb) { 
-        // Trigger download in browser
-        excel.save(fileName: 'Paid_Packages.xlsx');
-      } else {
-        // if(share) {
-        //     // 2. Save to a temporary file (mobile only)
-        //     final dir = await getTemporaryDirectory();
-        //     final file = File('${dir.path}/Paid_Packages.xlsx');
-        //     await file.writeAsBytes(excel.encode()!);
-
-        //     // 3. Share the file
-        //     await Share.shareXFiles(
-        //       [XFile(file.path)],  // Wrap in XFile
-        //       text: 'Check out this tickets data! 📊',  // Optional text
-        //     );
-        // }else {
-
-          final directory = await getTemporaryDirectory();
-          final filePath = '${directory.path}/Paid_Packages.xlsx';
-          final file = File(filePath);
-          await file.writeAsBytes(excel.encode()!);
-
-          // Open the file
-          await OpenFile.open(filePath);
-        
-      }
-    } catch (e) {
-      print('Error exporting to Excel: $e');
-      // Handle error (show a snackbar or dialog)
-    }
-  }
-
-  Future<void> exportAllPackages(List<Order> orders) async {
-    if(orders.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No packages found')),
-      );
-      return;
-    }
-
-    // Create a new Excel document
-    final excel = Excel.createExcel();
-    final Sheet sheet = excel.sheets['Sheet1']!;
-
-    // Add header row
-    sheet.appendRow([
-      'Order ID',
-      'Customer Name',
-      'Customer Phone',
-      'Total Price',
-      'Payment Status',
-      'Items',
-      'Issued By',
-      'Issuer Phone'
-    ]);
-
-    // Add order data
-    for (final order in orders) {
-
-      // Convert order items to a readable string
-      final items = (order.orderItems as List)
-          .map((item) =>
-              "${item['name']} (x${item['quantity']}) - ${item['value']}")
-          .join(", ");
-
-      sheet.appendRow([
-        order.orderId,
-        order.customerName,
-        order.customerPhoneNumber,
-        order.totalPrice,
-        order.paymentStatus ? 'Paid' : 'Unpaid',
-        items,
-        order.issuedBy,
-        order.issuerPhoneNumber,
-      ]);
-    }
-
-
-    // Save the file
-    try {
-      if(kIsWeb) { 
-        // Trigger download in browser
-        excel.save(fileName: 'All_Packages.xlsx');
-      } else {
-        // if(share) {
-        //     // 2. Save to a temporary file (mobile only)
-        //     final dir = await getTemporaryDirectory();
-        //     final file = File('${dir.path}/All_Packages.xlsx');
-        //     await file.writeAsBytes(excel.encode()!);
-
-        //     // 3. Share the file
-        //     await Share.shareXFiles(
-        //       [XFile(file.path)],  // Wrap in XFile
-        //       text: 'Check out this tickets data! 📊',  // Optional text
-        //     );
-        // }else {
-
-          final directory = await getTemporaryDirectory();
-          final filePath = '${directory.path}/All_Packages.xlsx';
+          final filePath = '${directory.path}/${fileName}';
           final file = File(filePath);
           await file.writeAsBytes(excel.encode()!);
 
@@ -1141,7 +977,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                         ),
                                         const SizedBox(width: 8),
                                         Text(
-                                          'TZS${order.totalPrice.toStringAsFixed(2)}',
+                                          'TZS${NumberFormat('#,##0.00').format(order.totalPrice)}',
                                           style: TextStyle(
                                             color: Colors.grey.shade600,
                                             fontSize: 12,
@@ -1536,7 +1372,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                     ),
                                   ),
                                   Text(
-                                    'TZS ${NumberFormat('#,##0').format(item.price * item.quantity)}',
+                                    'TZS${NumberFormat('#,##0').format(item.price * item.quantity)}',
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w500,
@@ -1804,7 +1640,7 @@ class _OrdersPageState extends State<OrdersPage> {
     bytes += generator.row([
       PosColumn(text: "Total Price", width: 6),
       PosColumn(
-        text: 'TZS ${NumberFormat('#,##0').format(totalPrice)}', 
+        text: 'TZS${NumberFormat('#,##0').format(totalPrice)}', 
         width: 6,
         styles: const PosStyles(bold: true),
       ),
@@ -1901,7 +1737,7 @@ class _OrdersPageState extends State<OrdersPage> {
           width: 6,
           styles: const PosStyles(bold: true),
         ),
-        PosColumn(text: "TZS ${NumberFormat('#,##0').format(totalAmount)}", width: 6, styles: const PosStyles(bold: true, align: PosAlign.right)),
+        PosColumn(text: "TZS${NumberFormat('#,##0').format(totalAmount)}", width: 6, styles: const PosStyles(bold: true, align: PosAlign.right)),
       ]);
 
       bytes += generator.text("--------------------------------",
@@ -2046,7 +1882,7 @@ class _OrdersPageState extends State<OrdersPage> {
 
                 pw.SizedBox(height: 6),
 
-                /// PACKAGE INFO
+                /// ORDERS INFO
                 pw.Center(
                   child: pw.Text(
                   "Order No: ${order.orderId}",
@@ -2135,7 +1971,7 @@ class _OrdersPageState extends State<OrdersPage> {
                   for (int i = 0; i < items.length; i++)
                     pw.Text(
                       "${i + 1}. ${items[i].name} (x${items[i].quantity})  "
-                      "TZS ${NumberFormat('#,##0').format(((items[i].price) * items[i].quantity).toInt())}",
+                      "TZS${NumberFormat('#,##0').format(((items[i].price) * items[i].quantity).toInt())}",
                       style: pw.TextStyle(
                         font: customFont,
                         fontSize: 10,
@@ -2510,7 +2346,7 @@ class _OrdersPageState extends State<OrdersPage> {
 
               // Order Summary
               pw.Text('Order Summary', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
-              _pdfRow('Order Date', order.date),
+              _pdfRow('Order Date', _formatDate(order.updatedAt)),
               _pdfRow('Total Items', items.length.toString()),
               _pdfRow('Total Amount', 'TZS${NumberFormat('#,##0.00').format(order.totalPrice)}'),
               _pdfRow('Payment Status', order.paymentStatus ? 'Paid' : 'Pending'),
@@ -2769,7 +2605,7 @@ class _OrdersPageState extends State<OrdersPage> {
                       'Payment Status',
                       order.paymentStatus ? '✅ Paid' : '⏳ Pending',
                     ),
-                    _buildDetailRow('Order Date', order.date),
+                    _buildDetailRow('Order Date', _formatDate(order.updatedAt)),
                   ],
                 ),
 
@@ -2807,8 +2643,6 @@ class _OrdersPageState extends State<OrdersPage> {
                   children: [
                     _buildDetailRow('Order ID', order.orderId),
                     _buildDetailRow('Order Status', order.status),
-                    _buildDetailRow('Shop ID', order.shopId.toString()),
-                    _buildDetailRow('User ID', order.userId.toString()),
                   ],
                 ),
               ],
@@ -2991,13 +2825,6 @@ Widget _buildOrderItemTile(OrderItem item) {
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
-              ),
-            ),
-            Text(
-              'Updated: ${_formatDate(item.updatedAt)}',
-              style: TextStyle(
-                fontSize: 10,
-                color: Colors.grey.shade500,
               ),
             ),
           ],
@@ -3240,7 +3067,7 @@ Widget _buildOrderItemTile(OrderItem item) {
                       title: 'Additional Information',
                       icon: Icons.info_outline,
                       children: [
-                        _buildDetailRow('Order Date', order.date),
+                        _buildDetailRow('Order Date', _formatDate(order.updatedAt)),
                         _buildDetailRow('Shop ID', order.shopId.toString()),
                         _buildDetailRow('User ID', order.userId.toString()),
                         _buildDetailRow('Status', order.status),

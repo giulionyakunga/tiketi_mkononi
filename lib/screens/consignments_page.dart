@@ -1190,7 +1190,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
                                   Text(
-                                    "TZS ${NumberFormat('#,##0').format(paidAmount)}",
+                                    "TZS${NumberFormat('#,##0').format(paidAmount)}",
                                     style: TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.w500,
@@ -1542,7 +1542,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
     bytes += generator.row([
       PosColumn(text: "Package Value", width: 6),
-      PosColumn(text: 'TZS ${NumberFormat('#,##0').format(packageValue)}', width: 6),
+      PosColumn(text: 'TZS${NumberFormat('#,##0').format(packageValue)}', width: 6),
     ]);
 
     bytes += generator.row([
@@ -1556,7 +1556,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
     bytes += generator.row([
       PosColumn(text: "Paid Amount", width: 6),
-      PosColumn(text: 'TZS ${NumberFormat('#,##0').format(paidAmount)}', width: 6),
+      PosColumn(text: 'TZS${NumberFormat('#,##0').format(paidAmount)}', width: 6),
     ]);
 
     bytes += generator.text(
@@ -1675,7 +1675,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
           width: 6,
           styles: const PosStyles(bold: true),
         ),
-        PosColumn(text: "TZS ${NumberFormat('#,##0').format(totalAmount)}", width: 6, styles: const PosStyles(bold: true, align: PosAlign.right)),
+        PosColumn(text: "TZS${NumberFormat('#,##0').format(totalAmount)}", width: 6, styles: const PosStyles(bold: true, align: PosAlign.right)),
       ]);
 
       bytes += generator.text("--------------------------------",
@@ -1950,7 +1950,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                 ),
 
                 pw.Text(
-                  "Package Value: TZS ${consignment['package_value']}",
+                  "Package Value: TZS${consignment['package_value']}",
                   style: pw.TextStyle(font: customFont, fontSize: 9),
                 ),
 
@@ -1961,7 +1961,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
                 if (consignment['payment_status'])
                   pw.Text(
-                    "Paid Amount: TZS ${consignment['paid_amount']}",
+                    "Paid Amount: TZS${consignment['paid_amount']}",
                     style: pw.TextStyle(font: customFont, fontSize: 9),
                   ),
 
@@ -2054,7 +2054,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                   for (int i = 0; i < items.length; i++)
                     pw.Text(
                       "${i + 1}. ${items[i]['name']} (x${items[i]['quantity']})  "
-                      "TZS ${NumberFormat('#,##0').format(((items[i]['value'] ?? 0) * items[i]['quantity']).toInt())}",
+                      "TZS${NumberFormat('#,##0').format(((items[i]['value'] ?? 0) * items[i]['quantity']).toInt())}",
                       style: pw.TextStyle(font: customFont, fontSize: 9),
                     ),
                 ],
@@ -2377,12 +2377,12 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
               _pdfRow(
                 '  Package Value',
-                'TZS ${NumberFormat('#,##0').format((consignment['package_value'] ?? 0).toInt())}',
+                'TZS${NumberFormat('#,##0').format((consignment['package_value'] ?? 0).toInt())}',
               ),
 
               _pdfRow(
                 '  Paid Amount',
-                'TZS ${NumberFormat('#,##0').format((consignment['paid_amount'] ?? 0).toInt())}',
+                'TZS${NumberFormat('#,##0').format((consignment['paid_amount'] ?? 0).toInt())}',
               ),
 
               pw.Divider(),
@@ -2426,7 +2426,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                       _pdfRow('    Quantity', '${item['quantity'] ?? 1}'),
                       _pdfRow(
                         '    Total Value',
-                        'TZS ${NumberFormat('#,##0').format(((item['value'] ?? 0) * item['quantity']).toInt())}',
+                        'TZS${NumberFormat('#,##0').format(((item['value'] ?? 0) * item['quantity']).toInt())}',
                       ),
                       pw.SizedBox(height: 4),
                     ],
@@ -3057,7 +3057,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                         Expanded(
                           child: _buildItemInfo(
                             label: 'Value',
-                            value: 'TZS ${NumberFormat('#,##0').format((item['value'] ?? 0).toInt())}',
+                            value: 'TZS${NumberFormat('#,##0').format((item['value'] ?? 0).toInt())}',
                           ),
                         ),
                         Expanded(

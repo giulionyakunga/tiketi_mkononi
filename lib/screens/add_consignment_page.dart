@@ -1914,7 +1914,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
     bytes += generator.row([
       PosColumn(text: "Package Value", width: 6),
-      PosColumn(text: 'TZS ${NumberFormat('#,##0').format(packageValue)}', width: 6),
+      PosColumn(text: 'TZS${NumberFormat('#,##0').format(packageValue)}', width: 6),
     ]);
 
     bytes += generator.row([
@@ -1928,7 +1928,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
     bytes += generator.row([
       PosColumn(text: "Paid Amount", width: 6),
-      PosColumn(text: 'TZS ${NumberFormat('#,##0').format(paidAmount)}', width: 6),
+      PosColumn(text: 'TZS${NumberFormat('#,##0').format(paidAmount)}', width: 6),
     ]);
 
     bytes += generator.text(
@@ -2046,7 +2046,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
           width: 6,
           styles: const PosStyles(bold: true),
         ),
-        PosColumn(text: "TZS ${NumberFormat('#,##0').format(totalAmount)}", width: 6, styles: const PosStyles(bold: true, align: PosAlign.right)),
+        PosColumn(text: "TZS${NumberFormat('#,##0').format(totalAmount)}", width: 6, styles: const PosStyles(bold: true, align: PosAlign.right)),
       ]);
 
       bytes += generator.text("--------------------------------",
@@ -2323,7 +2323,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                 ),
 
                 pw.Text(
-                  "Package Value: TZS ${consignment['package_value']}",
+                  "Package Value: TZS${consignment['package_value']}",
                   style: pw.TextStyle(font: customFont),
                 ),
 
@@ -2334,7 +2334,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
                 if (consignment['payment_status'])
                   pw.Text(
-                    "Paid Amount: TZS ${consignment['paid_amount']}",
+                    "Paid Amount: TZS${consignment['paid_amount']}",
                     style: pw.TextStyle(font: customFont),
                   ),
 
@@ -2423,7 +2423,7 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                   for (int i = 0; i < items.length; i++)
                     pw.Text(
                       "${i + 1}. ${items[i]['name']} (x${items[i]['quantity']})  "
-                      "TZS ${NumberFormat('#,##0').format(((items[i]['value'] ?? 0) * items[i]['quantity']).toInt())}",
+                      "TZS${NumberFormat('#,##0').format(((items[i]['value'] ?? 0) * items[i]['quantity']).toInt())}",
                       style: pw.TextStyle(font: customFont),
                     ),
                 ],

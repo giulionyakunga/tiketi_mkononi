@@ -84,7 +84,6 @@ class _AddOrderPageState extends State<AddOrderPage> {
     _initializeServices();
     _addOrderItem();
     if (Platform.isWindows) {
-      _refreshCablePrinters();
       _loadSelectedPrinter();
     }
     _loadNumberOfReceipts();
@@ -411,9 +410,7 @@ class _AddOrderPageState extends State<AddOrderPage> {
     });
   }
   
-  Future<void> _placeOrder({bool useDNS = true}) async {
-    _printCableFile();
-    
+  Future<void> _placeOrder({bool useDNS = true}) async {    
     if (!_formKey.currentState!.validate()) {
       _scrollToFirstError();
       return;
@@ -1905,7 +1902,7 @@ class _AddOrderPageState extends State<AddOrderPage> {
     bytes += generator.row([
       PosColumn(text: "Total Price", width: 6),
       PosColumn(
-        text: 'TZS ${NumberFormat('#,##0').format(totalPrice)}', 
+        text: 'TZS${NumberFormat('#,##0').format(totalPrice)}', 
         width: 6,
         styles: const PosStyles(bold: true),
       ),
@@ -2002,7 +1999,7 @@ class _AddOrderPageState extends State<AddOrderPage> {
           width: 6,
           styles: const PosStyles(bold: true),
         ),
-        PosColumn(text: "TZS ${NumberFormat('#,##0').format(totalAmount)}", width: 6, styles: const PosStyles(bold: true, align: PosAlign.right)),
+        PosColumn(text: "TZS${NumberFormat('#,##0').format(totalAmount)}", width: 6, styles: const PosStyles(bold: true, align: PosAlign.right)),
       ]);
 
       bytes += generator.text("--------------------------------",
@@ -2236,7 +2233,7 @@ class _AddOrderPageState extends State<AddOrderPage> {
                   for (int i = 0; i < items.length; i++)
                     pw.Text(
                       "${i + 1}. ${items[i].name} (x${items[i].quantity})  "
-                      "TZS ${NumberFormat('#,##0').format(((items[i].price) * items[i].quantity).toInt())}",
+                      "TZS${NumberFormat('#,##0').format(((items[i].price) * items[i].quantity).toInt())}",
                       style: pw.TextStyle(
                         font: customFont,
                         fontSize: 10,
@@ -2254,7 +2251,7 @@ class _AddOrderPageState extends State<AddOrderPage> {
                 ),
 
                 pw.Text(
-                  "Total Amount: ${totalAmount}",
+                  "Total Amount:    TZS${NumberFormat('#,##0').format(totalAmount)}}",
                   style: pw.TextStyle(
                     font: customFont,
                     fontSize: 10,
@@ -2372,38 +2369,6 @@ class _AddOrderPageState extends State<AddOrderPage> {
       );
     } else {
       await _selectCablePrinterDialog();
-    }
-  }
-
-  Future<void> _printCableFile() async {
-    debugPrint("Printing PDF file via cable...");
-
-    try {
-      // Load PDF file from assets
-      final pdfData = await rootBundle.load(
-        'assets/sample_doc.pdf',
-      );
-
-      final bytes = pdfData.buffer.asUint8List();
-
-      if (selectedCablePrinter != null) {
-        try {
-          await Printing.directPrintPdf(
-            printer: selectedCablePrinter!,
-            onLayout: (PdfPageFormat format) async => bytes,
-          );
-
-          debugPrint("Print success");
-        } catch (e, s) {
-          debugPrint("PRINT ERROR: $e");
-          debugPrint("$s");
-        }
-
-      } else {
-        await _selectCablePrinterDialog();
-      }
-    } catch (e) {
-      debugPrint("Print error: $e");
     }
   }
 

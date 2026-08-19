@@ -1,9 +1,7 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-
 import 'package:tiketi_mkononi/env.dart';
 import 'package:tiketi_mkononi/l10n/app_localizations.dart';
 import 'package:tiketi_mkononi/models/shop.dart';
@@ -31,7 +29,6 @@ class _EditShopPageState extends State<EditShopPage> {
   bool _searchPerformed = false;
   final _formKey = GlobalKey<FormState>();
 
-
   @override
   void initState() {
     super.initState();
@@ -43,6 +40,8 @@ class _EditShopPageState extends State<EditShopPage> {
   @override
   void dispose() {
     _emailController.dispose();
+    _shopNameController.dispose();
+    _shopLocationController.dispose();
     super.dispose();
   }
 
@@ -85,10 +84,7 @@ class _EditShopPageState extends State<EditShopPage> {
     }
   }
 
-  
   Future<void> _deleteShop({bool useDNS = true}) async {
-    if (!_formKey.currentState!.validate()) return;
-
     setState(() => _isLoading2 = true);
 
     try {
@@ -112,7 +108,7 @@ class _EditShopPageState extends State<EditShopPage> {
       }
     } on SocketException catch (e) {
       if ((e.osError?.errorCode == 7 || e.osError?.errorCode == 11001) && useDNS) {
-        await _saveShop(useDNS: false);
+        await _deleteShop(useDNS: false);
         return;
       }
       _showSnackBar('Network error. Please check your connection');
@@ -127,9 +123,9 @@ class _EditShopPageState extends State<EditShopPage> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Row(
-          children: [
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: const [
             Icon(Icons.check_circle, color: Colors.green),
             SizedBox(width: 8),
             Text('Shop Edited'),
@@ -152,9 +148,9 @@ class _EditShopPageState extends State<EditShopPage> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Row(
-          children: [
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: const [
             Icon(Icons.check_circle, color: Colors.green),
             SizedBox(width: 8),
             Text('Shop Deleted'),
@@ -184,29 +180,36 @@ class _EditShopPageState extends State<EditShopPage> {
         color: Colors.grey[600],
       ) : null,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide(color: Colors.grey[400]!),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey[300]!),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide(color: Colors.grey[400]!),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey[300]!),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide(color: Colors.teal[800]!, width: 2),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.teal[700]!, width: 2),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.red[300]!, width: 1.5),
       ),
       filled: true,
-      fillColor: Colors.grey[200],
-      contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+      fillColor: Colors.grey[50],
+      contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+      labelStyle: TextStyle(
+        color: Colors.grey[700],
+        fontWeight: FontWeight.w500,
+      ),
     );
   }
 
-
   Future<void> getOhopAttendants({bool useDNS = true}) async {
     try {
-
-      final Uri uri = useDNS ?   Uri.parse('${backend_url}api/shop_attendants/${widget.shop.id}') 
-      : Uri.parse('${backend_url_with_fallback_ip}shop_attendants/${widget.shop.id}'); // Use IP
+      final Uri uri = useDNS 
+          ? Uri.parse('${backend_url}api/shop_attendants/${widget.shop.id}') 
+          : Uri.parse('${backend_url_with_fallback_ip}shop_attendants/${widget.shop.id}');
 
       final response = await http.get(
         uri,
@@ -217,7 +220,6 @@ class _EditShopPageState extends State<EditShopPage> {
 
       if (response.statusCode == 200) {
         final List<dynamic> jsonList = jsonDecode(response.body);
-
         setState(() {
           shopAttendants = jsonList;
         });
@@ -237,15 +239,12 @@ class _EditShopPageState extends State<EditShopPage> {
         debugPrint('  - errorCode: ${e.osError!.errorCode}');
         debugPrint('  - useDNS: ${useDNS}');
 
-        // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await getOhopAttendants(useDNS: false); // Recursive retry
-
+          await getOhopAttendants(useDNS: false);
           return;
         }
       }
-
       _handleSocketException(e);
     } catch (e) {
       setState(() {
@@ -275,8 +274,9 @@ class _EditShopPageState extends State<EditShopPage> {
       _searchPerformed = true;
     });
 
-    final Uri uri = useDNS ?   Uri.parse('${backend_url}api/find_shop_attendant_by_email/$email/${widget.shop.id}') 
-    : Uri.parse('${backend_url_with_fallback_ip}find_shop_attendant_by_email/$email/${widget.shop.id}'); // Use IP
+    final Uri uri = useDNS 
+        ? Uri.parse('${backend_url}api/find_shop_attendant_by_email/$email/${widget.shop.id}') 
+        : Uri.parse('${backend_url_with_fallback_ip}find_shop_attendant_by_email/$email/${widget.shop.id}');
 
     try {
       final response = await http.get(
@@ -286,7 +286,6 @@ class _EditShopPageState extends State<EditShopPage> {
 
       if (response.statusCode == 200) {
         debugPrint("Response 2 : ${response.body}");
-
         final data = json.decode(response.body);
         setState(() {
           _userData = data;
@@ -309,15 +308,12 @@ class _EditShopPageState extends State<EditShopPage> {
         debugPrint('  - errorCode: ${e.osError!.errorCode}');
         debugPrint('  - useDNS: ${useDNS}');
 
-        // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await _searchUser(useDNS: false); // Recursive retry
-
+          await _searchUser(useDNS: false);
           return;
         }
       }
-
       _handleSocketException(e);
     } catch (e) {
       setState(() {
@@ -339,14 +335,15 @@ class _EditShopPageState extends State<EditShopPage> {
       _isLoading = true;
     });
 
-    final Uri uri = useDNS ? Uri.parse('${backend_url}api/set_shop_attendant/${widget.shop.id}/${widget.userId}') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}set_shop_attendant/${widget.shop.id}/${widget.userId}'); // Use IP
+    final Uri uri = useDNS 
+        ? Uri.parse('${backend_url}api/set_shop_attendant/${widget.shop.id}/${widget.userId}')
+        : Uri.parse('${backend_url_with_fallback_ip}set_shop_attendant/${widget.shop.id}/${widget.userId}');
 
     try {
       final response = await http.post(
         uri,
         headers: {'Content-Type': 'application/json'},
-        body: json.encode({'set_shop_attendant': value, 'shop_attendant_id': shopAttendantId }),
+        body: json.encode({'set_shop_attendant': value, 'shop_attendant_id': shopAttendantId}),
       );
 
       if (response.statusCode == 200) {
@@ -356,11 +353,14 @@ class _EditShopPageState extends State<EditShopPage> {
           setState(() {
             _isShopAttendant = value;
           });
-
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('${shopAttendantName} is now an attendant for this shop'),
               backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
           );
         } else if(response.body == "Shop attendant removed successfully!") {
@@ -368,6 +368,10 @@ class _EditShopPageState extends State<EditShopPage> {
             SnackBar(
               content: Text('${shopAttendantName} is no longer an attendant for this shop'),
               backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
           );
         } else {
@@ -375,6 +379,10 @@ class _EditShopPageState extends State<EditShopPage> {
             SnackBar(
               content: Text(response.body),
               backgroundColor: Colors.black,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
           );
         }        
@@ -394,21 +402,22 @@ class _EditShopPageState extends State<EditShopPage> {
         debugPrint('  - errorCode: ${e.osError!.errorCode}');
         debugPrint('  - useDNS: ${useDNS}');
 
-        // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await _toggleShopAttendantStatus(value, shopAttendantId, shopAttendantName, useDNS: false); // Recursive retry
-
+          await _toggleShopAttendantStatus(value, shopAttendantId, shopAttendantName, useDNS: false);
           return;
         }
       }
-
       _handleSocketException(e);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to update scanner status'),
           backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
         ),
       );
     } finally {
@@ -429,7 +438,7 @@ class _EditShopPageState extends State<EditShopPage> {
       ),
     );
   }
-    
+
   void _handleSocketException(SocketException e) {
     if (e.osError?.errorCode == 7 || e.osError?.errorCode == 101 || e.osError?.errorCode == 111) {
       showDialog(
@@ -460,19 +469,22 @@ class _EditShopPageState extends State<EditShopPage> {
     );
   }
 
-    void _showDeleteConfirmation(BuildContext context) {
+  void _showDeleteConfirmation(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete'),
-        content: const Text('Are you sure you want to delete this shop?'),
+        title: const Text('Delete Shop'),
+        content: const Text('Are you sure you want to delete this shop? This action cannot be undone.'),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(15),
+          borderRadius: BorderRadius.circular(16),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: Colors.grey[700]),
+            ),
           ),
           TextButton(
             onPressed: () {
@@ -485,369 +497,503 @@ class _EditShopPageState extends State<EditShopPage> {
     );
   }
 
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Edit Shop'),
-        centerTitle: true,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(
-              Icons.delete,
-              color: Colors.red,
+  Widget _buildSectionHeader(String title, String subtitle, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.teal[50],
+              borderRadius: BorderRadius.circular(12),
             ),
-            onPressed: () {
-                _showDeleteConfirmation(context);
-              }
-      
+            child: Icon(icon, color: Colors.teal[700], size: 24),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.teal,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+    );
+  }
+
+  Widget _buildUserCard(Map<String, dynamic> userData, bool isCurrentAttendant) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: isCurrentAttendant
+            ? BorderSide(color: Colors.teal[300]!, width: 2)
+            : BorderSide.none,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-
-            /// ================== EDIT shop ==================
-            Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Edit Shop Info',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Change shop information.',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                  const SizedBox(height: 24),
-
-                  TextFormField(
-                    controller: _shopNameController,
-                    decoration: _buildInputDecoration(
-                      'Shop Name',
-                      prefixIcon: Icons.apartment,
-                    ),
-                    validator: (value) => value == null || value.trim().isEmpty
-                        ? 'Shop name is required'
-                        : null,
-                  ),
-                  const SizedBox(height: 16),
-
-                  TextFormField(
-                    controller: _shopLocationController,
-                    decoration: _buildInputDecoration(
-                      'Shop Location',
-                      prefixIcon: Icons.location_on,
-                    ),
-                    validator: (value) => value == null || value.trim().isEmpty
-                        ? 'Shop location is required'
-                        : null,
-                  ),
-                  const SizedBox(height: 32),
-
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton(
-                      onPressed: _isLoading2 ? null : _saveShop,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.teal,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: _isLoading2
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : Text(
-                              AppLocalizations.of(context)!.save,
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 28,
+                  backgroundColor: Colors.teal[50],
+                  child: Text(
+                    '${userData['first_name'][0]}${userData['last_name'][0]}',
+                    style: TextStyle(
+                      color: Colors.teal[700],
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
                     ),
                   ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 32),
-
-            /// ================== SEARCH USER ==================
-            Text(
-              'Assign Shop Attendant',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blueGrey[800],
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Search for a user by email to assign them as attendants for this shop.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.blueGrey[600],
-                  ),
-            ),
-            const SizedBox(height: 24),
-
-            TextField(
-              controller: _emailController,
-              autofillHints: const [AutofillHints.email],
-              decoration: InputDecoration(
-                labelText: 'User Email',
-                hintText: 'Enter user email address',
-                prefixIcon: const Icon(Icons.email),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
                 ),
-                filled: true,
-                fillColor: Colors.grey[50],
-              ),
-              keyboardType: TextInputType.emailAddress,
-            ),
-
-            const SizedBox(height: 16),
-
-            ElevatedButton(
-              onPressed: _isLoading ? null : _searchUser,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              child: _isLoading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor:
-                            AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    )
-                  : const Text('Search User'),
-            ),
-
-            if (_errorMessage.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  _errorMessage,
-                  style: const TextStyle(color: Colors.red),
-                ),
-              ),
-
-            const SizedBox(height: 24),
-
-            if (_searchPerformed &&
-                _userData == null &&
-                !_isLoading &&
-                _errorMessage.isEmpty)
-              const Center(child: Text('No user found')),
-
-            if (_userData != null) ...[
-              Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
+                const SizedBox(width: 16),
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          CircleAvatar(
-                            backgroundColor: Colors.blue[100],
-                            child: Text(
-                              _userData!['first_name'][0] +
-                                  _userData!['last_name'][0],
-                              style: const TextStyle(color: Colors.blue),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '${_userData!['first_name']} ${_userData!['last_name']}',
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold, fontSize: 16),
-                              ),
-                              Text(
-                                _userData!['email'],
-                                style:
-                                    TextStyle(color: Colors.grey[600]),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
                       Text(
-                        'Phone: ${_userData!['phone_number'] ?? 'Not provided'}',
-                        style: TextStyle(color: Colors.grey[600]),
+                        '${userData['first_name']} ${userData['last_name']}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
-
-                      const SizedBox(height: 16),
-
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Shop Attendant Status:',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          Switch(
-                            value: _isShopAttendant,
-                            onChanged: _isLoading
-                                ? null
-                                : (value) => _toggleShopAttendantStatus(value, _userData!['id'], _userData!['first_name']),
-                            activeColor: Colors.green,
-                          ),
-                        ],
+                      Text(
+                        userData['email'],
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 13,
+                        ),
                       ),
                     ],
                   ),
                 ),
-              ),
-
-              const SizedBox(height: 8),
-
-              Text(
-                _isShopAttendant
-                    ? 'This user can attend your shop'
-                    : 'This user cannot attend your shop',
-                style: TextStyle(
-                  color: _isShopAttendant
-                      ? Colors.green
-                      : Colors.grey,
-                  fontStyle: FontStyle.italic,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-
-            const SizedBox(height: 32),
-
-            /// ================== CURRENT ATTENDANTS ==================
-            Text(
-              'Current Shop Attendants',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blueGrey[800],
-                  ),
-            ),
-
-            const SizedBox(height: 16),
-
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: shopAttendants.length,
-              itemBuilder: (context, index) {
-                final shopAttendant = shopAttendants[index];
-
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 16.0),
-                  child: Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isCurrentAttendant ? Colors.green[50] : Colors.grey[100],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isCurrentAttendant ? Colors.green[200]! : Colors.grey[300]!,
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
+                  ),
+                  child: Text(
+                    isCurrentAttendant ? 'Active' : 'Inactive',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: isCurrentAttendant ? Colors.green[700] : Colors.grey[600],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(Icons.phone, size: 16, color: Colors.grey[500]),
+                const SizedBox(width: 6),
+                Text(
+                  userData['phone_number'] ?? 'Not provided',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Shop Attendant Status:',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                Switch(
+                  value: isCurrentAttendant,
+                  onChanged: _isLoading
+                      ? null
+                      : (value) => _toggleShopAttendantStatus(
+                          value,
+                          userData['id'],
+                          userData['first_name'],
+                        ),
+                  activeColor: Colors.teal[700],
+                  activeTrackColor: Colors.teal[200],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isLargeScreen = MediaQuery.of(context).size.width > 768;
+    final isMediumScreen = MediaQuery.of(context).size.width > 480 && MediaQuery.of(context).size.width <= 768;
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
+    return Scaffold(
+      backgroundColor: isDarkMode ? Colors.grey[900] : Colors.grey[50],
+      appBar: AppBar(
+        title: Row(
+          children: [
+            Icon(Icons.storefront_outlined, color: Colors.white),
+            const SizedBox(width: 10),
+            const Text(
+              'Edit Shop',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.teal[800],
+        foregroundColor: Colors.white,
+        elevation: 4,
+        centerTitle: false,
+        actions: [
+          IconButton(
+            icon: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.delete_outline,
+                color: Colors.white,
+                size: 22,
+              ),
+            ),
+            onPressed: () {
+              _showDeleteConfirmation(context);
+            },
+            tooltip: 'Delete Shop',
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: EdgeInsets.symmetric(
+          horizontal: isLargeScreen ? 200 : isMediumScreen ? 100 : 16,
+          vertical: 20,
+        ),
+        child: Center(
+          child: Container(
+            constraints: BoxConstraints(
+              maxWidth: isLargeScreen ? 900 : double.infinity,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ================== EDIT SHOP SECTION ==================
+                Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.all(isLargeScreen ? 24 : 16),
+                    child: Form(
+                      key: _formKey,
                       child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              CircleAvatar(
-                                backgroundColor: Colors.blue[100],
-                                child: Text(
-                                  shopAttendant['first_name'][0] +
-                                      shopAttendant['last_name'][0],
-                                  style: const TextStyle(
-                                      color: Colors.blue),
+                          _buildSectionHeader(
+                            'Shop Information',
+                            'Update your shop details',
+                            Icons.store,
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _shopNameController,
+                            decoration: _buildInputDecoration(
+                              'Shop Name',
+                              prefixIcon: Icons.apartment,
+                            ),
+                            validator: (value) => value == null || value.trim().isEmpty
+                                ? 'Shop name is required'
+                                : null,
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _shopLocationController,
+                            decoration: _buildInputDecoration(
+                              'Shop Location',
+                              prefixIcon: Icons.location_on,
+                            ),
+                            validator: (value) => value == null || value.trim().isEmpty
+                                ? 'Shop location is required'
+                                : null,
+                          ),
+                          const SizedBox(height: 24),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: _isLoading2 ? null : _saveShop,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.teal[700],
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
+                                elevation: 2,
+                                disabledBackgroundColor: Colors.grey[300],
                               ),
-                              const SizedBox(width: 16),
-                              Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '${shopAttendant['first_name']} ${shopAttendant['last_name']}',
-                                    style: const TextStyle(
-                                        fontWeight:
-                                            FontWeight.bold,
-                                        fontSize: 16),
-                                  ),
-                                  Text(
-                                    shopAttendant['email'],
-                                    style: TextStyle(
-                                        color:
-                                            Colors.grey[600]),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-
-                          Text(
-                            'Phone: ${shopAttendant['phone_number']}',
-                            style:
-                                TextStyle(color: Colors.grey[600]),
-                          ),
-
-                          const SizedBox(height: 16),
-
-                          Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                'Shop Attendant Status:',
-                                style: TextStyle(
-                                    fontWeight:
-                                        FontWeight.bold),
-                              ),
-                              Switch(
-                                value: (shopAttendant['shop_id'] == widget.shop.id),
-                                onChanged: _isLoading
-                                    ? null
-                                    : (value) =>
-                                        _toggleShopAttendantStatus(
-                                          value,
-                                          shopAttendant['id'],
-                                          shopAttendant['first_name']
+                              child: _isLoading2
+                                  ? SizedBox(
+                                      height: 24,
+                                      width: 24,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 3,
+                                      ),
+                                    )
+                                  : Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.save_outlined, size: 20),
+                                        const SizedBox(width: 10),
+                                        Text(
+                                          AppLocalizations.of(context)!.save,
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                         ),
-                                activeColor: Colors.green,
-                              ),
-                            ],
+                                      ],
+                                    ),
+                            ),
                           ),
                         ],
                       ),
                     ),
                   ),
-                );
-              },
+                ),
+
+                const SizedBox(height: 24),
+
+                // ================== SEARCH USER SECTION ==================
+                Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.all(isLargeScreen ? 24 : 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildSectionHeader(
+                          'Assign Shop Attendant',
+                          'Search for a user by email to assign them as attendants',
+                          Icons.person_add_alt_1,
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _emailController,
+                          autofillHints: const [AutofillHints.email],
+                          decoration: _buildInputDecoration(
+                            'User Email',
+                            prefixIcon: Icons.email,
+                          ),
+                          keyboardType: TextInputType.emailAddress,
+                          onFieldSubmitted: (value) => _searchUser(),
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: _isLoading ? null : _searchUser,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.grey[800],
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 2,
+                              disabledBackgroundColor: Colors.grey[300],
+                            ),
+                            child: _isLoading
+                                ? SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.search, size: 20),
+                                      const SizedBox(width: 10),
+                                      const Text(
+                                        'Search User',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                          ),
+                        ),
+                        if (_errorMessage.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.red[50],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.red[200]!),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.error_outline, color: Colors.red[400], size: 20),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    _errorMessage,
+                                    style: TextStyle(color: Colors.red[700]),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        if (_searchPerformed &&
+                            _userData == null &&
+                            !_isLoading &&
+                            _errorMessage.isEmpty) ...[
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[100],
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey[300]!),
+                            ),
+                            child: Center(
+                              child: Column(
+                                children: [
+                                  Icon(Icons.person_off_outlined, size: 48, color: Colors.grey[400]),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'No user found',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.grey[600],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                        if (_userData != null) ...[
+                          const SizedBox(height: 16),
+                          _buildUserCard(_userData!, _isShopAttendant),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // ================== CURRENT ATTENDANTS SECTION ==================
+                Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.all(isLargeScreen ? 24 : 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildSectionHeader(
+                          'Current Shop Attendants',
+                          'Manage existing shop attendants',
+                          Icons.people_alt,
+                        ),
+                        const SizedBox(height: 16),
+                        if (shopAttendants.isEmpty)
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[100],
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey[300]!),
+                            ),
+                            child: Center(
+                              child: Column(
+                                children: [
+                                  Icon(Icons.people_outline, size: 48, color: Colors.grey[400]),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'No shop attendants yet',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.grey[600],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        else
+                          ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: shopAttendants.length,
+                            separatorBuilder: (context, index) => const SizedBox(height: 12),
+                            itemBuilder: (context, index) {
+                              final shopAttendant = shopAttendants[index];
+                              final isCurrentAttendant = shopAttendant['shop_id'] == widget.shop.id;
+                              return _buildUserCard(shopAttendant, isCurrentAttendant);
+                            },
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 32),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

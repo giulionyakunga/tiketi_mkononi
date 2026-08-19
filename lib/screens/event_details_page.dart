@@ -1347,7 +1347,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                     ),
                                   ),
                                 ),
-                                if ((userId == event.userId) && (event.status == "active") && ((event.category.toUpperCase() == "WEDDING") || (event.category.toUpperCase() == "CELEBRATION")))
+                                if ((role == 'admin') || ((userId == event.userId) && (event.status == "active") && ((event.category.toUpperCase() == "WEDDING") || (event.category.toUpperCase() == "CELEBRATION"))))
                                 Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 8),
                                   child: TextButton(
@@ -1668,7 +1668,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                           const SizedBox(width: 10),
                         ],
                         // Generate cards (wedding)
-                        if ((userId == event.userId) && (event.status == "active") && ((event.category.toUpperCase() == "WEDDING") || (event.category.toUpperCase() == "CELEBRATION"))) ...[
+                        if ((role == 'admin') || ((userId == event.userId) && (event.status == "active") && ((event.category.toUpperCase() == "WEDDING") || (event.category.toUpperCase() == "CELEBRATION")))) ...[
                           TextButton(
                             style: _compactBtnStyle,
                             onPressed: () {

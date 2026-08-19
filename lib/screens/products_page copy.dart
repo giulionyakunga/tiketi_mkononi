@@ -143,17 +143,8 @@ class _ProductsPageState extends State<ProductsPage> {
     _applyFilters();
   }
 
-  bool _isSmallScreen(BuildContext context) {
-    return MediaQuery.of(context).size.width < 600;
-  }
-
-  bool _isMediumScreen(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    return width >= 600 && width < 1000;
-  }
-
   bool _isLargeScreen(BuildContext context) {
-    return MediaQuery.of(context).size.width >= 1000;
+    return MediaQuery.of(context).size.width > 768;
   }
 
   @override
@@ -287,9 +278,6 @@ class _ProductsPageState extends State<ProductsPage> {
 
   Widget _buildBody() {
     final isLargeScreen = _isLargeScreen(context);
-    final isSmall = _isSmallScreen(context);
-    final isMedium = _isMediumScreen(context);
-    final isLarge = _isLargeScreen(context);
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
 
@@ -389,11 +377,7 @@ class _ProductsPageState extends State<ProductsPage> {
         // Product Grid/List
         Expanded(
           child: _isGridView
-              ? _buildProductGrid(
-                  isSmall: isSmall,
-                  isMedium: isMedium,
-                  isLarge: isLarge,
-                )
+              ? _buildProductGrid(isLargeScreen)
               : _buildProductList(),
         ),
       ],
@@ -579,103 +563,21 @@ class _ProductsPageState extends State<ProductsPage> {
     return 'TZS ${NumberFormat('#,##0').format(total)}';
   }
 
-  Widget _buildProductGrid({
-    required bool isSmall,
-    required bool isMedium,
-    required bool isLarge,
-  }) {
-    int crossAxisCount;
-
-    if (isSmall) {
-      crossAxisCount = 2;
-    } else if (isMedium) {
-      crossAxisCount = 3;
-    } else {
-      // On very large screens allow 5 columns.
-      final width = MediaQuery.of(context).size.width;
-
-      crossAxisCount = width >= 1500 ? 5 : 4;
-    }
-
-    // ---------------------------------------------------------------
-    // THIS IS THE IMPORTANT PART.
-    //
-    // Small screens:
-    //   Keep cards relatively tall.
-    //
-    // Medium screens:
-    //   Reduce the height.
-    //
-    // Large screens:
-    //   Use a FIXED height instead of childAspectRatio.
-    //
-    // This prevents cards from becoming unnecessarily tall on
-    // desktop/large monitors.
-    // ---------------------------------------------------------------
-
-    double cardHeight;
-
-    if (isSmall) {
-      cardHeight = 300;
-    } else if (isMedium) {
-      cardHeight = 260;
-    } else {
-      cardHeight = 235;
-    }
-
-    if(isSmall) {
-      return GridView.builder(
-        padding: const EdgeInsets.all(16),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: isLarge ? 4 : 2,
-          crossAxisSpacing: 8,
-          mainAxisSpacing: 8,
-          childAspectRatio: 0.75,
-        ),
-        itemCount: _filteredProducts.length,
-        itemBuilder: (context, index) {
-          final product = _filteredProducts[index];
-          return _buildProductCard(product);
-        },
-      );
-    } else {
-      return Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxWidth: 1500,
-          ),
-          child: GridView.builder(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.fromLTRB(
-              isSmall ? 16 : 24,
-              8,
-              isSmall ? 16 : 24,
-              100,
-            ),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: crossAxisCount,
-              crossAxisSpacing: isSmall ? 10 : 14,
-              mainAxisSpacing: isSmall ? 10 : 14,
-
-              // Instead of childAspectRatio.
-              // This gives us control over the actual card height.
-              mainAxisExtent: cardHeight,
-            ),
-            itemCount: _filteredProducts.length,
-            itemBuilder: (context, index) {
-              final product = _filteredProducts[index];
-
-              return _buildProductCard2(
-                product,
-                isSmall: isSmall,
-                isMedium: isMedium,
-                isLarge: isLarge,
-              );
-            },
-          ),
-        ),
-      );
-    }
+  Widget _buildProductGrid(bool isLargeScreen) {
+    return GridView.builder(
+      padding: const EdgeInsets.all(16),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: isLargeScreen ? 4 : 2,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+        childAspectRatio: 0.75,
+      ),
+      itemCount: _filteredProducts.length,
+      itemBuilder: (context, index) {
+        final product = _filteredProducts[index];
+        return _buildProductCard(product);
+      },
+    );
   }
 
   Widget _buildProductList() {
@@ -803,8 +705,8 @@ class _ProductsPageState extends State<ProductsPage> {
                           ),
                         ),
                         GestureDetector(
-                          onTap: () async {
-                            await Navigator.push(
+                          onTap: () {
+                            Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => EditProductPage(
@@ -813,8 +715,6 @@ class _ProductsPageState extends State<ProductsPage> {
                                 ),
                               ),
                             );
-
-                            _fetchProducts();
                           },
                           child: Icon(
                             Icons.chevron_right,
@@ -833,269 +733,6 @@ class _ProductsPageState extends State<ProductsPage> {
       ),
     );
   }
-
-  // ---------------------------------------------------------------------------
-  // PRODUCT CARD
-  // ---------------------------------------------------------------------------
-
-  Widget _buildProductCard2(
-    Product product, {
-    required bool isSmall,
-    required bool isMedium,
-    required bool isLarge,
-  }) {
-    final isSelected = _selectedProduct == product;
-    final inStock = product.quantity > 0;
-
-    final theme = Theme.of(context);
-    final isDarkMode = theme.brightness == Brightness.dark;
-
-    // Smaller image on larger screens.
-    final double imageHeight = isSmall
-        ? 120
-        : isMedium
-            ? 100
-            : 90;
-
-    return Card(
-      margin: EdgeInsets.zero,
-      elevation: isSelected ? 5 : 1.5,
-      shadowColor: Colors.black.withOpacity(0.12),
-      color: isDarkMode
-          ? theme.colorScheme.surfaceContainerHighest
-          : Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(
-          isSmall ? 15 : 13,
-        ),
-        side: isSelected
-            ? BorderSide(
-                color: Colors.teal.shade400,
-                width: 1.5,
-              )
-            : BorderSide(
-                color: isDarkMode
-                    ? Colors.white.withOpacity(0.05)
-                    : Colors.grey.shade200,
-                width: 1,
-              ),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () {
-          setState(() {
-            if (_selectedProduct == product) {
-              _showDetails = !_showDetails;
-            } else {
-              _selectedProduct = product;
-              _showDetails = true;
-            }
-          });
-        },
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // -------------------------------------------------------------
-            // IMAGE / ICON AREA
-            // -------------------------------------------------------------
-
-            SizedBox(
-              height: imageHeight,
-              width: double.infinity,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: isDarkMode
-                      ? Colors.teal.shade900.withOpacity(0.35)
-                      : Colors.teal.shade50,
-                ),
-                child: Stack(
-                  children: [
-                    Center(
-                      child: Icon(
-                        Icons.inventory_2_rounded,
-                        size: isSmall ? 48 : 40,
-                        color: isDarkMode
-                            ? Colors.teal.shade300
-                            : Colors.teal.shade200,
-                      ),
-                    ),
-
-                    // -----------------------------------------------------
-                    // STOCK BADGE
-                    // -----------------------------------------------------
-
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: isSmall ? 8 : 7,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: inStock
-                              ? Colors.green.shade100
-                              : Colors.red.shade100,
-                          borderRadius:
-                              BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 5,
-                              height: 5,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: inStock
-                                    ? Colors.green.shade700
-                                    : Colors.red.shade700,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              inStock
-                                  ? 'In Stock'
-                                  : 'Out of Stock',
-                              style: TextStyle(
-                                fontSize: isSmall ? 9 : 8,
-                                fontWeight: FontWeight.w700,
-                                color: inStock
-                                    ? Colors.green.shade800
-                                    : Colors.red.shade800,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // -------------------------------------------------------------
-            // PRODUCT INFORMATION
-            // -------------------------------------------------------------
-
-            Expanded(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  isSmall ? 10 : 9,
-                  isSmall ? 8 : 7,
-                  isSmall ? 10 : 9,
-                  isSmall ? 8 : 7,
-                ),
-                child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                  children: [
-                    // Product name
-                    Text(
-                      '${product.name.toUpperCase()} ${product.brand.toUpperCase()}',
-                      style: TextStyle(
-                        fontSize: isSmall ? 12 : 11,
-                        fontWeight: FontWeight.w700,
-                        height: 1.15,
-                        color: isDarkMode
-                            ? Colors.white
-                            : Colors.grey.shade900,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-
-                    const SizedBox(height: 3),
-
-                    // Price
-                    Text(
-                      'TZS ${NumberFormat('#,##0').format(product.price)}',
-                      style: TextStyle(
-                        fontSize: isSmall ? 14 : 13,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.teal.shade700,
-                      ),
-                    ),
-
-                    const Spacer(),
-
-                    // Bottom row
-                    Row(
-                      children: [
-                        // Quantity
-                        Flexible(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 7,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isDarkMode
-                                  ? Colors.white.withOpacity(0.06)
-                                  : Colors.grey.shade100,
-                              borderRadius:
-                                  BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              'Qty: ${product.quantity}',
-                              style: TextStyle(
-                                fontSize: isSmall ? 10 : 9,
-                                color: isDarkMode
-                                    ? Colors.grey.shade300
-                                    : Colors.grey.shade600,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
-
-                        const Spacer(),
-
-                        // Edit button
-                        InkWell(
-                          borderRadius:
-                              BorderRadius.circular(20),
-                          onTap: () async {
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    EditProductPage(
-                                  product: product,
-                                  userId: widget.userId,
-                                ),
-                              ),
-                            );
-                            
-                            _fetchProducts();
-                          },
-                          child: Container(
-                            width: isSmall ? 30 : 28,
-                            height: isSmall ? 30 : 28,
-                            decoration: BoxDecoration(
-                              color: Colors.teal.withOpacity(0.08),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Icons.edit_outlined,
-                              size: isSmall ? 16 : 15,
-                              color: Colors.teal.shade700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
 
   Widget _buildProductListItem(Product product) {
     final isSelected = _selectedProduct == product;
@@ -1186,8 +823,8 @@ class _ProductsPageState extends State<ProductsPage> {
                 ),
               ),
               GestureDetector(
-                onTap: () async {
-                  await Navigator.push(
+                onTap: () {
+                  Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => EditProductPage(
@@ -1196,8 +833,6 @@ class _ProductsPageState extends State<ProductsPage> {
                       ),
                     ),
                   );
-
-                  _fetchProducts();
                 },
                 child: Icon(
                   Icons.chevron_right,
