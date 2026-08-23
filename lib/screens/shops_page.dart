@@ -236,254 +236,144 @@ class _ShopsPageState extends State<ShopsPage> {
           borderRadius: BorderRadius.circular(12),
         ),
         child: compact ? _compactShopCardContent(shop, screenWidth, screenHeight) 
-                       : _expandedShopCardContent(shop, screenWidth, screenHeight),
+                       : _expandedShopCardContent(shop), 
       ),
     );
   }
 
   Widget _shopCard2(Shop shop, {bool compact = false}) {
-    final double screenWidth = MediaQuery.of(context).size.width;
-    final double screenHeight = MediaQuery.of(context).size.height;
-    
-    return InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: () async {
-        await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => OrdersPage(
-              userId: widget.userId, 
-              shopId: shop.id, 
-              shopName: shop.name, 
-              userName: widget.userName, 
-              userPhoneNumber: widget.userPhoneNumber, 
-              role: widget.role
-            ),
-          ),
-        );
-        _fetchShops();
-      },
-      child: Card(
-        margin: EdgeInsets.only(
-          bottom: compact ? 6 : 16,
-        ),
-        elevation: compact ? 1 : 3,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(compact ? 8 : 12),
-        ),
-        child: compact 
-          ? _compactShopCardContent2(shop, screenWidth, screenHeight) 
-          : _expandedShopCardContent(shop, screenWidth, screenHeight),
-      ),
-    );
-  }
-
-  Widget _compactShopCardContent2(Shop shop, double screenWidth, double screenHeight) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8), // Reduced vertical padding
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min, // Important: minimizes column height
-        children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 16, // Reduced from 20
-                backgroundColor: Colors.indigo.withOpacity(0.1),
-                child: const Icon(
-                  Icons.store,
-                  color: Colors.teal,
-                  size: 18, // Reduced from 22
-                ),
-              ),
-              const SizedBox(width: 10), // Reduced from 12
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      shop.name,
-                      style: TextStyle(
-                        fontSize: _getResponsiveFontSize(context, 14), // Reduced from 16
-                        fontWeight: FontWeight.bold,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      shop.location,
-                      style: TextStyle(
-                        fontSize: _getResponsiveFontSize(context, 11), // Reduced from 12
-                        color: Colors.grey[600],
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              if ((widget.userId == shop.userId))
-                InkWell(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ProductsPage(
-                          userId: widget.userId,
-                          shop: shop,
-                        ),
-                      ),
-                    );
-                  },
-                  child: const Icon(
-                    Icons.chevron_right,
-                    color: Colors.grey,
-                    size: 18, // Reduced from 20
-                  ),
-                )
-            ],
-          ),
-          const SizedBox(height: 6), // Reduced from 8
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _chip2(
-                icon: Icons.inventory,
-                label: '${shop.productCount}',
-                screenWidth: screenWidth,
-                compact: true,
-              ),
-              _chip2(
-                icon: Icons.trending_up,
-                label: '${shop.orderCount}',
-                screenWidth: screenWidth,
-                compact: true,
-              ),
-              if ((widget.userId == shop.userId))
-                InkWell(
-                  onTap: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => EditShopPage(
-                          userId: widget.userId,
-                          shop: shop,
-                        ),
-                      ),
-                    );
-                    _fetchShops();
-                  },
-                  child: const Icon(
-                    Icons.edit,
-                    size: 14, // Reduced from 16
-                    color: Colors.grey,
-                  ),
-                )
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _chip2({
-    required IconData icon, 
-    required String label, 
-    required double screenWidth,
-    bool compact = false,
-  }) {
-    final double fontSize = compact 
-      ? _getResponsiveFontSize(context, 9) // Reduced from 10
-      : _getResponsiveFontSize(context, 11);
-    
-    final double iconSize = compact ? 9 : 12; // Reduced from 10
-    final double paddingHorizontal = compact ? 5 : 10; // Reduced from 6
-    final double paddingVertical = compact ? 3 : 6; // Reduced from 4
-    
     return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: paddingHorizontal, 
-        vertical: paddingVertical
+      margin: EdgeInsets.only(
+        bottom: compact ? 10 : 16,
       ),
-      decoration: BoxDecoration(
-        color: Colors.indigo.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(20),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(compact ? 14 : 18),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(compact ? 14 : 18),
+          onTap: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => OrdersPage(
+                  userId: widget.userId,
+                  shopId: shop.id,
+                  shopName: shop.name,
+                  userName: widget.userName,
+                  userPhoneNumber: widget.userPhoneNumber,
+                  role: widget.role,
+                ),
+              ),
+            );
+
+            _fetchShops();
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(compact ? 14 : 18),
+              border: Border.all(
+                color: Colors.grey.shade200,
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: compact
+                ? _compactShopCardContent2(shop)
+                : _expandedShopCardContent(shop),
+          ),
+        ),
       ),
-      child: Row(
+    );
+  }
+
+  Widget _compactShopCardContent2(Shop shop) {
+    final bool isOwner = widget.userId == shop.userId;
+
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: iconSize, color: Colors.indigo),
-          const SizedBox(width: 3), // Reduced from 4
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: fontSize, 
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _expandedShopCardContent(Shop shop, double screenWidth, double screenHeight) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
+          Row(
             children: [
-              CircleAvatar(
-                radius: 26,
-                backgroundColor: Colors.indigo.withOpacity(0.1),
+              // Store icon
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.teal.shade400,
+                      Colors.teal.shade700,
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 child: const Icon(
-                  Icons.store,
-                  color: Colors.teal,
-                  size: 28,
+                  Icons.storefront_rounded,
+                  color: Colors.white,
+                  size: 21,
                 ),
               ),
-              const SizedBox(width: 16),
+
+              const SizedBox(width: 11),
+
+              // Shop information
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       shop.name,
-                      style: TextStyle(
-                        fontSize: _getResponsiveFontSize(context, 18),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      shop.location,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: _getResponsiveFontSize(context, 14),
-                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF1F2937),
+                        letterSpacing: -0.2,
                       ),
                     ),
-                    const SizedBox(height: 5),
+
+                    const SizedBox(height: 3),
+
                     Row(
                       children: [
-                        _chip(
-                          icon: Icons.inventory,
-                          label: '${shop.productCount} Products',
-                          screenWidth: screenWidth,
+                        Icon(
+                          Icons.location_on_outlined,
+                          size: 12,
+                          color: Colors.grey.shade500,
                         ),
-                        const SizedBox(width: 5),
-                        _chip(
-                          icon: Icons.trending_up,
-                          label: 'Orders: ${shop.orderCount}',
-                          screenWidth: screenWidth,
+                        const SizedBox(width: 3),
+                        Expanded(
+                          child: Text(
+                            shop.location,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: _getResponsiveFontSize(context, 10.5),
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
                         ),
                       ],
                     ),
                   ],
                 ),
               ),
-              if ((widget.userId == shop.userId))
-                InkWell(
+
+              // Owner action
+              if (isOwner)
+                _shopActionButton(
+                  icon: Icons.arrow_forward_ios_rounded,
                   onTap: () {
                     Navigator.push(
                       context,
@@ -495,26 +385,40 @@ class _ShopsPageState extends State<ShopsPage> {
                       ),
                     );
                   },
-                  child: const Icon(
-                    Icons.chevron_right,
-                    color: Colors.grey,
-                  ),
-                )
+                ),
             ],
           ),
-        ),
-        if ((widget.userId == shop.userId))
-          Padding(
-            padding: const EdgeInsets.only(
-              top: 0,
-              left: 16,
-              right: 16,
-              bottom: 4,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                InkWell(
+
+          const SizedBox(height: 12),
+
+          // Statistics
+          Row(
+            children: [
+              Expanded(
+                child: _statChip(
+                  icon: Icons.inventory_2_outlined,
+                  label: '${shop.productCount}',
+                  text: 'Products',
+                  color: Colors.indigo,
+                ),
+              ),
+
+              const SizedBox(width: 8),
+
+              Expanded(
+                child: _statChip(
+                  icon: Icons.shopping_bag_outlined,
+                  label: '${shop.orderCount}',
+                  text: 'Orders',
+                  color: Colors.teal,
+                ),
+              ),
+
+              if (isOwner) ...[
+                const SizedBox(width: 8),
+
+                _shopActionButton(
+                  icon: Icons.edit_outlined,
                   onTap: () async {
                     await Navigator.push(
                       context,
@@ -525,19 +429,334 @@ class _ShopsPageState extends State<ShopsPage> {
                         ),
                       ),
                     );
+
                     _fetchShops();
                   },
-                  child: const Icon(
-                    Icons.edit,
-                    size: 14,
-                    color: Colors.grey,
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statChip({
+    required IconData icon,
+    required String label,
+    required String text,
+    required MaterialColor color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 7,
+      ),
+      decoration: BoxDecoration(
+        color: color.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: color.shade100,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 25,
+            height: 25,
+            decoration: BoxDecoration(
+              color: color.shade100,
+              borderRadius: BorderRadius.circular(7),
+            ),
+            child: Icon(
+              icon,
+              size: 14,
+              color: color.shade700,
+            ),
+          ),
+
+          const SizedBox(width: 7),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: _getResponsiveFontSize(context, 11),
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF1F2937),
                   ),
-                )
+                ),
+                Text(
+                  text,
+                  style: TextStyle(
+                    fontSize: _getResponsiveFontSize(context, 8.5),
+                    color: Colors.grey.shade600,
+                  ),
+                ),
               ],
             ),
           ),
-        const SizedBox(height: 10),
-      ],
+        ],
+      ),
+    );
+  }
+
+  Widget _shopActionButton({
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: Colors.grey.shade200,
+            ),
+          ),
+          child: Icon(
+            icon,
+            size: 15,
+            color: Colors.grey.shade700,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _expandedShopCardContent(Shop shop) {
+    final bool isOwner = widget.userId == shop.userId;
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              // Store icon
+              Container(
+                width: 54,
+                height: 54,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.teal.shade400,
+                      Colors.teal.shade700,
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(
+                  Icons.storefront_rounded,
+                  color: Colors.white,
+                  size: 28,
+                ),
+              ),
+
+              const SizedBox(width: 14),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      shop.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: _getResponsiveFontSize(context, 18),
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF111827),
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+
+                    const SizedBox(height: 5),
+
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.location_on_outlined,
+                          size: 14,
+                          color: Colors.grey.shade500,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            shop.location,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: _getResponsiveFontSize(context, 12),
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              if (isOwner)
+                _shopActionButton(
+                  icon: Icons.arrow_forward_ios_rounded,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ProductsPage(
+                          userId: widget.userId,
+                          shop: shop,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+            ],
+          ),
+
+          const SizedBox(height: 18),
+
+          // Statistics section
+          Row(
+            children: [
+              Expanded(
+                child: _largeStatItem(
+                  icon: Icons.inventory_2_outlined,
+                  value: '${shop.productCount}',
+                  label: 'Products',
+                  color: Colors.indigo,
+                ),
+              ),
+
+              const SizedBox(width: 10),
+
+              Expanded(
+                child: _largeStatItem(
+                  icon: Icons.shopping_bag_outlined,
+                  value: '${shop.orderCount}',
+                  label: 'Orders',
+                  color: Colors.teal,
+                ),
+              ),
+            ],
+          ),
+
+          if (isOwner) ...[
+            const SizedBox(height: 14),
+
+            SizedBox(
+              width: double.infinity,
+              height: 40,
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => EditShopPage(
+                        userId: widget.userId,
+                        shop: shop,
+                      ),
+                    ),
+                  );
+
+                  _fetchShops();
+                },
+                icon: const Icon(
+                  Icons.edit_outlined,
+                  size: 16,
+                ),
+                label: const Text(
+                  'Edit Shop',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.indigo,
+                  side: BorderSide(
+                    color: Colors.indigo.shade100,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _largeStatItem({
+    required IconData icon,
+    required String value,
+    required String label,
+    required MaterialColor color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.shade50,
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(
+          color: color.shade100,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: color.shade100,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              icon,
+              color: color.shade700,
+              size: 19,
+            ),
+          ),
+
+          const SizedBox(width: 10),
+
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: _getResponsiveFontSize(context, 16),
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF111827),
+                ),
+              ),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: _getResponsiveFontSize(context, 10),
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 

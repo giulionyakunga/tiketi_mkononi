@@ -598,7 +598,7 @@ class _AppInfoUpdatesPageState extends State<AppInfoUpdatesPage> {
       _AppInfoItem(
         icon: Icons.business_rounded,
         title: 'Developed By',
-        value: 'Tanzania Electronics Labs Co, Ltd',
+        value: 'Tanzania Electronics Labs Co., Ltd',
         color: Colors.teal,
       ),
     ];

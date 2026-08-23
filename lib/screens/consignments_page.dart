@@ -2322,6 +2322,9 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     final pdf = pw.Document();
     final items = consignment['consignment_items'] ?? [];
 
+    DateTime consignmentDate = DateTime.parse(consignment['createdAt']);
+    String formattedDateTime = DateFormat('d/M/y H:m').format(consignmentDate);
+
     String data = SimpleCodec.encode(jsonEncode({
       "cid": consignment['id'],
       "oid": consignment['office_id'],
@@ -2440,7 +2443,13 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
               _pdfRow('  Name', consignment['issued_by']),
               _pdfRow('  Phone', consignment['issuer_phone_number']),
+              _pdfRow('  Phone', consignment['issuer_phone_number']),
 
+              pw.Text(
+                "Date: ${formattedDateTime}", 
+                style: pw.TextStyle(fontSize: 8),
+              ),
+              
               pw.SizedBox(height: 6),
 
               pw.Center( child: pw.BarcodeWidget( barcode: pw.Barcode.qrCode(), data: data, width: 60, height: 60, ),),
@@ -2483,7 +2492,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     // Save PDF
     final dir = await getTemporaryDirectory();
     final file = File(
-      '${dir.path}/receipt.pdf',
+      consignment['is_parcel'] ? '${dir.path}/parcel_receipt.pdf' : '${dir.path}/consignment_receipt.pdf',
     );
 
     await file.writeAsBytes(await pdf.save());

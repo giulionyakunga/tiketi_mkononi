@@ -2281,6 +2281,8 @@ class _OrdersPageState extends State<OrdersPage> {
     final pdf = pw.Document();
     final items = order.orderItems;
 
+    String formattedDateTime = DateFormat('d/M/y H:m').format(order.createdAt);
+
     String data = SimpleCodec.encode(jsonEncode({
       "oid": order.id,
       "sid": order.shopId,
@@ -2386,6 +2388,11 @@ class _OrdersPageState extends State<OrdersPage> {
               _pdfRow('Name', order.issuedBy),
               _pdfRow('Phone', order.issuerPhoneNumber),
 
+              pw.Text(
+                "Date: ${formattedDateTime}",
+                style: pw.TextStyle(fontSize: 8),
+              ),
+
               pw.SizedBox(height: 6),
 
               // QR Code
@@ -2437,7 +2444,7 @@ class _OrdersPageState extends State<OrdersPage> {
     // Save PDF
     final dir = await getTemporaryDirectory();
     final file = File(
-      '${dir.path}/order_receipt_${order.orderId}.pdf',
+      '${dir.path}/order_receipt.pdf',
     );
 
     await file.writeAsBytes(await pdf.save());
