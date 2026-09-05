@@ -47,8 +47,10 @@ class Order {
   String issuedBy;
   String issuerPhoneNumber;
   String status;
+  String rejectionReason;
   final List<OrderItem> orderItems;
   final String date;
+  final bool isRemote;
   final DateTime createdAt;
   final DateTime updatedAt;
   
@@ -64,8 +66,10 @@ class Order {
     required this.issuedBy,
     required this.issuerPhoneNumber,
     required this.status,
+    required this.rejectionReason,
     required this.orderItems,
     required this.date,
+    required this.isRemote,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -84,11 +88,14 @@ class Order {
       issuedBy: json['issued_by'] ?? '',
       issuerPhoneNumber: json['issuer_phone_number'] ?? '',
       status: json['status'] ?? '',
+      rejectionReason: 'rejection_reason',
+      // rejectionReason: json['rejection_reason'] ?? '',
       orderItems: (json['order_items'] as List<dynamic>?)
               ?.map((ticket) => OrderItem.fromJson(ticket))
               .toList() ??
           [], // Handle case when order_items is null
       date: json['date'] ?? '',
+      isRemote: json['is_remote'] ?? false,
       createdAt: _parseDate(json['createdAt']),
       updatedAt: _parseDate(json['updatedAt']),
     );

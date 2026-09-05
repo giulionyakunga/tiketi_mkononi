@@ -49,6 +49,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
   int paidSms = 0;
   String companyName = "";
   String shopName = "";
+  String shopLocation = "";
   String role = "user";
   String userName = "";
   String userPhoneNumber = "";
@@ -743,13 +744,6 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
               context,
               MaterialPageRoute(
                 builder: (context) => ShopsPage(userId: userId, role: role, userName: userName, userPhoneNumber: userPhoneNumber),
-              ),
-            );
-          } else if(role == "shop_attendant") {
-            await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => OrdersPage(userId: userId, shopId: shopId, shopName: shopName, userName: userName, userPhoneNumber: userPhoneNumber, role: role),
               ),
             );
           } else {

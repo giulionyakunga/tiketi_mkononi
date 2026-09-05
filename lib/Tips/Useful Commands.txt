@@ -8,6 +8,7 @@ flutter gen-l10n
 
 *** WEB COMMANDS ***
 flutter build web
+flutter build web --pwa-strategy=none
 
 scp -r .\build\web ubuntu@telabs.co.tz:~/
 

@@ -758,6 +758,16 @@ class AppLocalizationsSw extends AppLocalizations {
   String get orderReceivedSuccessfully => 'Oda imepokelewa kikamilifu';
 
   @override
+  String get orderSentSuccessfully => 'Oda imetumwa kikamilifu';
+
+  @override
+  String get paymentRequired => 'Malipo Yanahitajika';
+
+  @override
+  String get youHaveOrdersPleasePayToView =>
+      'Una oda. Tafadhali lipa ili kuziona.';
+
+  @override
   String get totalSales => 'Jumla ya Mauzo';
 
   @override

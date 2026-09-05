@@ -1442,6 +1442,24 @@ abstract class AppLocalizations {
   /// **'Order received successfully'**
   String get orderReceivedSuccessfully;
 
+  /// No description provided for @orderSentSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Order sent successfully'**
+  String get orderSentSuccessfully;
+
+  /// No description provided for @paymentRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment Required'**
+  String get paymentRequired;
+
+  /// No description provided for @youHaveOrdersPleasePayToView.
+  ///
+  /// In en, this message translates to:
+  /// **'You have orders. Please pay to view them.'**
+  String get youHaveOrdersPleasePayToView;
+
   /// No description provided for @totalSales.
   ///
   /// In en, this message translates to:

@@ -238,7 +238,7 @@ class _OfficesPageState extends State<OfficesPage> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isWideScreen = screenWidth > 600;
 
-    if (_isLoading) {
+    if (_isLoading && _offices.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
 

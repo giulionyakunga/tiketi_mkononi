@@ -1,8 +1,6 @@
 // in this file extract all the hardcoded strings and put the into a json file for localization for both app_en.arb and app_sw.arb
 
 import 'dart:convert';
-import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
-import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -16,18 +14,16 @@ import 'package:tiketi_mkononi/l10n/app_localizations.dart';
 import 'package:tiketi_mkononi/models/Order.dart';
 import 'package:tiketi_mkononi/models/product.dart';
 import 'package:tiketi_mkononi/models/shop.dart';
+import 'package:tiketi_mkononi/screens/home_page.dart';
 import 'package:tiketi_mkononi/screens/orders_page.dart';
 import 'package:tiketi_mkononi/screens/platform_detector_stub.dart';
-import 'package:tiketi_mkononi/screens/qr_scanner_cargo_page.dart';
-import 'package:tiketi_mkononi/screens/shop_qr_page.dart';
 import 'package:tiketi_mkononi/services/SimpleCodec.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
 
-class AddOrderPage extends StatefulWidget {
+class AddRemoteOrderPage extends StatefulWidget {
   final int userId;
   final int shopId;
   final String shopName;
@@ -35,37 +31,26 @@ class AddOrderPage extends StatefulWidget {
   final String userName;
   final String userPhoneNumber;
   final bool isReplacableScreen;
-  final int orderCount;
 
-  const AddOrderPage({super.key, required this.userId, required this.shopId, required this.shopName, required this.shopLocation, required this.userName, required this.userPhoneNumber, required this.isReplacableScreen, required this.orderCount});
+  const AddRemoteOrderPage({super.key, required this.userId, required this.shopId, required this.shopName, required this.shopLocation, required this.userName, required this.userPhoneNumber, required this.isReplacableScreen});
 
   @override
-  State<AddOrderPage> createState() => _AddOrderPageState();
+  State<AddRemoteOrderPage> createState() => _AddRemoteOrderPageState();
 }
 
-class _AddOrderPageState extends State<AddOrderPage> {
+class _AddRemoteOrderPageState extends State<AddRemoteOrderPage> {
   int userId = 0;
   String role = "";
   String officeName = '';
   final _formKey = GlobalKey<FormState>();
   final _customerNameController = TextEditingController();
   final _customerPhoneNumberController = TextEditingController();
-  final _productNameController = TextEditingController();
   bool _isLoading = false;
-  bool _isPaid = true;
+  bool _isPaid = false;
   late final StorageService _storageService;
   Shop? shop;
 
-  List<BluetoothInfo> devices = [];
-  BluetoothInfo? selectedPrinter;
-
-  Printer? selectedCablePrinter;
-  int _selectedNumberofReceiptsToPrint = 1;
-
-  String receiptFooter = "Karibu Sana";
-
   List<OrderItem> _orderItems = [];
-  late Order _addedOrder;
   List<Product> productsList = [];
   int totalQuantity = 0;
   double totalPrice = 0;
@@ -79,8 +64,6 @@ class _AddOrderPageState extends State<AddOrderPage> {
   int _orderItemsVersion = 0;
   List<TextEditingController> _priceControllers = [];
 
-  int productCount = 0;
-
   @override
   void initState() {
     super.initState();
@@ -88,11 +71,6 @@ class _AddOrderPageState extends State<AddOrderPage> {
     _fetchShop();
     _initializeServices();
     _addOrderItem();
-    if (Platform.isWindows) {
-      _loadSelectedPrinter();
-    }
-    _loadNumberOfReceipts();
-    loadAndMatchPrinter();
   }
 
   Future<void> _initializeServices() async {
@@ -137,9 +115,6 @@ class _AddOrderPageState extends State<AddOrderPage> {
         if(newItems.length > 0) {
           setState(() {
             productsList = newItems;
-            productCount = productsList.length;
-            shop!.productCount = productCount;
-            shop!.orderCount = widget.orderCount;
           });
         }        
       }
@@ -173,7 +148,6 @@ class _AddOrderPageState extends State<AddOrderPage> {
     }
   }
 
-
   Future<void> _fetchShop({bool useDNS = true}) async {
     try {
 
@@ -184,18 +158,14 @@ class _AddOrderPageState extends State<AddOrderPage> {
       debugPrint("response.body : ${response.body}");
 
       if (response.statusCode == 200) {
-
         final dynamic responseData = jsonDecode(response.body);
 
         if (responseData is Map<String, dynamic>) {
           setState(() {
             shop = Shop.fromJson(responseData);
-            shop!.productCount = productCount;
-            shop!.orderCount = widget.orderCount;
           });
         } else {
-          // Handle error
-          throw Exception('Invalid response format');
+          throw Exception("Invalid response format");
         }
       }
     } on SocketException catch (e) {
@@ -210,7 +180,7 @@ class _AddOrderPageState extends State<AddOrderPage> {
 
   Future<void> getUserRole({bool useDNS = true}) async {
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/get_user_role/$userId') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}get_user_role/$userId'); // Use IP
+    : Uri.parse('${backend_url_with_fallback_ip}get_user_role/$useDNS'); // Use IP
         
     try {
       final response = await http.get(uri);
@@ -456,8 +426,10 @@ class _AddOrderPageState extends State<AddOrderPage> {
     try {
       setState(() => _isLoading = true);
 
-      final Uri uri = useDNS ? Uri.parse('${backend_url}api/place_order') // Original URL 
-      : Uri.parse('${backend_url_with_fallback_ip}place_order'); // Use IP
+      debugPrint("Placing order...");
+
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/place_remote_order') // Original URL 
+      : Uri.parse('${backend_url_with_fallback_ip}place_remote_order'); // Use IP
 
       final response = await http.post(
         uri,
@@ -465,11 +437,16 @@ class _AddOrderPageState extends State<AddOrderPage> {
         body: jsonEncode(requestBody),
       );
 
+      debugPrint("response.body: ${response.body}");
+
       if (response.statusCode == 200) {
+
+        debugPrint("Done Placing order...");
+
         final responseData = jsonDecode(response.body);
         String message = responseData['message'];
         
-        if (message.trim() == "Order added successfully!")  {
+        if (message.trim() == "Order sent successfully!")  {
           receiptsBalance = responseData['number_of_sms'];
           _saveReceiptsBalance(responseData['number_of_sms']);
 
@@ -480,23 +457,13 @@ class _AddOrderPageState extends State<AddOrderPage> {
 
           _customerNameController.clear();
           _customerPhoneNumberController.clear();
-          _productNameController.clear();
-          _orderItems.clear();
-          _addOrderItem();
-
-          dynamic jsonData = jsonDecode(response.body);
-          final newOrder = Order.fromJson(jsonData);
 
           setState(() {
-            _addedOrder = newOrder;
-            receiptFooter = responseData['receipt_footer'];
+            _orderItems.clear();
+            _orderItemsVersion++;
           });
 
-          if (Platform.isWindows) {
-            _printCableReceipt(_addedOrder);
-          } else {
-            _printBluetoothReceipt(_addedOrder);
-          }
+          _addOrderItem();
 
           _showSuccessDialog();
         }
@@ -795,7 +762,7 @@ class _AddOrderPageState extends State<AddOrderPage> {
             Text(AppLocalizations.of(context)!.success),
           ],
         ),
-        content: Text(AppLocalizations.of(context)!.orderReceivedSuccessfully),
+        content: Text(AppLocalizations.of(context)!.orderSentSuccessfully),
         actions: [
           TextButton(
             onPressed: () {
@@ -843,7 +810,6 @@ class _AddOrderPageState extends State<AddOrderPage> {
   void dispose() {
     _customerNameController.dispose();
     _customerPhoneNumberController.dispose();
-    _productNameController.dispose();
     super.dispose();
   }
 
@@ -910,6 +876,7 @@ class _AddOrderPageState extends State<AddOrderPage> {
 
   Widget _buildOrderItemNameInputField(int index) {
     return Autocomplete<Product>(
+      key: ValueKey('product_name_${_orderItemsVersion}_$index'),
       displayStringForOption: (Product option) => '${option.brand} ${option.name}',
 
       initialValue: TextEditingValue(
@@ -1051,7 +1018,7 @@ class _AddOrderPageState extends State<AddOrderPage> {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: Theme.of(context).primaryColor,
-          width: 1.5,
+          width: 2.5,
         ),
       ),
       child: Row(
@@ -1263,14 +1230,6 @@ class _AddOrderPageState extends State<AddOrderPage> {
       storeUrl = Uri.parse(
         isAndroidWeb() ? playStoreUrl : appStoreUrl,
       );
-    }else {
-      storeUrl = Uri.parse(
-        Platform.isAndroid ? playStoreUrl : appStoreUrl,
-      );
-    }
-
-    if (!await launchUrl(storeUrl, mode: LaunchMode.externalApplication)) {
-      throw Exception("Could not launch $storeUrl");
     }
   }
 
@@ -1347,67 +1306,20 @@ class _AddOrderPageState extends State<AddOrderPage> {
               size: 22,
             ),
             onSelected: (value) async {
-              if (value == 'shop_info') {
-                if (shop != null) {
-                  final selectedShop = shop;
-
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ShopQRPage(shop: selectedShop!),
-                    ),
-                  );
-                }
-              }
-              if (value == 'reprint_receipt') {
-                if (_addedOrder != null) {
-                  _printBluetoothReceipt(_addedOrder);
-                }
-              } else if (value == 'refresh_printers') {
-                if (Platform.isWindows) {
-                  _refreshCablePrinters();
-                } else {
-                  _printBluetoothTestReceipt();
-                }
-              } else if (value == 'number_of_receipts_to_print') {
-                await _selectNumberofReceiptsToPrintDialog();
-              } else if (value == 'topup_receipt') {
-                await getReceiptPackages();
-                _payDialog();
-              } else if (value == 'exit') {
-                Navigator.pop(context);
+              if ((value == 'home') || (value == 'exit')) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => HomePage(),
+                  ),
+                );
               }
             },
-            itemBuilder: (context) => [              
+            itemBuilder: (context) => [  
               _buildMenuItem(
-                icon: Icons.store,
-                text: widget.shopName,
-                value: 'shop_info',
-              ),
-              _buildMenuItem(
-                icon: Icons.print,
-                text: AppLocalizations.of(context)!.reprintReceipt,
-                value: 'reprint_receipt',
-              ),
-              _buildMenuItem(
-                icon: Icons.refresh,
-                text: AppLocalizations.of(context)!.refreshPrinters,
-                value: 'refresh_printers',
-              ),
-              _buildMenuItem(
-                icon: Icons.numbers,
-                text: AppLocalizations.of(context)!.printReceipts(_selectedNumberofReceiptsToPrint.toString()),
-                value: 'number_of_receipts_to_print',
-              ),
-              _buildMenuItem(
-                icon: Icons.account_balance_wallet,
-                text: AppLocalizations.of(context)!.receiptsBalance(receiptsBalance.toString()),
-                value: 'topup_receipt',
-              ),
-              _buildMenuItem(
-                icon: Icons.add_card,
-                text: AppLocalizations.of(context)!.topupReceipts,
-                value: 'topup_receipt',
+                icon: Icons.home,
+                text: AppLocalizations.of(context)!.home,
+                value: 'home',
               ),
               const PopupMenuDivider(),
               _buildMenuItem(
@@ -1705,881 +1617,8 @@ class _AddOrderPageState extends State<AddOrderPage> {
     );
   }
 
-  Future<void> _refreshBluetoothPrinters() async {
-    debugPrint("Refreshing printers...");
-    devices = await PrintBluetoothThermal.pairedBluetooths;
-
-    debugPrint("Refreshing printers...");
-
-    if (devices.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context)!.noPairedPrinterFound)),  
-      );
-      return;
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text( AppLocalizations.of(context)!.foundPairedPrinters(devices.length.toString()))),
-      );
-    }
-
-    await _selectPrinterDialog();
-  }
-
-  Future<void> _printBluetoothTestReceipt() async {
-    debugPrint("Printing via Bluetooth...");
-
-    selectedPrinter = null;
-    await clearSelectedPrinter();
-
-    await _refreshBluetoothPrinters();
-    if (selectedPrinter == null) return;
-
-    await PrintBluetoothThermal.disconnect; // ensure clean state
-
-    bool connected = await PrintBluetoothThermal.connect(
-      macPrinterAddress: selectedPrinter!.macAdress,
-    );
-
-    if (!connected) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context)!.printerNotConnected)),
-      );
-      selectedPrinter = null;
-      await _refreshBluetoothPrinters();
-      if (selectedPrinter == null) return;
-    }
-
-    final profile = await CapabilityProfile.load();
-    final generator = Generator(PaperSize.mm58, profile);
-
-    List<int> bytes = [];
-
-    bytes += generator.text("********************************",
-      styles: const PosStyles(
-        align: PosAlign.center,
-      )
-    );
-
-    bytes += generator.text(widget.shopName,
-      styles: const PosStyles(
-        align: PosAlign.center,
-        bold: true,
-        height: PosTextSize.size1,
-      )
-    );
-
-    bytes += generator.text("********************************",
-      styles: const PosStyles(
-        align: PosAlign.center,
-      )
-    );
-
-    bytes += generator.feed(1);
-    bytes += generator.cut();
-
-    await PrintBluetoothThermal.writeBytes(bytes);
-  }
-
-  Future<void> _printBluetoothReceipt(Order order) async {
-    debugPrint("Printing via Bluetooth...");
-
-    if (selectedPrinter == null) {
-      await _refreshBluetoothPrinters();
-      if (selectedPrinter == null) return;
-    }
-
-    await PrintBluetoothThermal.disconnect; // ensure clean state
-
-    bool connected = await PrintBluetoothThermal.connect(
-      macPrinterAddress: selectedPrinter!.macAdress,
-    );
-
-    if (!connected) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context)!.printerNotConnected)),
-      );
-      selectedPrinter = null;
-      await _refreshBluetoothPrinters();
-      if (selectedPrinter == null) return;
-    }
-
-    final profile = await CapabilityProfile.load();
-    final generator = Generator(PaperSize.mm58, profile);
-
-    final items = order.orderItems;
-
-    DateTime orderDate = order.createdAt;
-    String formattedDateTime = DateFormat('d/M/y H:m').format(orderDate);
-
-    List<int> bytes = [];
-
-    bytes += generator.text(widget.shopName.toUpperCase(),
-      styles: const PosStyles(
-        align: PosAlign.center,
-        bold: true,
-        height: PosTextSize.size1,
-        width: PosTextSize.size1,
-      )
-    );
-
-    bytes += generator.text(
-      "ORDER RECEIPT",
-      styles: const PosStyles(
-        align: PosAlign.center,
-        height: PosTextSize.size2,
-        width: PosTextSize.size2,
-      ),
-    );
-
-    bytes += generator.text(
-      "Order No: ${order.orderId}",
-      styles: const PosStyles(align: PosAlign.center),
-    );
-
-    bytes += generator.text(
-      "  ",
-      styles: const PosStyles(align: PosAlign.center),
-    );
-
-    bytes += generator.row([
-      PosColumn(text: "Customer Name", width: 6),
-      PosColumn(
-        text: order.customerName, 
-        width: 6,
-        styles: const PosStyles(bold: true),
-      ),
-    ]);
-    
-    double totalPrice = double.tryParse(
-      order.totalPrice.toString()
-    ) ?? 0;
-
-    bytes += generator.row([
-      PosColumn(text: "Total Price", width: 6),
-      PosColumn(
-        text: 'TZS${NumberFormat('#,##0').format(totalPrice)}', 
-        width: 6,
-        styles: const PosStyles(bold: true),
-      ),
-    ]);
-
-    bytes += generator.row([
-      PosColumn(text: "Payment Status", width: 6),
-      PosColumn(
-        text: order.paymentStatus ? "PAID" : "NOT PAID",
-        width: 6,
-        styles: const PosStyles(bold: true),
-      ),
-    ]);
-
-    bytes += generator.text(
-      "  ",
-      styles: const PosStyles(align: PosAlign.center),
-    );
-
-    bytes += generator.text(
-      "Customer Details",
-      styles: const PosStyles(bold: true),
-    );
-    bytes += generator.row([
-      PosColumn(text: "Name", width: 6),
-      PosColumn(text: order.customerName, width: 6),
-    ]);
-    bytes += generator.row([
-      PosColumn(text: "Phone number", width: 6),
-      PosColumn(text: order.customerPhoneNumber, width: 6),
-    ]);
-
-    bytes += generator.text(
-      "  ",
-      styles: const PosStyles(align: PosAlign.center),
-    );
-
-    bytes += generator.text(
-      "Order Items",
-      styles: const PosStyles(bold: true),
-    );
-
-    bytes += generator.row([
-      PosColumn(
-        text: 'Product',
-        width: 6,
-        styles: const PosStyles(bold: true),
-      ),
-      PosColumn(
-        text: 'Qty',
-        width: 2,
-        styles: const PosStyles(bold: true, align: PosAlign.center),
-      ),
-      PosColumn(
-        text: "Price",
-        width: 4,
-        styles: const PosStyles(bold: true, align: PosAlign.right),
-      ),
-    ]);
-
-    int totalAmount = 0;
-    // Items
-    if(items.length > 0) {
-      for (var item in items) {
-        totalAmount += (item.price as num).toInt() * (item.quantity as num).toInt();
-
-        bytes += generator.row([ 
-          PosColumn(
-            text: item.name,
-            width: 6,
-          ),
-          PosColumn(
-            text: item.quantity.toString(),
-            width: 2,
-            styles: const PosStyles(bold: true, align: PosAlign.center),
-          ),
-          PosColumn(
-            text: "TZS${NumberFormat('#,##0').format(item.price)}",
-            width: 4,
-            styles: const PosStyles(align: PosAlign.right),
-          ),
-        ]);
-      }
-
-      bytes += generator.text("--------------------------------",
-        styles: const PosStyles(
-          align: PosAlign.center,
-        )
-      );
-
-      bytes += generator.row([
-        PosColumn(
-          text: "Total Amount", 
-          width: 6,
-          styles: const PosStyles(bold: true),
-        ),
-        PosColumn(text: "TZS${NumberFormat('#,##0').format(totalAmount)}", width: 6, styles: const PosStyles(bold: true, align: PosAlign.right)),
-      ]);
-
-      bytes += generator.text("--------------------------------",
-        styles: const PosStyles(
-          align: PosAlign.center,
-        )
-      );
-    }
-
-    bytes += generator.text(
-      "Issued By:",
-      styles: const PosStyles(bold: true),
-    );
-    bytes += generator.row([
-      PosColumn(text: "Name", width: 6),
-      PosColumn(text: order.issuedBy, width: 6),
-    ]);
-    bytes += generator.row([
-      PosColumn(text: "Phone number", width: 6),
-      PosColumn(text: order.issuerPhoneNumber, width: 6),
-    ]);
-    bytes += generator.row([
-      PosColumn(text: "Date", width: 6),
-      PosColumn(text: formattedDateTime, width: 6),
-    ]);
-
-    bytes += generator.text(
-      "  ",
-      styles: const PosStyles(align: PosAlign.center),
-    );
-
-    // QR
-    String data = SimpleCodec.encode(jsonEncode({
-      "oid": order.id,
-      "sid": order.shopId,
-    }));
-
-    bytes += generator.qrcode(
-      data,
-      size: QRSize.size5,
-    );
-
-    bytes += generator.text(
-      "  ",
-      styles: const PosStyles(align: PosAlign.center),
-    );
-
-    bytes += generator.text(
-      receiptFooter,
-      styles: const PosStyles(align: PosAlign.center)
-    );
-
-    bytes += generator.text(
-      "  ",
-      styles: const PosStyles(align: PosAlign.center),
-    );
-
-    bytes += generator.text(
-      'Powered by Tiketi Mkononi',
-      styles: const PosStyles(align: PosAlign.center)
-    );
-    bytes += generator.text(
-      'Email:tiketimkononi@telabs.co.tz',
-      styles: const PosStyles(align: PosAlign.center)
-    );
-  
-    bytes += generator.cut();
-
-    await PrintBluetoothThermal.writeBytes(bytes);
-  }
-  
-  Future<void> _printCableReceipt(Order order) async {
-    debugPrint("Printing via cable...");
-
-    final pdf = pw.Document();
-
-    // final logoData = await rootBundle.load('assets/telabs_logo.png');
-    // final logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
-
-    final fontData = await rootBundle.load('assets/fonts/roboto/Roboto-Regular.ttf');
-    final customFont = pw.Font.ttf(fontData);
-
-    const pageWidth = 226.0;
-
-    final items = order.orderItems;
-
-    int totalAmount = 0;
-    // Items
-    if(items.length > 0) { 
-      for (var item in items) {
-        totalAmount += (item.price as num).toInt() * (item.quantity as num).toInt();
-      }
-    }
-
-    DateTime now = DateTime.now();
-    String formattedDateTime = DateFormat('d/M/y H:m').format(now);
-
-    String data = SimpleCodec.encode(jsonEncode({
-      "oid": order.id,
-      "sid": order.shopId,
-    }));
-
-    pdf.addPage(
-      pw.Page(
-        pageFormat: const PdfPageFormat(pageWidth, double.infinity),
-        build: (context) {
-          return pw.Padding(
-            padding: const pw.EdgeInsets.symmetric(horizontal: 8),
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-
-                /// LOGO
-                // pw.Center(
-                //   child: pw.Image(logoImage, width: 70),
-                // ),
-
-                pw.SizedBox(height: 6),
-
-                /// COMPANY NAME
-                pw.Center(
-                  child: pw.Text(
-                    widget.shopName.toUpperCase(),
-                    style: pw.TextStyle(
-                      font: customFont,
-                      fontSize: 11,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                  ),
-                ),
-
-                pw.Center(
-                  child: pw.Text(
-                    "ORDER RECEIPT",
-                    style: pw.TextStyle(
-                      font: customFont,
-                      fontSize: 13,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                  ),
-                ),
-
-                pw.SizedBox(height: 6),
-
-                /// PACKAGE INFO
-                pw.Center(
-                  child: pw.Text(
-                  "Order No: ${order.orderId}",
-                    style: pw.TextStyle(
-                      font: customFont,
-                      fontSize: 10,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                  ),
-                ),
-
-                pw.SizedBox(height: 6),
-
-                pw.Text(
-                  "Name: ${order.customerName}",
-                  style: pw.TextStyle(
-                    font: customFont,
-                    fontSize: 10,
-                    fontWeight: pw.FontWeight.normal,
-                  ),
-                ),
-
-                pw.Text(
-                  "Total Price: ${order.totalPrice}",
-                  style: pw.TextStyle(
-                    font: customFont,
-                    fontSize: 10,
-                    fontWeight: pw.FontWeight.normal,
-                  ),
-                ),
-
-                pw.Text(
-                  "Payment Status: ${order.paymentStatus ? "Paid" : "Not Paid"}",
-                  style: pw.TextStyle(
-                    font: customFont,
-                    fontSize: 10,
-                    fontWeight: pw.FontWeight.normal,
-                  ),
-                ),
-
-                pw.SizedBox(height: 6),
-
-                /// CUSTOMER
-                pw.Text(
-                  "Customer Details",
-                  style: pw.TextStyle(
-                    font: customFont,
-                    fontSize: 11,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-
-                pw.Text(
-                  "Name: ${order.customerName}",
-                  style: pw.TextStyle(
-                    font: customFont,
-                    fontSize: 10,
-                    fontWeight: pw.FontWeight.normal,
-                  ),
-                ),
-
-                pw.Text(
-                  "Phone number: ${order.customerPhoneNumber}",
-                  style: pw.TextStyle(
-                    font: customFont,
-                    fontSize: 10,
-                    fontWeight: pw.FontWeight.normal,
-                  ),
-                ),
-
-                pw.SizedBox(height: 6),
-
-                /// ITEMS
-                if (items.length > 0) ...[
-                  pw.Text(
-                    "Items",
-                    style: pw.TextStyle(
-                      font: customFont,
-                      fontSize: 11,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                  ),
-
-                  pw.SizedBox(height: 2),
-
-                  for (int i = 0; i < items.length; i++)
-                    pw.Text(
-                      "${i + 1}. ${items[i].name} (x${items[i].quantity})  "
-                      "TZS${NumberFormat('#,##0').format(((items[i].price) * items[i].quantity).toInt())}",
-                      style: pw.TextStyle(
-                        font: customFont,
-                        fontSize: 10,
-                        fontWeight: pw.FontWeight.normal,
-                      ),
-                    ),
-                ],
-
-                pw.Text(
-                  "--------------------------------",
-                  style: pw.TextStyle(
-                    font: customFont,
-                    fontWeight: pw.FontWeight.normal,
-                  ),
-                ),
-
-                pw.Text(
-                  "Total Amount:    TZS${NumberFormat('#,##0').format(totalAmount)}}",
-                  style: pw.TextStyle(
-                    font: customFont,
-                    fontSize: 10,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-
-                pw.Text(
-                  "--------------------------------",
-                  style: pw.TextStyle(font: customFont),
-                ),
-
-                /// ISSUED BY
-                pw.Text(
-                  "Issued By",
-                  style: pw.TextStyle(
-                    font: customFont,
-                    fontSize: 11,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-
-                pw.Text(
-                  "Name: ${order.issuedBy}",
-                  style: pw.TextStyle(
-                    font: customFont,
-                    fontSize: 10,
-                    fontWeight: pw.FontWeight.normal,
-                  ),
-                ),
-
-                pw.Text(
-                  "Phone: ${order.issuerPhoneNumber}",
-                  style: pw.TextStyle(
-                    font: customFont,
-                    fontSize: 10,
-                    fontWeight: pw.FontWeight.normal,
-                  ),
-                ),
-
-                pw.Text(
-                  "Date: ${formattedDateTime}",
-                  style: pw.TextStyle(
-                    font: customFont,
-                    fontSize: 10,
-                    fontWeight: pw.FontWeight.normal,
-                  ),
-                ),
-
-                pw.SizedBox(height: 14),
-
-                /// QR
-                pw.Center(
-                  child: pw.BarcodeWidget(
-                    barcode: pw.Barcode.qrCode(),
-                    data: data,
-                    width: 110,
-                    height: 110,
-                  ),
-                ),
-
-                pw.SizedBox(height: 10),
-
-                /// FOOTER
-                pw.Center(
-                  child: pw.Text(
-                    receiptFooter,
-                    style: pw.TextStyle(
-                      font: customFont,
-                      fontSize: 10,
-                      fontWeight: pw.FontWeight.normal,
-                    ),
-                  ),
-                ),
-
-                pw.SizedBox(height: 10),
-
-                pw.Center(
-                  child: pw.Text(
-                    "Powered by Tiketi Mkononi",
-                    style: pw.TextStyle(
-                      font: customFont,
-                      fontSize: 10,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                  ),
-                ),
-
-                pw.Center(
-                  child: pw.Text(
-                    "Email:tiketimkononi@telabs.co.tz",
-                    style: pw.TextStyle(
-                      font: customFont,
-                      fontSize: 9,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                  ),
-                ),
-
-                pw.Text(
-                  "********************************",
-                  style: pw.TextStyle(font: customFont),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-
-    if (selectedCablePrinter != null) {
-      await Printing.directPrintPdf(
-        printer: selectedCablePrinter!,
-        onLayout: (PdfPageFormat format) async => pdf.save(),
-      );
-    } else {
-      await _selectCablePrinterDialog();
-    }
-  }
-
-  Future<void> _refreshCablePrinters() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.remove("selected_printer_url");
-    await prefs.remove("selected_printer_name");
-
-    setState(() {
-      selectedCablePrinter = null;
-    });
-
-    await _selectCablePrinterDialog(); // fallback
-  }
-
-  Future<void> _saveNumberOfReceipts(int value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('number_of_receipts_to_print', value);
-  }
-
   Future<void> _saveReceiptsBalance(int value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('paid_sms_balance', value);
-  }
-
-  Future<void> _loadNumberOfReceipts() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    setState(() {
-      _selectedNumberofReceiptsToPrint = prefs.getInt('number_of_receipts_to_print') ?? 1;
-      receiptsBalance = prefs.getInt('paid_sms_balance') ?? 0;
-    });
-  }
-
-  Future<void> _selectNumberofReceiptsToPrintDialog() async {
-    await showDialog(
-      context: context,
-      builder: (context) {
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final isSmallScreen = constraints.maxWidth < 400;
-            final dialogWidth =
-                isSmallScreen ? constraints.maxWidth * 0.9 : 400.0;
-
-            return AlertDialog(
-              contentPadding: const EdgeInsets.all(20),
-              title: const Text("Select number of receipts"),
-              content: SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: dialogWidth),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ListTile(
-                        title: const Text("Print 1 receipt"),
-                        selected: _selectedNumberofReceiptsToPrint == 1,
-                        trailing: (_selectedNumberofReceiptsToPrint == 1) ? const Icon(Icons.check, color: Colors.green) : null,
-                        onTap: () {
-                          setState(() {
-                            _selectedNumberofReceiptsToPrint = 1;
-                          });
-                          _saveNumberOfReceipts(1);
-                          Navigator.of(context).pop();
-                        },
-                      ),
-                      ListTile(
-                        title: const Text("Print 2 receipts"),
-                        selected: _selectedNumberofReceiptsToPrint == 2,
-                        trailing: (_selectedNumberofReceiptsToPrint == 2) ? const Icon(Icons.check, color: Colors.green) : null,
-                        onTap: () {
-                          setState(() {
-                            _selectedNumberofReceiptsToPrint = 2;
-                          });
-                          _saveNumberOfReceipts(2);
-                          Navigator.of(context).pop();
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Future<void> _selectPrinterDialog() async {
-    await showDialog(
-      context: context,
-      builder: (_) {
-        return AlertDialog(
-          title: const Text("Select Printer"),
-          content: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.5, // 50% of screen height
-            ),
-            child: SizedBox(
-              width: double.maxFinite,
-              child: ListView(
-                children: devices.map((device) {
-                  return ListTile(
-                    title: Text(device.name),
-                    subtitle: Text(device.macAdress),
-                    onTap: () {
-                      selectedPrinter = device;
-                      saveSelectedPrinter(device);
-                      Navigator.pop(context);
-                    },
-                  );
-                }).toList(),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> saveSelectedPrinter(BluetoothInfo printer) async {
-    final prefs = await SharedPreferences.getInstance();
-
-    await prefs.setString('printer_name', printer.name);
-    await prefs.setString('printer_mac', printer.macAdress);
-  }
-
-  Future<void> clearSelectedPrinter() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    await prefs.remove('printer_name');
-    await prefs.remove('printer_mac');
-  }
-
-  Future<void> requestPermissions() async {
-    await [
-      Permission.bluetooth,
-      Permission.bluetoothConnect,
-      Permission.bluetoothScan,
-      Permission.location,
-    ].request();
-  }
-
-  Future<void> loadAndMatchPrinter() async {
-    await requestPermissions();
-
-    final prefs = await SharedPreferences.getInstance();
-
-    print("******************************************************************************");
-    final savedMac = prefs.getString('printer_mac');
-    if (savedMac == null || savedMac.isEmpty) {
-      debugPrint("No saved printer");
-      await _refreshBluetoothPrinters();
-      return;
-    }
-
-    debugPrint("Found saved printer");
-
-    List<BluetoothInfo> devices = await PrintBluetoothThermal.pairedBluetooths;
-
-    final matched = devices.where(
-      (d) => d.macAdress == savedMac,
-    ).toList();
-
-    if (matched.isNotEmpty) {
-      setState(() {
-        selectedPrinter = matched.first;
-      });
-
-      debugPrint("Printer restored: ${matched.first.name}");
-    } else {
-      debugPrint("Saved printer not found");
-      setState(() {
-        selectedPrinter = null;
-      });
-
-      await _refreshBluetoothPrinters();
-    }
-  }
-
-  Future<void> _selectCablePrinterDialog() async {
-    final printers = await Printing.listPrinters();
-
-    if (printers.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context)!.noPrintersFound)),
-      );
-      return;
-    }
-
-    Printer? selected;
-
-    await showDialog(
-      context: context,
-      builder: (context) {
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final isSmallScreen = constraints.maxWidth < 400;
-            final dialogWidth = isSmallScreen ? constraints.maxWidth * 0.9 : 400.0;
-
-            return AlertDialog(
-              contentPadding: EdgeInsets.all(20),
-              title: Text("Select a printer"),
-              content: SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: dialogWidth),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: printers
-                        .map(
-                          (printer) => ListTile(
-                            title: Text(printer.name),
-                            subtitle: Text(printer.url),
-                            onTap: () {
-                              selected = printer;
-                              Navigator.of(context).pop();
-                            },
-                          ),
-                        )
-                        .toList(),
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-
-    if (selected != null) {
-      // Save selected printer
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setString('selectedPrinterUrl', selected!.url);
-      _saveSelectedCablePrinter(selected!);
-      selectedCablePrinter = selected;
-    }
-  }
-
-  Future<void> _loadSelectedPrinter() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? url = prefs.getString('selected_printer_url');
-    String? name = prefs.getString('selected_printer_name');
-
-    if (url != null && name != null) {
-      setState(() {
-        selectedCablePrinter = Printer(url: url, name: name);
-      });
-    }
-  }
-
-  Future<void> _saveSelectedCablePrinter(Printer printer) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setString('selected_printer_url', printer.url);
-    await prefs.setString('selected_printer_name', printer.name);
-    setState(() {
-      selectedCablePrinter = printer;
-    });
   }
 }

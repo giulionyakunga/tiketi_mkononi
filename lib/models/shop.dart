@@ -6,8 +6,8 @@ class Shop {
   final int userId;
   final String name;
   final String location;
-  final int productCount;
-  final int orderCount;
+  int productCount;
+  int orderCount;
   final DateTime createdAt;
   final DateTime updatedAt;
 

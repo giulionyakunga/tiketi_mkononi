@@ -749,6 +749,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get orderReceivedSuccessfully => 'Order received successfully';
 
   @override
+  String get orderSentSuccessfully => 'Order sent successfully';
+
+  @override
+  String get paymentRequired => 'Payment Required';
+
+  @override
+  String get youHaveOrdersPleasePayToView =>
+      'You have orders. Please pay to view them.';
+
+  @override
   String get totalSales => 'Total Sales';
 
   @override

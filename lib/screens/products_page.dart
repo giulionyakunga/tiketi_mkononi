@@ -293,7 +293,7 @@ class _ProductsPageState extends State<ProductsPage> {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
 
-    if (_isLoading) {
+    if (_isLoading && _products.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
 

@@ -223,9 +223,11 @@ class CategoryGrid2 extends StatelessWidget {
                                 userId: userId,
                                 shopId: shopId!,
                                 shopName: shopName,
+                                shopLocation: '',
                                 userName: userName,
                                 userPhoneNumber: userPhoneNumber,
                                 isReplacableScreen: true,
+                                orderCount: 0,
                               ),
                             ),
                         );

@@ -11,6 +11,7 @@ import 'package:tiketi_mkononi/screens/event_details_wrapper.dart';
 import 'package:tiketi_mkononi/screens/events_page.dart';
 import 'package:tiketi_mkononi/screens/home_page.dart';
 import 'package:tiketi_mkononi/screens/onboarding_screen.dart';
+import 'package:tiketi_mkononi/screens/order_details_wrapper.dart';
 import 'package:tiketi_mkononi/screens/profile_page.dart';
 import 'package:tiketi_mkononi/screens/tickets_page.dart';
 import 'package:tiketi_mkononi/services/language_service.dart';
@@ -83,6 +84,14 @@ class TiketiMkononiApp extends ConsumerWidget  {
           final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
           final isPledge = true;
           return EventDetailsWrapper(eventId: id, isPledge: isPledge);
+        },
+      ),
+      GoRoute(
+        path: '/order/:id/:orderId',
+        builder: (context, state) {
+          final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+          final orderId = state.pathParameters['orderId'] ?? '';
+          return OrderDetailsWrapper(shopId: id, orderId: orderId);
         },
       ),
     ],

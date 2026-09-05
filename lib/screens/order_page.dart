@@ -26,155 +26,44 @@ import 'package:excel/excel.dart' hide Border;
 import 'package:url_launcher/url_launcher.dart';  // Hide Excel's Border
 
 
-class OrdersPage extends StatefulWidget {
-  final int userId;
-  final String shopName;
-  final String shopLocation;
-  final String userName;
-  final String userPhoneNumber;
-  final String role;
+class OrderPage extends StatefulWidget {
   final Shop shop;
+  final String orderId;
 
-  const OrdersPage({super.key, required this.userId, required this.shopName, required this.shopLocation, required this.userName, required this.userPhoneNumber, required this.role, required this.shop});
+  const OrderPage({super.key, required this.shop, required this.orderId});
 
   @override
-  State<OrdersPage> createState() => _OrdersPageState();
+  State<OrderPage> createState() => _OrderPageState();
 }
 
-class _OrdersPageState extends State<OrdersPage> {
+class _OrderPageState extends State<OrderPage> {
   bool _isLoading = true;
   String? _error;
   List<Order> _orders = [];
   double totalSales = 0;
   Order? _selectedOrder;
   bool _showDetails = false;
-  DateTime _selectedDate = DateTime.now();
   BluetoothInfo? selectedPrinter;
   Printer? selectedCablePrinter;
-  String _paymentFilter = 'all';
 
-  String _searchQuery = '';
-  final TextEditingController _searchController = TextEditingController();
-  bool _isSearchBarVisible = false;
   String receiptFooter = "Karibu Sana";
-
-  String selectedPaymentMethod = 'MIXX BY YAS';
-  final List<String> paymentMethods = ['MIXX BY YAS', 'M-PESA', 'AIRTEL MONEY', 'HALOPESA', 'AZAMPESA'];
-
-  int receiptsBalance = 0;
-  List<dynamic> receiptPackages = [];
 
   @override
   void initState() {
     super.initState();
-
-    String dateStr = DateFormat('d-M-yyyy').format(DateTime.now());
-    _selectedDate = DateFormat('d-M-yyyy').parse(dateStr);
-
     _fetchOrders();
 
-    if (Platform.isWindows) {
-      _loadSelectedPrinter();
-    }
+    // if (Platform.isWindows) {
+    //   _loadSelectedPrinter();
+    // }
   
-    _loadNumberOfReceipts();
     loadAndMatchPrinter();
+
   }
 
   @override
   void dispose() {
-    _searchController.dispose();
     super.dispose();
-  }
-  
-  Widget _buildSearchBar(bool isDarkMode, bool isLargeScreen) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return Padding(
-      padding: EdgeInsets.symmetric( 
-        vertical: 8,
-        horizontal: isLargeScreen ? 200 : 16,
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          color: isDarkMode
-              ? colorScheme.surfaceContainerHighest.withOpacity(0.8)
-              : colorScheme.surface.withOpacity(0.9),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.1),
-              blurRadius: 12,
-              spreadRadius: 1,
-              offset: const Offset(0, 3),
-            ),
-          ],
-          border: Border.all(
-            color: isDarkMode
-                ? colorScheme.outline.withOpacity(0.3)
-                : colorScheme.outline.withOpacity(0.2),
-            width: 1,
-          ),
-        ),
-        child: TextField(
-          controller: _searchController,
-          decoration: InputDecoration(
-            hintText: 'Search order or customer name',
-            hintStyle: TextStyle(
-              fontSize: isLargeScreen ? 16 : 14,
-              color: colorScheme.onSurface.withOpacity(0.6),
-            ),
-            border: InputBorder.none,
-            prefixIcon: Padding(
-              padding: const EdgeInsets.only(left: 12, right: 6),
-              child: Icon(
-                Icons.search_rounded,
-                size: isLargeScreen ? 24 : 20,
-                color: isDarkMode ? Colors.white70 : Colors.teal[800]
-              ),
-            ),
-            suffixIcon: _searchQuery.isNotEmpty
-                ? Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.close_rounded,
-                        size: isLargeScreen ? 24 : 20,
-                        color: colorScheme.onSurface.withOpacity(0.6),
-                      ),
-                      onPressed: () {
-                        _searchController.clear();
-                        _onSearchChanged();
-                        FocusScope.of(context).unfocus();
-                      },
-                    ),
-                  )
-                : null,
-            contentPadding: EdgeInsets.symmetric(
-              vertical: isLargeScreen ? 14 : 10,
-              horizontal: 16,
-            ),
-            isDense: true,
-          ),
-          style: TextStyle(
-            fontSize: isLargeScreen ? 16 : 14,
-            color: colorScheme.onSurface,
-          ),
-          cursorColor: colorScheme.primary,
-          cursorWidth: 1.5,
-          cursorHeight: isLargeScreen ? 20 : 18,
-          onChanged: (value) => _onSearchChanged(),
-        ),
-      ),
-    );
-  }
-
-
-  void _onSearchChanged() {
-    setState(() {
-      _searchQuery = _searchController.text;
-    });
   }
 
   Future<void> _fetchOrders({bool useDNS = true}) async {
@@ -186,26 +75,24 @@ class _OrdersPageState extends State<OrdersPage> {
         _selectedOrder = null;
       });
 
-      final Uri uri = useDNS ? Uri.parse('${backend_url}api/orders/${widget.userId}/${widget.shop.id}/${widget.role}/${DateFormat('d-M-yyyy').format(_selectedDate)}')
-      : Uri.parse('${backend_url_with_fallback_ip}orders/${widget.userId}/${widget.shop.id}/${widget.role}/${DateFormat('d-M-yyyy').format(_selectedDate)}');
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/order/${widget.shop.id}/${widget.orderId}')
+      : Uri.parse('${backend_url_with_fallback_ip}order/${widget.shop.id}/${widget.orderId}');
 
       debugPrint('Fetching orders from: $uri');
 
       final response = await http.get(uri);
 
       if (response.statusCode == 200) {
-        debugPrint('Fetched orders: ${response.body}');
+        debugPrint('Fetched order: ${response.body}');
 
         final dynamic responseData = jsonDecode(response.body);
-        final numberOfOrders = responseData['number_of_orders'];
-        final filteredOrders = responseData['filtered_orders'];
         
         // Handle different response structures
-        List<Order> ordersList = []; 
-        if (filteredOrders is List) {
-          ordersList = filteredOrders.map((e) => Order.fromJson(e)).toList();
-        } else if (filteredOrders is Map && filteredOrders.containsKey('data')) {
-          ordersList = (filteredOrders['data'] as List).map((e) => Order.fromJson(e)).toList();
+        List<Order> ordersList = [];
+        if (responseData is List) {
+          ordersList = responseData.map((e) => Order.fromJson(e)).toList();
+        } else if (responseData is Map && responseData.containsKey('data')) {
+          ordersList = (responseData['data'] as List).map((e) => Order.fromJson(e)).toList();
         }
 
         double totalPrice = 0;
@@ -220,13 +107,6 @@ class _OrdersPageState extends State<OrdersPage> {
         });
         
         debugPrint('Loaded ${ordersList.length} orders');
-
-        debugPrint('numberOfOrders: ${numberOfOrders}');
-        debugPrint('number of filteredOrders: ${filteredOrders.length}');
-
-        if(numberOfOrders != null) {
-          _showOrderPaymentDialog();
-        }
       } else {
         _error = 'Failed to load orders (${response.statusCode})';
         debugPrint(_error);
@@ -245,7 +125,6 @@ class _OrdersPageState extends State<OrdersPage> {
     }
   }
 
-
   String _getPaymentStatusText(bool? status) {
     if (status == null) return 'Unknown';
     return status ? 'Paid' : 'Not Paid';
@@ -254,49 +133,6 @@ class _OrdersPageState extends State<OrdersPage> {
   Color _getPaymentStatusColor(bool? status) {
     if (status == null) return Colors.grey;
     return status ? Colors.green : Colors.teal;
-  }
-
-  Widget _buildDatePicker() {
-    return TextButton.icon(
-      onPressed: () => _selectDate(context),
-      icon: const Icon(Icons.calendar_today, size: 18), // Optional: Adjust icon size
-      label: Text(
-        '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
-        style: const TextStyle(
-          color: Colors.black,
-          fontWeight: FontWeight.w500,
-          fontSize: 14, // Smaller font size for compactness
-        ),
-      ),
-      style: TextButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0), // Near-zero vertical padding
-        minimumSize: const Size(0, 30), // Set a small fixed height (e.g., 30 logical pixels)
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap, // Reduces touch target to content size
-        visualDensity: VisualDensity.compact, // Squeezes elements closer
-        backgroundColor: Colors.grey[200],
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: BorderSide(color: Colors.teal[800]!, width: 1.5),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2025),    // Allow dates as early as year 2000
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-    );
-    if (picked != null) {
-      if((picked != _selectedDate)) {
-        setState(() {
-          _selectedDate = picked;
-        });
-        _fetchOrders();
-      }
-    }
   }
 
   @override
@@ -316,7 +152,7 @@ class _OrdersPageState extends State<OrdersPage> {
               ),
             ),
             Text(
-              '${widget.shopName} - ${widget.shopLocation}',
+              '${widget.shop.name} - ${widget.shop.location}',
               style: const TextStyle(
                 fontSize: 11,
                 color: Colors.white,
@@ -329,10 +165,6 @@ class _OrdersPageState extends State<OrdersPage> {
         foregroundColor: Colors.white,
         elevation: 3,
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(left: 4),
-            child: _buildDatePicker(),
-          ),
           if (_selectedOrder != null)
             IconButton(
               icon: const Icon(Icons.refresh),
@@ -340,10 +172,10 @@ class _OrdersPageState extends State<OrdersPage> {
                 setState(() {
                   _showDetails = false;
                   _selectedOrder = null;
-                  _printBluetoothTestReceipt();
-                  if (Platform.isWindows) {
-                    _refreshCablePrinters();
-                  }
+                  // _printBluetoothTestReceipt();
+                  // if (Platform.isWindows) {
+                  //   _refreshCablePrinters();
+                  // }
                 });
               },
             ),
@@ -380,172 +212,6 @@ class _OrdersPageState extends State<OrdersPage> {
             ),
           ],
         ],
-      ),
-
-      floatingActionButton: Column(
-  mainAxisSize: MainAxisSize.min,
-  crossAxisAlignment: CrossAxisAlignment.end,
-  children: [
-
-    // ➕ Add Button (Primary)
-    FloatingActionButton.extended(
-      heroTag: "addBtn",
-      backgroundColor: Colors.teal,
-      tooltip: "Add Order",
-      onPressed: () async {
-        await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => AddOrderPage(
-              userId: widget.userId,
-              shopName: widget.shopName,
-              shopLocation: widget.shopLocation,
-              userName: widget.userName,
-              userPhoneNumber: widget.userPhoneNumber,
-              isReplacableScreen: true,
-              shop: widget.shop,
-            ),
-          ),
-        );
-        _fetchOrders();
-      },
-      icon: const Icon(Icons.add, color: Colors.white),
-      label: Text(
-        AppLocalizations.of(context)!.add2,
-        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-      ),
-    ),
-
-    const SizedBox(height: 12),
-
-    // 🔍 Search Button
-    FloatingActionButton(
-      heroTag: "searchBtn",
-      backgroundColor: Colors.grey.shade800,
-      mini: true,
-      tooltip: "Search",
-      onPressed: () {
-        setState(() {
-          _isSearchBarVisible = !_isSearchBarVisible;
-          _searchController.clear();
-          _onSearchChanged();
-        });
-      },
-      child: const Icon(Icons.search, color: Colors.white),
-    ),
-    
-  ],
-),
-      
-    );
-  }
-
-  Widget _buildTypeFilter() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(6, 12, 16, 6),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            _buildFilterChip(
-              label: "All",
-              icon: Icons.list,
-              value: "all",
-            ),
-            const SizedBox(width: 8),
-            _buildFilterChip(
-              label: "Paid",
-              icon: Icons.check_circle,
-              value: "paid",
-            ),
-            const SizedBox(width: 8),
-            _buildFilterChip(
-              label: "Unpaid",
-              icon: Icons.money_off,
-              value: "unpaid",
-            ),
-            const SizedBox(width: 8),
-            _buildFilterChip(
-              label: "Export Unpaid",
-              icon: Icons.download,
-              value: "export_unpaid",
-            ),
-            const SizedBox(width: 8),
-            _buildFilterChip(
-              label: "Export Paid",
-              icon: Icons.download,
-              value: "export_paid",
-            ),
-            const SizedBox(width: 8),
-            _buildFilterChip(
-              label: "Export All",
-              icon: Icons.download,
-              value: "export_all",
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFilterChip({
-    required String label,
-    required IconData icon,
-    required String value,
-  }) {
-    final bool isActive = _paymentFilter == value;
-
-    return GestureDetector(
-      onTap: () {
-        if (value == 'all') {
-          setState(() {
-            _paymentFilter = 'all';
-          });
-        } else if (value == 'paid') {
-          setState(() {
-            _paymentFilter = value;
-          });
-        } else if (value == 'unpaid') {
-          setState(() {
-            _paymentFilter = value;
-          });
-        } else if (value == 'export_unpaid') {
-          exportOrders(_orders, type: 0);
-        } else if (value == 'export_paid') {
-          exportOrders(_orders, type: 1);
-        } else if (value == 'export_all') {
-          exportOrders(_orders);
-        }
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isActive ? Colors.teal : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isActive ? Colors.teal : Colors.grey.shade300,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 14,
-              color: isActive ? Colors.white : Colors.grey.shade700,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: isActive ? Colors.white : Colors.grey.shade800,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -651,12 +317,6 @@ class _OrdersPageState extends State<OrdersPage> {
         return Icons.cancel;
       case 'delivered':
         return Icons.delivery_dining;
-      case 'received':
-        return Icons.shopping_bag;
-      case 'sent':
-        return Icons.pending_actions;
-      case 'rejected':
-        return Icons.cancel;
       default:
         return Icons.shopping_bag;
     }
@@ -674,37 +334,8 @@ class _OrdersPageState extends State<OrdersPage> {
         return Colors.red;
       case 'delivered':
         return Colors.purple;
-      case 'received':
-        return Colors.teal;
-      case 'sent':
-        return Colors.red;
-      case 'rejected':
-        return Colors.red;
       default:
         return Colors.teal;
-    }
-  }
-
-  String _getStatusText(String status) {
-    switch (status.toLowerCase()) {
-      case 'pending':
-        return 'Issued By';
-      case 'processing':
-        return 'Held By';
-      case 'completed':
-        return 'Completed By';
-      case 'cancelled':
-        return 'Cancelled By';
-      case 'delivered':
-        return 'Delivered By';
-      case 'received':
-        return 'Received By';
-      case 'sent':
-        return 'Issued By';
-      case 'rejected':
-        return 'Rejected By';
-      default:
-        return '';
     }
   }
 
@@ -713,7 +344,7 @@ class _OrdersPageState extends State<OrdersPage> {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
 
-    if (_isLoading && _orders.isEmpty) {
+    if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
@@ -798,18 +429,7 @@ class _OrdersPageState extends State<OrdersPage> {
       );
     }
 
-    var filteredOrders = _orders.where((c) {
-      if (_paymentFilter == 'all') return true;
-      return _paymentFilter == 'unpaid' ? c.paymentStatus == false : c.paymentStatus == true;
-    }).toList();
-
-
-    // Apply search filter
-    if (_searchQuery.isNotEmpty) {
-      filteredOrders = filteredOrders.where(
-        (order) => (order.orderId.toLowerCase().contains(_searchQuery.toLowerCase()) || order.customerName.toLowerCase().contains(_searchQuery.toLowerCase()))
-      ).toList();
-    }
+    var filteredOrders = _orders;
 
     double totalPaidAmount = 0;
 
@@ -823,11 +443,6 @@ class _OrdersPageState extends State<OrdersPage> {
 
     return Column(
       children: [
-        // Search Bar
-        if (_isSearchBarVisible) _buildSearchBar(isDarkMode, isLargeScreen),
-
-        // FILTER BUTTONS
-        _buildTypeFilter(),
 
         // Main Amount/Count
         Container(
@@ -1322,11 +937,10 @@ class _OrdersPageState extends State<OrdersPage> {
                               color: Colors.grey.shade300,
                               margin: const EdgeInsets.symmetric(horizontal: 12),
                             ),
-                            if (order.issuedBy != "")
                             Expanded(
                               child: _buildPersonInfo(
                                 icon: Icons.assignment_ind,
-                                label: (!order.isRemote) ? 'Issued By' : _getStatusText(order.status),
+                                label: 'Issued By',
                                 name: order.issuedBy,
                                 phone: order.issuerPhoneNumber,
                               ),
@@ -1528,7 +1142,7 @@ class _OrdersPageState extends State<OrdersPage> {
       )
     );
 
-    bytes += generator.text(widget.shopName,
+    bytes += generator.text(widget.shop.name,
       styles: const PosStyles(
         align: PosAlign.center,
         bold: true,
@@ -1609,7 +1223,7 @@ class _OrdersPageState extends State<OrdersPage> {
       styles: const PosStyles(align: PosAlign.center),
     );
 
-    bytes += generator.text(widget.shopName.toUpperCase(),
+    bytes += generator.text(widget.shop.name.toUpperCase(),
       styles: const PosStyles(
         align: PosAlign.center,
         bold: true,
@@ -1873,7 +1487,7 @@ class _OrdersPageState extends State<OrdersPage> {
                 /// COMPANY NAME
                 pw.Center(
                   child: pw.Text(
-                    widget.shopName.toUpperCase(),
+                    widget.shop.name.toUpperCase(),
                     style: pw.TextStyle(
                       font: customFont,
                       fontSize: 11,
@@ -2208,19 +1822,9 @@ class _OrdersPageState extends State<OrdersPage> {
     }
   }
 
-  Future<void> _saveReceiptsBalance(int value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('paid_sms_balance', value);
-  }
 
-  Future<void> _loadNumberOfReceipts() async {
-    final prefs = await SharedPreferences.getInstance();
 
-    setState(() {
-      receiptsBalance = prefs.getInt('paid_sms_balance') ?? 0;
-    });
-  }
-  
+
   Future<void> _selectCablePrinterDialog() async {
     final printers = await Printing.listPrinters();
 
@@ -2326,7 +1930,7 @@ class _OrdersPageState extends State<OrdersPage> {
               // Shop Name
               pw.Center(
                 child: pw.Text(
-                  widget.shopName,
+                  widget.shop.name,
                   style: pw.TextStyle(
                     fontSize: 10,
                     fontWeight: pw.FontWeight.bold,
@@ -2503,6 +2107,7 @@ class _OrdersPageState extends State<OrdersPage> {
     );
   }
 
+
   Widget _buildDetailsPanel() {
   final order = _selectedOrder;
   if (order == null) return const SizedBox();
@@ -2573,10 +2178,10 @@ class _OrdersPageState extends State<OrdersPage> {
                   constraints: const BoxConstraints(),
                   visualDensity: VisualDensity.compact,
                   onPressed: () {
-                    _printBluetoothReceipt(order);
-                    if (Platform.isWindows) {
-                      _printCableReceipt(order);
-                    }
+                    // _printBluetoothReceipt(order);
+                    // if (Platform.isWindows) {
+                    //   _printCableReceipt(order);
+                    // }
                   },
                 ),
               ),
@@ -2648,7 +2253,7 @@ class _OrdersPageState extends State<OrdersPage> {
 
                 // Issued By
                 _buildDetailSection(
-                  title: (!order.isRemote) ? 'Issued By' : _getStatusText(order.status),
+                  title: 'Issued By',
                   icon: Icons.assignment_ind,
                   children: [
                     _buildDetailRow('Name', order.issuedBy),
@@ -2723,24 +2328,21 @@ Widget _buildOrderHeader(Order order) {
             ],
           ),
         ),
-        GestureDetector(
-          onTap: (order.status.toUpperCase() == 'SENT') ? () => _showOrderConfirmationDialog(order) : null,
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 8,
-            ),
-            decoration: BoxDecoration(
-              color: _getStatusColor(order.status),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              order.status.toUpperCase(),
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-              ),
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 8,
+          ),
+          decoration: BoxDecoration(
+            color: _getStatusColor(order.status),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            order.status.toUpperCase(),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
             ),
           ),
         ),
@@ -2748,642 +2350,6 @@ Widget _buildOrderHeader(Order order) {
     ),
   );
 }
-
-void _showOrderConfirmationDialog(Order order) {
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (dialogContext) {
-      return AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        title: const Row(
-          children: [
-            Icon(
-              Icons.local_shipping,
-              color: Colors.blue,
-            ),
-            SizedBox(width: 8),
-            Expanded(
-              child: Text('Confirm Order'),
-            ),
-          ],
-        ),
-        content: const Text(
-          'Do you accept and confirm that you have received this order?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(dialogContext);
-              _showRejectReasonDialog(order);
-            },
-            child: const Text(
-              'Reject',
-              style: TextStyle(
-                color: Colors.red,
-              ),
-            ),
-          ),
-
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(dialogContext);
-              _updateOrderStatus(
-                order,
-                status: 'received',
-              );
-            },
-            child: const Text('Accept / Receive'),
-          ),
-        ],
-      
-      );
-    },
-  );
-}
-
-void _showRejectReasonDialog(Order order) {
-  final TextEditingController reasonController =
-      TextEditingController();
-
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (dialogContext) {
-      return AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        title: const Row(
-          children: [
-            Icon(
-              Icons.cancel,
-              color: Colors.red,
-            ),
-            SizedBox(width: 8),
-            Expanded(
-              child: Text('Reject Order'),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Please provide a reason for rejecting this order:',
-            ),
-
-            const SizedBox(height: 12),
-
-            TextField(
-              controller: reasonController,
-              maxLines: 4,
-              decoration: InputDecoration(
-                hintText: 'Enter rejection reason...',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(dialogContext);
-            },
-            child: const Text('Cancel'),
-          ),
-
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () {
-              final reason = reasonController.text.trim();
-
-              if (reason.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Please enter a reason for rejecting the order.',
-                    ),
-                  ),
-                );
-                return;
-              }
-
-              Navigator.pop(dialogContext);
-
-              _updateOrderStatus(
-                order,
-                status: 'rejected',
-                rejectionReason: reason,
-              );
-            },
-            child: const Text('Reject Order'),
-          ),
-        ],
-      );
-    },
-  );
-}
-
-Future<void> _updateOrderStatus(
-  Order order, {
-  required String status,
-  String? rejectionReason,
-  bool useDNS = true,
-}) async {
-  try {
-    final Uri uri = useDNS 
-        ? Uri.parse(
-            '${backend_url}api/update_order/${order.orderId}',
-          )
-        : Uri.parse(
-            '${backend_url_with_fallback_ip}update_order/${order.orderId}',
-          );
-
-    final Map<String, dynamic> body = {
-      'status': status,
-      'user_name': widget.userName,
-      'user_phone_number': widget.userPhoneNumber,
-      'shop_name': widget.shopName,
-    };
-
-    if (rejectionReason != null && rejectionReason.isNotEmpty) {
-      body['rejection_reason'] = rejectionReason;
-    }
-
-    debugPrint('Updating order: ${order.orderId}');
-    debugPrint('URL: $uri');
-    debugPrint('Body: ${jsonEncode(body)}');
-
-    final response = await http.post(
-      uri,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(body),
-    );
-
-    debugPrint('Response status: ${response.statusCode}');
-    debugPrint('Response body: ${response.body}');
-
-    final responseData = jsonDecode(response.body);
-    String message = responseData['message'];
-
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      _fetchOrders();
-
-      _saveReceiptsBalance(responseData['number_of_sms']);
-
-      // Update the local order object
-      setState(() {
-        order.status = status;
-        receiptsBalance = responseData['number_of_sms'];
-
-        if (status == 'rejected') {
-          order.rejectionReason = rejectionReason!;
-        }
-      });
-
-      if (status == 'received') { 
-        _showSuccessDialog();
-      } else {
-        _showRejectedSuccessDialog();
-      }
-    } else if (response.statusCode == 404) {
-
-      if (message.trim() == "Kifurushi chako kimeisha!") {
-        await getReceiptPackages();
-        _payDialog();
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message.trim())),
-        );
-      }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Failed to update order. '
-            'Server returned ${response.statusCode}, ${response.body}',
-          ),
-        ),
-      );
-    }
-  } catch (e) {
-    debugPrint('Error updating order: $e');
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Failed to update order: $e',
-        ),
-      ),
-    );
-  }
-}
- 
-
-  Future<void> getReceiptPackages({bool useDNS = true}) async {
-    final Uri uri = useDNS ? Uri.parse('${backend_url}api/receipt_packages_new/${widget.role}') // Original URL 
-    : Uri.parse('${backend_url_with_fallback_ip}receipt_packages_new/${widget.role}'); // Use 
-
-    try {
-      final response = await http.get(uri);
-      if (response.statusCode == 200) {
-        debugPrint("response.body : ${response.body}");
-
-        final responseData = jsonDecode(response.body); // This is a List<dynamic>
-
-        if(responseData.length > 0) {
-          setState(() {
-            receiptPackages = responseData;
-          });
-        } 
-      }
-    } on SocketException catch (e) {
-      debugPrint('Network error occurred:');
-      debugPrint('- Exception type: ${e.runtimeType}');
-      debugPrint('- Message: ${e.message}');
-      
-      if (e.osError != null) {
-        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
-        debugPrint('  - OS message: ${e.osError!.message}');
-        debugPrint('  - errorCode: ${e.osError!.errorCode}');
-        debugPrint('  - useDNS: ${useDNS}');
-
-        // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await getReceiptPackages(useDNS: false); // Recursive retry
-
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setBool('use_dns', false);
-          return;
-        }
-      }
-
-      _handleSocketException(e);
-    } catch (e) {
-      debugPrint('Error getting offices: $e');
-    } finally {
-      debugPrint('Process finished');
-    }
-  }
-
-  Future<void> _payDialog() async {
-    int? selectedReceiptPackages = receiptPackages.isNotEmpty ? receiptPackages[0]["number_of_receipts"] as int : null;
-    int? selectedAmount = receiptPackages.isNotEmpty ? receiptPackages[0]["price"] as int : null;
-
-    final TextEditingController phoneController = TextEditingController();
-
-    await showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-              title: const Text(
-                "Chagua kifurushi",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-
-                    const Divider(height: 4),
-                    
-                    /// Packages
-                    ...receiptPackages
-                    .map((pkg) {
-                      return RadioListTile(
-                        dense: true,
-                        visualDensity: const VisualDensity(vertical: -4),
-                        title: Text(
-                          "Receipts ${pkg["number_of_receipts"]} - TSH ${NumberFormat('#,##0').format(pkg["price"])}",
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        value: pkg["number_of_receipts"],
-                        groupValue: selectedReceiptPackages,
-                        onChanged: (value) {
-                          setState(() {
-                            selectedReceiptPackages = value;
-                            selectedAmount = pkg["price"] as int;
-                          });
-                        },
-                      );
-                    }),
-
-                    const SizedBox(height: 6),
-
-                    const Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        "Njia ya Malipo",
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-
-                    const Divider(height: 10),
-
-                    /// Payment Methods
-                    Column(
-                      children: paymentMethods.map((method) {
-                        return RadioListTile(
-                          dense: true,
-                          visualDensity: const VisualDensity(vertical: -4),
-                          title: Text(method, style: const TextStyle(fontSize: 12)),
-                          value: method,
-                          groupValue: selectedPaymentMethod,
-                          onChanged: (value) {
-                            debugPrint('Selected payment method: $value');
-                            debugPrint('Selected payment method: $selectedPaymentMethod');
-                            setState(() {
-                              selectedPaymentMethod = value.toString();
-                            });
-                          },
-                        );
-                      }).toList(),
-                    ),
-
-                    const SizedBox(height: 6),
-
-                    /// Phone
-                    TextField(
-                      controller: phoneController,
-                      keyboardType: TextInputType.phone,
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        labelText: "Namba ya simu ya malipo",
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    /// Pay button
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : () async {
-                          if(selectedReceiptPackages != null && selectedReceiptPackages! > 0) {
-                            setState(() => _isLoading = true);
-
-                            await _sendPaymentRequest(
-                              phoneController.text.trim(),
-                              selectedReceiptPackages,
-                              selectedAmount,
-                            );
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("Tafadhali chagua kifurushi")),
-                            );
-                          }
-                        },
-                        child: _isLoading ? const CircularProgressIndicator() : const Text("Lipa"),
-                      ),
-                    ) 
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-  
-  Future<void> _sendPaymentRequest(
-    String phone,
-    int? receipts,
-    int? amount,
-    {bool useDNS = true}
-  ) async {
-
-    if (phone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Phone number cannot be empty')),
-      );
-      return;
-    }
- 
-    final Uri uri = useDNS ? Uri.parse('${backend_url}api/pay_daily_package/${widget.userId}')
-    : Uri.parse('${backend_url_with_fallback_ip}pay_daily_package/${widget.userId}'); // Use IP
-
-      debugPrint('Selected payment method: $selectedPaymentMethod');
-
-      String selectedPaymentMethod2 = '';
-      if(selectedPaymentMethod == 'M-PESA') {
-        selectedPaymentMethod2 = 'Mpesa';
-      }else if(selectedPaymentMethod == 'MIXX BY YAS') {
-        selectedPaymentMethod2 = 'Tigo';
-      }else if(selectedPaymentMethod == 'AIRTEL MONEY') {
-        selectedPaymentMethod2 = 'Airtel';
-      }else if(selectedPaymentMethod == 'HALOPESA') {
-        selectedPaymentMethod2 = 'Halopesa';
-      }else if(selectedPaymentMethod == 'AZAMPESA') {
-        selectedPaymentMethod2 = 'Azampesa';
-      }
-
-    try {
-      setState(() => _isLoading = true);
-
-      final response = await http.post(
-        uri,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: jsonEncode({
-          "phone_number": phone,
-          "receipts": receipts,
-          "amount": amount,
-          'selected_payment_method': selectedPaymentMethod2,
-        }),
-      );
-
-      debugPrint('phone_number: $phone');
-      debugPrint('receipts: $receipts');
-      debugPrint('amount: $amount');
-
-      if (response.statusCode == 200) {
-        if (response.body == "Processing payment!") { 
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Ombi la malipo limetumwa")),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(response.body)),
-          );
-        }
-
-        Navigator.pop(context);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Malipo yameshindwa")),
-        );
-      }
-    }  on SocketException catch (e) {
-      debugPrint('Network error occurred:');
-      debugPrint('- Exception type: ${e.runtimeType}');
-      debugPrint('- Message: ${e.message}');
-      
-      if (e.osError != null) {
-        debugPrint('  - Error number (errno): ${e.osError!.errorCode}');
-        debugPrint('  - OS message: ${e.osError!.message}');
-        debugPrint('  - errorCode: ${e.osError!.errorCode}');
-        debugPrint('  - useDNS: ${useDNS}');
-
-        // Retry with IP if DNS fails (errno = 7) and not already retrying
-        if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
-          debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await _sendPaymentRequest(phone, receipts, amount, useDNS: false); // Recursive retry
-
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setBool('use_dns', false);
-          return;
-        }
-      }
-
-      _handleSocketException(e);
-    } catch (e) {
-      print("Payment error: $e");
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  void _handleSocketException(SocketException e) {
-    if (e.osError?.errorCode == 7 || e.osError?.errorCode == 101 || e.osError?.errorCode == 111) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Connection Error'),
-          content: const Text('Could not connect to the server. Please check your internet connection.'),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
-      );
-    } else {
-      _showSnackBar('Connection Error: ${e.message}');
-    }
-  }
-
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
-    );
-  }
-
-  void _showRejectedSuccessDialog() {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        title: const Row(
-          children: [
-            Icon(
-              Icons.check_circle,
-              color: Colors.green,
-            ),
-            SizedBox(width: 8),
-            Text('Order Rejected'),
-          ],
-        ),
-        content: const Text(
-          'The order has been rejected successfully.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showSuccessDialog() {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.green),
-            SizedBox(width: 8),
-            Text(AppLocalizations.of(context)!.success),
-          ],
-        ),
-        content: Text(AppLocalizations.of(context)!.orderReceivedSuccessfully),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            child: const Text('OK'),
-          )
-        ],
-      ),
-    );
-  }
-
-  void _showOrderPaymentDialog() {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Row(
-          children: [
-            Icon(Icons.lock, color: Colors.red),
-            SizedBox(width: 4),
-            Text(AppLocalizations.of(context)!.paymentRequired),
-          ],
-        ),
-        content: Text(AppLocalizations.of(context)!.youHaveOrdersPleasePayToView),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            child: const Text(
-              'Cancel',
-              style: TextStyle(
-                color: Colors.red,
-              ),
-            ),
-          ),
-
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await getReceiptPackages();
-              _payDialog();
-            },
-            child: const Text('Pay Now'),
-          ),
-
-        ],
-      ),
-    );
-  }
 
 /// Helper widget for order items section
 Widget _buildOrderItemsSection(List<OrderItem> items) {
@@ -3425,9 +2391,7 @@ Widget _buildOrderItemsSection(List<OrderItem> items) {
               ),
             ),
             Text(
-                            'TZS${items.fold(0.0, (sum, item) => sum + (item.price * item.quantity)).toStringAsFixed(2)}',
-
-              // 'TZS${NumberFormat('#,##0.00').format(items.fold(0.0, (sum, item) => sum + (item.price * item.quantity)).toStringAsFixed(2))}',
+              'TZS${items.fold(0.0, (sum, item) => sum + (item.price * item.quantity)).toStringAsFixed(2)}',
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
@@ -3560,13 +2524,13 @@ Widget _buildOrderItemTile(OrderItem item) {
                       constraints: const BoxConstraints(),
                       visualDensity: VisualDensity.compact,
                       onPressed: () {
-                        if (Platform.isWindows) {
-                          debugPrint("Printing via cable...");
-                          _printCableReceipt(order);
-                        } else {
-                          debugPrint("Printing via Bluetooth...");
-                          _printBluetoothReceipt(order);
-                        }
+                        // if (Platform.isWindows) {
+                        //   debugPrint("Printing via cable...");
+                        //   _printCableReceipt(order);
+                        // } else {
+                        //   debugPrint("Printing via Bluetooth...");
+                        //   _printBluetoothReceipt(order);
+                        // }
                       },
                     ),
                   ),
@@ -3722,7 +2686,7 @@ Widget _buildOrderItemTile(OrderItem item) {
                     
                     /// ISSUED BY SECTION
                     _buildDetailSection(
-                      title: (!order.isRemote) ? 'Issued By' : _getStatusText(order.status),
+                      title: 'Issued By',
                       icon: Icons.assignment_ind,
                       children: [
                         _buildDetailRow('Name', order.issuedBy),

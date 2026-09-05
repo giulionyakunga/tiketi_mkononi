@@ -151,7 +151,7 @@ class _ShopsPageState extends State<ShopsPage> {
       ),
       body: RefreshIndicator(
         onRefresh: _fetchShops,
-        child: _loading
+        child: (_loading && _shops.isEmpty)
             ? const Center(child: CircularProgressIndicator())
             : _error != null
                 ? _errorState()
@@ -217,11 +217,12 @@ class _ShopsPageState extends State<ShopsPage> {
           MaterialPageRoute(
             builder: (context) => OrdersPage(
               userId: widget.userId, 
-              shopId: shop.id, 
-              shopName: shop.name, 
-              userName: widget.userName, 
+              shopName: shop.name,
+              shopLocation: shop.location,
+              userName: widget.userName,
               userPhoneNumber: widget.userPhoneNumber, 
-              role: widget.role
+              role: widget.role, 
+              shop: shop,
             ),
           ),
         );
@@ -257,8 +258,9 @@ class _ShopsPageState extends State<ShopsPage> {
               MaterialPageRoute(
                 builder: (context) => OrdersPage(
                   userId: widget.userId,
-                  shopId: shop.id,
+                  shop: shop,
                   shopName: shop.name,
+                  shopLocation: shop.location,
                   userName: widget.userName,
                   userPhoneNumber: widget.userPhoneNumber,
                   role: widget.role,
