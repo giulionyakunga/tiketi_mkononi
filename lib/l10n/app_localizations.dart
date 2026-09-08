@@ -323,7 +323,7 @@ abstract class AppLocalizations {
   /// No description provided for @yourName.
   ///
   /// In en, this message translates to:
-  /// **'Your Name'**
+  /// **'Jina Lako'**
   String get yourName;
 
   /// No description provided for @customerName.
@@ -335,7 +335,7 @@ abstract class AppLocalizations {
   /// No description provided for @yourPhoneNumber.
   ///
   /// In en, this message translates to:
-  /// **'Your Phone Number'**
+  /// **'Namba ya Simu'**
   String get yourPhoneNumber;
 
   /// No description provided for @customerPhoneNumber.
@@ -433,6 +433,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Add Items'**
   String get addItems;
+
+  /// No description provided for @addItem.
+  ///
+  /// In en, this message translates to:
+  /// **'Ongeza Kitu'**
+  String get addItem;
 
   /// No description provided for @addParcelButton.
   ///

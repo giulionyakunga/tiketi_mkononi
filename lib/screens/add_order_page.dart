@@ -1822,6 +1822,24 @@ class _AddOrderPageState extends State<AddOrderPage> {
     );
 
     bytes += generator.text(
+      "Phone: ${order.issuerPhoneNumber}",
+      styles: const PosStyles(
+        align: PosAlign.center,
+        height: PosTextSize.size1,
+        width: PosTextSize.size1,
+      ),
+    );
+
+    bytes += generator.text(
+      "Location: ${widget.shopLocation}",
+      styles: const PosStyles(
+        align: PosAlign.center,
+        height: PosTextSize.size1,
+        width: PosTextSize.size1,
+      ),
+    );
+
+    bytes += generator.text(
       "ORDER RECEIPT",
       styles: const PosStyles(
         align: PosAlign.center,
@@ -2082,6 +2100,24 @@ class _AddOrderPageState extends State<AddOrderPage> {
                       fontSize: 11,
                       fontWeight: pw.FontWeight.bold,
                     ),
+                  ),
+                ),
+
+                pw.Text(
+                  "Location: ${widget.shopLocation}",
+                  style: pw.TextStyle(
+                    font: customFont,
+                    fontSize: 10,
+                    fontWeight: pw.FontWeight.normal,
+                  ),
+                ),
+
+                pw.Text(
+                  "Phone No: ${order.issuerPhoneNumber}",
+                  style: pw.TextStyle(
+                    font: customFont,
+                    fontSize: 10,
+                    fontWeight: pw.FontWeight.normal,
                   ),
                 ),
 

@@ -1436,7 +1436,7 @@ class _AddRemoteOrderPageState extends State<AddRemoteOrderPage> {
                           child: TextButton.icon(
                             onPressed: _addOrderItem,
                             icon: const Icon(Icons.add),
-                            label: Text(AppLocalizations.of(context)!.addItems),
+                            label: Text(AppLocalizations.of(context)!.addItem),
                           ),
                         ),
                         const SizedBox(height: 24),
@@ -1566,7 +1566,7 @@ class _AddRemoteOrderPageState extends State<AddRemoteOrderPage> {
                       child: TextButton.icon(
                         onPressed: _addOrderItem,
                         icon: const Icon(Icons.add),
-                        label: Text(AppLocalizations.of(context)!.addItems),
+                        label: Text(AppLocalizations.of(context)!.addItem),
                       ),
                     ),                  
                     const SizedBox(height: 24),

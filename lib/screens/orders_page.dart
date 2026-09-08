@@ -1621,6 +1621,24 @@ class _OrdersPageState extends State<OrdersPage> {
     );
 
     bytes += generator.text(
+      "Phone: ${order.issuerPhoneNumber}",
+      styles: const PosStyles(
+        align: PosAlign.center,
+        height: PosTextSize.size1,
+        width: PosTextSize.size1,
+      ),
+    );
+
+    bytes += generator.text(
+      "Location: ${widget.shopLocation}",
+      styles: const PosStyles(
+        align: PosAlign.center,
+        height: PosTextSize.size1,
+        width: PosTextSize.size1,
+      ),
+    );
+
+    bytes += generator.text(
       "ORDER RECEIPT",
       styles: const PosStyles(
         align: PosAlign.center,
@@ -1881,6 +1899,24 @@ class _OrdersPageState extends State<OrdersPage> {
                       fontSize: 11,
                       fontWeight: pw.FontWeight.bold,
                     ),
+                  ),
+                ),
+
+                pw.Text(
+                  "Location: ${widget.shopLocation}",
+                  style: pw.TextStyle(
+                    font: customFont,
+                    fontSize: 10,
+                    fontWeight: pw.FontWeight.normal,
+                  ),
+                ),
+
+                pw.Text(
+                  "Phone No: ${order.issuerPhoneNumber}",
+                  style: pw.TextStyle(
+                    font: customFont,
+                    fontSize: 10,
+                    fontWeight: pw.FontWeight.normal,
                   ),
                 ),
 

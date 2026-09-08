@@ -179,6 +179,9 @@ class AppLocalizationsSw extends AppLocalizations {
   String get addItems => 'Ongeza Kitu';
 
   @override
+  String get addItem => 'Ongeza Kitu';
+
+  @override
   String get addParcelButton => 'Ongeza Kifurushi';
 
   @override

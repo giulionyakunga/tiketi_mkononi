@@ -51,7 +51,6 @@ class _PostAdPageState extends State<PostAdPage> {
   String selectedPaymentMethod = 'MIXX BY YAS';
   final List<String> paymentMethods = ['MIXX BY YAS', 'M-PESA', 'AIRTEL MONEY', 'HALOPESA', 'AZAMPESA'];
 
-  int receiptsBalance = 0;
   List<dynamic> receiptPackages = [];
 
   // Responsive helpers
@@ -771,7 +770,7 @@ class _PostAdPageState extends State<PostAdPage> {
   
   Future<void> _sendPaymentRequest(
     String phone,
-    int? receipts,
+    int? days,
     int? amount,
     {bool useDNS = true}
   ) async {
@@ -781,8 +780,8 @@ class _PostAdPageState extends State<PostAdPage> {
       return;
     }
  
-    final Uri uri = useDNS ? Uri.parse('${backend_url}api/pay_daily_package/${widget.userId}')
-    : Uri.parse('${backend_url_with_fallback_ip}pay_daily_package/${widget.userId}');
+    final Uri uri = useDNS ? Uri.parse('${backend_url}api/pay_ads_package/${widget.userId}')
+    : Uri.parse('${backend_url_with_fallback_ip}pay_ads_package/${widget.userId}');
 
     debugPrint('Selected payment method: $selectedPaymentMethod');
 
@@ -809,14 +808,14 @@ class _PostAdPageState extends State<PostAdPage> {
         },
         body: jsonEncode({
           "phone_number": phone,
-          "receipts": receipts,
+          "days": days,
           "amount": amount,
           'selected_payment_method': selectedPaymentMethod2,
         }),
       );
 
       debugPrint('phone_number: $phone');
-      debugPrint('receipts: $receipts');
+      debugPrint('days: $days');
       debugPrint('amount: $amount');
 
       if (response.statusCode == 200) {
@@ -842,7 +841,7 @@ class _PostAdPageState extends State<PostAdPage> {
 
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          await _sendPaymentRequest(phone, receipts, amount, useDNS: false);
+          await _sendPaymentRequest(phone, days, amount, useDNS: false);
           final prefs = await SharedPreferences.getInstance();
           await prefs.setBool('use_dns', false);
           return;

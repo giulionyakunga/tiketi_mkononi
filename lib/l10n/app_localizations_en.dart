@@ -122,13 +122,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get selectProduct => 'Select Product';
 
   @override
-  String get yourName => 'Your Name';
+  String get yourName => 'Jina Lako';
 
   @override
   String get customerName => 'Customer Name';
 
   @override
-  String get yourPhoneNumber => 'Your Phone Number';
+  String get yourPhoneNumber => 'Namba ya Simu';
 
   @override
   String get customerPhoneNumber => 'Customer Phone Number';
@@ -177,6 +177,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get addItems => 'Add Items';
+
+  @override
+  String get addItem => 'Ongeza Kitu';
 
   @override
   String get addParcelButton => 'Add Parcel';
