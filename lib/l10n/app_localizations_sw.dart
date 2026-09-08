@@ -122,10 +122,16 @@ class AppLocalizationsSw extends AppLocalizations {
   String get selectProduct => 'Chagua bidhaa';
 
   @override
+  String get yourName => 'Jina Lako';
+
+  @override
   String get customerName => 'Jina la Mteja';
 
   @override
-  String get customerPhoneNumber => 'Namba ya sumu ya Mteja';
+  String get yourPhoneNumber => 'Namba ya Simu';
+
+  @override
+  String get customerPhoneNumber => 'Namba ya simu ya Mteja';
 
   @override
   String get passingThrough => 'Kupitia';
@@ -370,6 +376,9 @@ class AppLocalizationsSw extends AppLocalizations {
 
   @override
   String get topupCards => 'Nunua Kadi';
+
+  @override
+  String get payAds => 'Lipia Matangazo';
 
   @override
   String get viewCards => 'Ongalia Kadi';

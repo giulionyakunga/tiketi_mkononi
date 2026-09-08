@@ -1,6 +1,7 @@
 // models/ad_model.dart
 class AdModel {
-  final String? id;
+  final int id;
+  final int userId;
   final String title;
   final String description;
   final String imageUrl;
@@ -15,7 +16,8 @@ class AdModel {
   final Map<String, dynamic>? targetAudience;
 
   AdModel({
-    this.id,
+    required this.id,
+    required this.userId,
     required this.title,
     required this.description,
     required this.imageUrl,
@@ -32,6 +34,8 @@ class AdModel {
 
   Map<String, dynamic> toJson() {
     return {
+      'id': id,
+      'user_id': userId,
       'title': title,
       'description': description,
       'image_url': imageUrl,
@@ -49,7 +53,8 @@ class AdModel {
 
   factory AdModel.fromJson(Map<String, dynamic> json) {
     return AdModel(
-      id: json['id']?.toString(),
+      id: json['id']?.toInt() ?? 0,
+      userId: json['user_id']?.toInt() ?? 0,
       title: json['title'] ?? '',
       description: json['description'] ?? '',
       imageUrl: json['image_url'] ?? '',

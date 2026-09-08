@@ -28,6 +28,7 @@ import 'package:url_launcher/url_launcher.dart';  // Hide Excel's Border
 
 class OrdersPage extends StatefulWidget {
   final int userId;
+  final int shopId;
   final String shopName;
   final String shopLocation;
   final String userName;
@@ -35,14 +36,14 @@ class OrdersPage extends StatefulWidget {
   final String role;
   final Shop shop;
 
-  const OrdersPage({super.key, required this.userId, required this.shopName, required this.shopLocation, required this.userName, required this.userPhoneNumber, required this.role, required this.shop});
+  const OrdersPage({super.key, required this.userId, required this.shopId, required this.shopName, required this.shopLocation, required this.userName, required this.userPhoneNumber, required this.role, required this.shop});
 
   @override
   State<OrdersPage> createState() => _OrdersPageState();
 }
 
 class _OrdersPageState extends State<OrdersPage> {
-  bool _isLoading = true;
+  bool _isLoading = false;
   String? _error;
   List<Order> _orders = [];
   double totalSales = 0;
@@ -224,7 +225,7 @@ class _OrdersPageState extends State<OrdersPage> {
         debugPrint('numberOfOrders: ${numberOfOrders}');
         debugPrint('number of filteredOrders: ${filteredOrders.length}');
 
-        if(numberOfOrders != null) {
+        if(numberOfOrders != filteredOrders.length) {
           _showOrderPaymentDialog();
         }
       } else {
@@ -403,7 +404,8 @@ class _OrdersPageState extends State<OrdersPage> {
               userName: widget.userName,
               userPhoneNumber: widget.userPhoneNumber,
               isReplacableScreen: true,
-              shop: widget.shop,
+              shopId: widget.shopId, 
+              orderCount: _orders.length,
             ),
           ),
         );
@@ -2902,10 +2904,10 @@ Future<void> _updateOrderStatus(
   try {
     final Uri uri = useDNS 
         ? Uri.parse(
-            '${backend_url}api/update_order/${order.orderId}',
+            '${backend_url}api/update_order/${widget.userId}/${order.orderId}',
           )
         : Uri.parse(
-            '${backend_url_with_fallback_ip}update_order/${order.orderId}',
+            '${backend_url_with_fallback_ip}update_order/${widget.userId}/${order.orderId}',
           );
 
     final Map<String, dynamic> body = {
@@ -2956,11 +2958,11 @@ Future<void> _updateOrderStatus(
         _showRejectedSuccessDialog();
       }
     } else if (response.statusCode == 404) {
+      _fetchOrders();
+
+      _saveReceiptsBalance(responseData['number_of_sms']);
 
       if (message.trim() == "Kifurushi chako kimeisha!") {
-        await getReceiptPackages();
-        _payDialog();
-
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(message.trim())),
         );

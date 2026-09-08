@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:tiketi_mkononi/l10n/app_localizations.dart';
+import 'package:tiketi_mkononi/models/ad_model.dart';
+import 'package:tiketi_mkononi/screens/ad/ad_service.dart';
 import 'package:tiketi_mkononi/screens/events_page.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
 import 'package:tiketi_mkononi/widgets/category_grid.dart';
@@ -16,6 +18,7 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'platform_detector.dart';
+import 'package:tiketi_mkononi/widgets/home_ads.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -41,6 +44,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   String userName = "";
   String userPhoneNumber = "";
 
+  List<AdModel> ads = [];
+  AdService adService = AdService();
+
   final TextEditingController _searchController = TextEditingController();
   bool useDNS_2 = true;
 
@@ -59,8 +65,25 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     await _loadCachedEvents();
 
+    await _fetchAds(); // Add this line
+
     _storageService = StorageService(prefs);
     _loadUserProfile();
+  }
+
+  Future<void> _fetchAds() async {
+    final fetchedAds = await adService.getAds();
+
+    debugPrint('Fetched Ads: ${fetchedAds}');
+    debugPrint('Number of fetchedAds: ${fetchedAds.length}');
+
+    debugPrint('Number of ads: ${ads.length}');
+    
+    setState(() {
+      ads = fetchedAds;
+    });
+
+    debugPrint('Number of ads: ${ads.length}');
   }
 
   void _loadUserProfile() {
@@ -282,6 +305,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> refreshMethod() async {
     await fetchEvents();
     await getUserRole();
+    await _fetchAds();
   }
 
   List<Event> _getFilteredEvents() {
@@ -538,6 +562,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 ),
               ),
             ),
+            
             SliverPadding(
               padding: EdgeInsets.symmetric(
                 horizontal: isWideScreen ? 40 : 16,
@@ -546,14 +571,49 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
                   if (!isWideScreen) _buildSearchBar(isDarkMode),
+
                   const SizedBox(height: 5),
-                  _buildFeaturedEventsSection(isDarkMode, filteredEvents, isWideScreen),
+
+                  // ==============================
+                  // HOME PAGE ADS
+                  // ==============================
+                  if (ads.isNotEmpty)
+                  HomeAds(
+                    userId: userId,
+                    useDNS: useDNS_2,
+                    ads: ads
+                  ),
+
+                  if (ads.isNotEmpty)
                   const SizedBox(height: 10),
-                  _buildCategoriesSection(isDarkMode, filteredEvents, isWideScreen),
+
+                  if (ads.isEmpty)
+                  // ==============================
+                  // FEATURED EVENTS
+                  // ==============================
+                  _buildFeaturedEventsSection(
+                    isDarkMode,
+                    filteredEvents,
+                    isWideScreen,
+                  ),
+
+                  if (ads.isEmpty)
+                  const SizedBox(height: 10),
+
+                  // ==============================
+                  // CATEGORIES
+                  // ==============================
+                  _buildCategoriesSection(
+                    isDarkMode,
+                    filteredEvents,
+                    isWideScreen,
+                  ),
+
                   const SizedBox(height: 10),
                 ]),
               ),
             ),
+
           ],
         ),
       ),

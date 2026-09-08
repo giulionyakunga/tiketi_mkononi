@@ -222,7 +222,8 @@ class _ShopsPageState extends State<ShopsPage> {
               userName: widget.userName,
               userPhoneNumber: widget.userPhoneNumber, 
               role: widget.role, 
-              shop: shop,
+              shop: shop, 
+              shopId: shop.id, 
             ),
           ),
         );
@@ -259,6 +260,7 @@ class _ShopsPageState extends State<ShopsPage> {
                 builder: (context) => OrdersPage(
                   userId: widget.userId,
                   shop: shop,
+                  shopId: shop.id,
                   shopName: shop.name,
                   shopLocation: shop.location,
                   userName: widget.userName,

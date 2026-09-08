@@ -307,7 +307,6 @@ class _AddOrderPageState extends State<AddOrderPage> {
     }
   }
 
-
   bool _isLargeScreen(BuildContext context) {
     return MediaQuery.of(context).size.width > 768;
   }

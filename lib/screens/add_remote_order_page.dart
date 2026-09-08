@@ -277,7 +277,6 @@ class _AddRemoteOrderPageState extends State<AddRemoteOrderPage> {
     }
   }
 
-
   bool _isLargeScreen(BuildContext context) {
     return MediaQuery.of(context).size.width > 768;
   }
@@ -1264,356 +1263,360 @@ class _AddRemoteOrderPageState extends State<AddRemoteOrderPage> {
   @override
   Widget build(BuildContext context) {
     final isLargeScreen = _isLargeScreen(context);
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              AppLocalizations.of(context)!.placeOrder,
-              style: const TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+ 
+    return Localizations.override(
+      context: context,
+      locale: const Locale('sw'),
+      child: Scaffold(
+        appBar: AppBar(
+          title: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                AppLocalizations.of(context)!.placeOrder,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
-            ),
-            Text(
-              shop != null ? '${widget.shopName} - ${shop!.location}' : widget.shopName,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Colors.white,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-
-        backgroundColor: Colors.teal,
-        foregroundColor: Colors.white,
-        actions: [
-          PopupMenuButton<String>(
-            padding: EdgeInsets.zero,
-            tooltip: 'More Options',
-            elevation: 8,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            icon: Icon(
-              Icons.more_vert,
-              color: Colors.white,
-              size: 22,
-            ),
-            onSelected: (value) async {
-              if ((value == 'home') || (value == 'exit')) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => HomePage(),
-                  ),
-                );
-              }
-            },
-            itemBuilder: (context) => [  
-              _buildMenuItem(
-                icon: Icons.home,
-                text: AppLocalizations.of(context)!.home,
-                value: 'home',
-              ),
-              const PopupMenuDivider(),
-              _buildMenuItem(
-                icon: Icons.exit_to_app,
-                text: AppLocalizations.of(context)!.exit,
-                value: 'exit',
+              Text(
+                shop != null ? '${widget.shopName} - ${shop!.location}' : widget.shopName,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.white,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
-        ],
-      ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: isLargeScreen ? 1000 : double.infinity,
-          ),
-          child: SingleChildScrollView(
-            padding: EdgeInsets.symmetric(
-              horizontal: isLargeScreen ? 32 : 16,
-              vertical: 16,
-            ),
-            child: isLargeScreen ? Center(
-              child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxWidth: 500, // limit width
+
+          backgroundColor: Colors.teal,
+          foregroundColor: Colors.white,
+          actions: [
+            PopupMenuButton<String>(
+              padding: EdgeInsets.zero,
+              tooltip: 'More Options',
+              elevation: 8,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-              child:
-                Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (isLargeScreen) ...[
+              icon: Icon(
+                Icons.more_vert,
+                color: Colors.white,
+                size: 22,
+              ),
+              onSelected: (value) async {
+                if ((value == 'home') || (value == 'exit')) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => HomePage(),
+                    ),
+                  );
+                }
+              },
+              itemBuilder: (context) => [  
+                _buildMenuItem(
+                  icon: Icons.home,
+                  text: AppLocalizations.of(context)!.home,
+                  value: 'home',
+                ),
+                const PopupMenuDivider(),
+                _buildMenuItem(
+                  icon: Icons.exit_to_app,
+                  text: AppLocalizations.of(context)!.exit,
+                  value: 'exit',
+                ),
+              ],
+            ),
+          ],
+        ),
+        body: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: isLargeScreen ? 1000 : double.infinity,
+            ),
+            child: SingleChildScrollView(
+              padding: EdgeInsets.symmetric(
+                horizontal: isLargeScreen ? 32 : 16,
+                vertical: 16,
+              ),
+              child: isLargeScreen ? Center(
+                child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: 500, // limit width
+                ),
+                child:
+                  Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (isLargeScreen) ...[
+                          Text(
+                            AppLocalizations.of(context)!.placeOrder,
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        _buildPaymentStatusToggle(),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _customerNameController,
+                          maxLength: 100,
+                          decoration: _buildInputDecoration( AppLocalizations.of(context)!.yourName, prefixIcon: Icons.person),
+                          style: const TextStyle(fontSize: 16),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) return  AppLocalizations.of(context)!.pleaseEnterCustomerName;
+                            if (value.length > 100) return 'Sender name must be 100 characters or less';
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _customerPhoneNumberController,
+                          maxLength: 15,
+                          keyboardType: TextInputType.number,
+                          decoration: _buildInputDecoration( AppLocalizations.of(context)!.yourPhoneNumber, prefixIcon: Icons.phone),
+                          style: const TextStyle(fontSize: 16),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) return  AppLocalizations.of(context)!.pleaseEnterCustomerPhone;
+                            if (value.length > 15) return 'Sender phone number must be 15 characters or less';
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+
+                        Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                            Text(
+                                AppLocalizations.of(context)!.orderItems,
+                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+
+                            // Total Price at top right
+                            Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                    color: Colors.teal.shade100,
+                                    borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                      Text(
+                                        "TZS${NumberFormat('#,##0.00').format(totalPrice)}",
+                                        style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w500,
+                                            color: Colors.teal.shade800,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                            ),
+                          ],
+                        ),
+
+
+
+                        const SizedBox(height: 8),
+                        ..._orderItems.asMap().entries.map((entry) {
+                          return _buildOrderItemField(entry.key, isLargeScreen);
+                        }),
+                        const SizedBox(height: 8),
+                        Center(
+                          child: TextButton.icon(
+                            onPressed: _addOrderItem,
+                            icon: const Icon(Icons.add),
+                            label: Text(AppLocalizations.of(context)!.addItems),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
+
+                        SizedBox(
+                          width: isLargeScreen ? 400 : double.infinity,
+                          child: ElevatedButton(
+                            onPressed: _isLoading ? null : _placeOrder,
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              backgroundColor: Colors.teal[800],
+                            ),
+                            child: _isLoading 
+                                ? const CircularProgressIndicator()
+                                : 
+                                Text(
+                                  AppLocalizations.of(context)!.placeOrder,
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    color: Colors.white,
+                                  ),
+                                ),
+
+                                // Column(
+                                //   children: [
+                                //     Text(
+                                //       AppLocalizations.of(context)!.placeOrder,
+                                //       style: TextStyle(
+                                //         fontSize: 16,
+                                //         color: Colors.white,
+                                //       ),
+                                //     ),
+
+                                //     Text(
+                                //       "TZS${NumberFormat('#,##0.00').format(totalPrice)}",
+                                //       style: TextStyle(
+                                //           fontSize: 9,
+                                //           fontWeight: FontWeight.w500,
+                                //           color: Colors.teal.shade800,
+                                //       ),
+                                //     ),
+                                //   ]
+                                // )
+                                
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ) :
+              Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildPaymentStatusToggle(),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _customerNameController,
+                      maxLength: 100,
+                      decoration: _buildInputDecoration(AppLocalizations.of(context)!.yourName, prefixIcon: Icons.person),
+                      style: const TextStyle(fontSize: 16),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseEnterCustomerName;
+                        if (value.length > 100) return AppLocalizations.of(context)!.customerNameMaxLength;
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _customerPhoneNumberController,
+                      maxLength: 15,
+                      keyboardType: TextInputType.number,
+                      decoration: _buildInputDecoration(AppLocalizations.of(context)!.yourPhoneNumber, prefixIcon: Icons.phone),
+                      style: const TextStyle(fontSize: 16),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseEnterCustomerPhone;
+                        if (value.length > 15) return AppLocalizations.of(context)!.senderPhoneMaxLength;
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                        Text(
+                            AppLocalizations.of(context)!.orderItems,
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+
+                        // Total Price at top right
+                        Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                                color: Colors.teal.shade100,
+                                borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                  Text(
+                                    "TZS${NumberFormat('#,##0.00').format(totalPrice)}",
+                                    style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.teal.shade800,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                        ),
+                      ],
+                    ),
+
+
+
+                    const SizedBox(height: 8),
+                    ..._orderItems.asMap().entries.map((entry) {
+                      return _buildOrderItemField(entry.key, isLargeScreen);
+                    }),
+                    const SizedBox(height: 8),
+                    Center(
+                      child: TextButton.icon(
+                        onPressed: _addOrderItem,
+                        icon: const Icon(Icons.add),
+                        label: Text(AppLocalizations.of(context)!.addItems),
+                      ),
+                    ),                  
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: isLargeScreen ? 400 : double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _placeOrder,
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          backgroundColor: Colors.teal[800],
+                        ),
+                        child: _isLoading ? const CircularProgressIndicator()
+                        : 
                         Text(
                           AppLocalizations.of(context)!.placeOrder,
                           style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: Colors.white,
                           ),
                         ),
-                        const SizedBox(height: 16),
-                      ],
-                      _buildPaymentStatusToggle(),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _customerNameController,
-                        maxLength: 100,
-                        decoration: _buildInputDecoration( AppLocalizations.of(context)!.customerName, prefixIcon: Icons.person),
-                        style: const TextStyle(fontSize: 16),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) return  AppLocalizations.of(context)!.pleaseEnterCustomerName;
-                          if (value.length > 100) return 'Sender name must be 100 characters or less';
-                          return null;
-                        },
+
+                          // Column(
+                          //   children: [
+                          //     Text(
+                          //       AppLocalizations.of(context)!.placeOrder,
+                          //       style: TextStyle(
+                          //         fontSize: 16,
+                          //         color: Colors.white,
+                          //       ),
+                          //     ),
+
+                          //     Text(
+                          //       "TZS${NumberFormat('#,##0.00').format(totalPrice)}",
+                          //       style: TextStyle(
+                          //           fontSize: 9,
+                          //           fontWeight: FontWeight.w500,
+                          //           color: Colors.teal.shade800,
+                          //       ),
+                          //     ),
+                          //   ]
+                          // ),
                       ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _customerPhoneNumberController,
-                        maxLength: 15,
-                        keyboardType: TextInputType.number,
-                        decoration: _buildInputDecoration( AppLocalizations.of(context)!.customerPhoneNumber, prefixIcon: Icons.phone),
-                        style: const TextStyle(fontSize: 16),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) return  AppLocalizations.of(context)!.pleaseEnterCustomerPhone;
-                          if (value.length > 15) return 'Sender phone number must be 15 characters or less';
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                          Text(
-                              AppLocalizations.of(context)!.orderItems,
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
-
-                          // Total Price at top right
-                          Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                  color: Colors.teal.shade100,
-                                  borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                    Text(
-                                      "TZS${NumberFormat('#,##0.00').format(totalPrice)}",
-                                      style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w500,
-                                          color: Colors.teal.shade800,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                          ),
-                        ],
-                      ),
-
-
-
-                      const SizedBox(height: 8),
-                      ..._orderItems.asMap().entries.map((entry) {
-                        return _buildOrderItemField(entry.key, isLargeScreen);
-                      }),
-                      const SizedBox(height: 8),
-                      Center(
-                        child: TextButton.icon(
-                          onPressed: _addOrderItem,
-                          icon: const Icon(Icons.add),
-                          label: Text(AppLocalizations.of(context)!.addItems),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-
-                      SizedBox(
-                        width: isLargeScreen ? 400 : double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _isLoading ? null : _placeOrder,
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            backgroundColor: Colors.teal[800],
-                          ),
-                          child: _isLoading 
-                              ? const CircularProgressIndicator()
-                              : 
-                              Text(
-                                AppLocalizations.of(context)!.placeOrder,
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  color: Colors.white,
-                                ),
-                              ),
-
-                              // Column(
-                              //   children: [
-                              //     Text(
-                              //       AppLocalizations.of(context)!.placeOrder,
-                              //       style: TextStyle(
-                              //         fontSize: 16,
-                              //         color: Colors.white,
-                              //       ),
-                              //     ),
-
-                              //     Text(
-                              //       "TZS${NumberFormat('#,##0.00').format(totalPrice)}",
-                              //       style: TextStyle(
-                              //           fontSize: 9,
-                              //           fontWeight: FontWeight.w500,
-                              //           color: Colors.teal.shade800,
-                              //       ),
-                              //     ),
-                              //   ]
-                              // )
-                              
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ),
-            ) :
-            Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildPaymentStatusToggle(),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _customerNameController,
-                    maxLength: 100,
-                    decoration: _buildInputDecoration(AppLocalizations.of(context)!.customerName, prefixIcon: Icons.person),
-                    style: const TextStyle(fontSize: 16),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseEnterCustomerName;
-                      if (value.length > 100) return AppLocalizations.of(context)!.customerNameMaxLength;
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _customerPhoneNumberController,
-                    maxLength: 15,
-                    keyboardType: TextInputType.number,
-                    decoration: _buildInputDecoration(AppLocalizations.of(context)!.customerPhoneNumber, prefixIcon: Icons.phone),
-                    style: const TextStyle(fontSize: 16),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) return AppLocalizations.of(context)!.pleaseEnterCustomerPhone;
-                      if (value.length > 15) return AppLocalizations.of(context)!.senderPhoneMaxLength;
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-
-                  Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                      Text(
-                          AppLocalizations.of(context)!.orderItems,
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-
-                      // Total Price at top right
-                      Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                              color: Colors.teal.shade100,
-                              borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                                Text(
-                                  "TZS${NumberFormat('#,##0.00').format(totalPrice)}",
-                                  style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w500,
-                                      color: Colors.teal.shade800,
-                                  ),
-                                ),
-                            ],
-                          ),
-                      ),
-                    ],
-                  ),
-
-
-
-                  const SizedBox(height: 8),
-                  ..._orderItems.asMap().entries.map((entry) {
-                    return _buildOrderItemField(entry.key, isLargeScreen);
-                  }),
-                  const SizedBox(height: 8),
-                  Center(
-                    child: TextButton.icon(
-                      onPressed: _addOrderItem,
-                      icon: const Icon(Icons.add),
-                      label: Text(AppLocalizations.of(context)!.addItems),
-                    ),
-                  ),                  
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: isLargeScreen ? 400 : double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _isLoading ? null : _placeOrder,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: Colors.teal[800],
-                      ),
-                      child: _isLoading ? const CircularProgressIndicator()
-                      : 
-                      Text(
-                        AppLocalizations.of(context)!.placeOrder,
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: Colors.white,
-                        ),
-                      ),
-
-                        // Column(
-                        //   children: [
-                        //     Text(
-                        //       AppLocalizations.of(context)!.placeOrder,
-                        //       style: TextStyle(
-                        //         fontSize: 16,
-                        //         color: Colors.white,
-                        //       ),
-                        //     ),
-
-                        //     Text(
-                        //       "TZS${NumberFormat('#,##0.00').format(totalPrice)}",
-                        //       style: TextStyle(
-                        //           fontSize: 9,
-                        //           fontWeight: FontWeight.w500,
-                        //           color: Colors.teal.shade800,
-                        //       ),
-                        //     ),
-                        //   ]
-                        // ),
-                    ),
-                  ),
-                ],
               ),
             ),
           ),
         ),
-      ),
+      )
     );
   }
 

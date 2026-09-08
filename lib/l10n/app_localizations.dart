@@ -320,11 +320,23 @@ abstract class AppLocalizations {
   /// **'Select Product'**
   String get selectProduct;
 
+  /// No description provided for @yourName.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Name'**
+  String get yourName;
+
   /// No description provided for @customerName.
   ///
   /// In en, this message translates to:
   /// **'Customer Name'**
   String get customerName;
+
+  /// No description provided for @yourPhoneNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Phone Number'**
+  String get yourPhoneNumber;
 
   /// No description provided for @customerPhoneNumber.
   ///
@@ -769,6 +781,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Topup Cards'**
   String get topupCards;
+
+  /// No description provided for @payAds.
+  ///
+  /// In en, this message translates to:
+  /// **'Pay Ads'**
+  String get payAds;
 
   /// No description provided for @viewCards.
   ///

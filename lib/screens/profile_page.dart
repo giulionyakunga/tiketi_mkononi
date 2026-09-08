@@ -704,6 +704,21 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
     final otherApps = [
       _buildActionTile(
         context,
+        icon: Icons.campaign_rounded,
+        iconColor:Colors.orange[800]!,
+        title: 'Post Ad',
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PostAdPage(userId: userId),
+            ),
+          );
+        },
+      ),
+
+      _buildActionTile(
+        context,
         icon: Icons.menu_book_outlined,
         iconColor: Colors.teal,
         title: 'My Book of Accounts',
@@ -1103,10 +1118,9 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
           },
         ),
 
-        if(role == "admin")
         _buildActionTile(
           context,
-          icon: Icons.remove_red_eye,
+          icon: Icons.campaign_rounded,
           iconColor:Colors.orange[800]!,
           title: 'Post Ad',
           onTap: () {
@@ -1114,7 +1128,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => PostAdPage(),
+                builder: (context) => PostAdPage(userId: userId),
               ),
             );
           },

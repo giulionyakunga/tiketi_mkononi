@@ -78,6 +78,7 @@ dependencies:
   flutter_colorpicker: ^1.0.3
   esc_pos_utils_plus: ^2.0.4
   font_awesome_flutter: ^10.7.0
+  carousel_slider: ^4.2.1
 
 dev_dependencies:
   flutter_test:

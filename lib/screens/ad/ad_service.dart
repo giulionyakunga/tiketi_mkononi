@@ -1,5 +1,6 @@
 // services/ad_service.dart
 import 'dart:io';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,35 +13,56 @@ class AdService {
     return prefs.getString('auth_token');
   }
 
-  Future<bool> createAd(AdModel ad) async {
+  Future<Map<String, dynamic>> createAd(
+    AdModel ad,
+    String fileType,
+    String base64EncodeString,
+  ) async {
     try {
       final token = await _getAuthToken();
+
       final response = await http.post(
-        Uri.parse('${backend_url}api/admin/ads'),
+        Uri.parse('${backend_url}api/create_ad'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
-        body: jsonEncode(ad.toJson()),
+        body: jsonEncode({
+          ...ad.toJson(),
+          'file_type': fileType,
+          'base64_image': base64EncodeString,
+        }),
       );
 
       if (response.statusCode == 201 || response.statusCode == 200) {
-        return true;
+        return {
+          'status': true,
+          'body': response.body,
+        };
       } else {
         print('Failed to create ad: ${response.body}');
-        return false;
+
+        return {
+          'status': false,
+          'body': response.body,
+        };
       }
     } catch (e) {
       print('Error creating ad: $e');
-      return false;
+
+      return {
+        'status': false,
+        'body': e.toString(),
+      };
     }
   }
 
-  Future<bool> updateAd(String adId, AdModel ad) async {
+
+  Future<bool> updateAd(int adId, AdModel ad) async {
     try {
       final token = await _getAuthToken();
       final response = await http.put(
-        Uri.parse('${backend_url}api/admin/ads/$adId'),
+        Uri.parse('${backend_url}api/edit_ads/$adId'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -59,58 +81,65 @@ class AdService {
       return false;
     }
   }
-
-  Future<String> uploadImage(File imageFile) async {
+  
+  Future<List<AdModel>> getAds({bool useDNS = true}) async {
     try {
-      final token = await _getAuthToken();
-      final request = http.MultipartRequest(
-        'POST',
-        Uri.parse('${backend_url}api/upload'),
-      );
-      
-      request.headers['Authorization'] = 'Bearer $token';
-      request.files.add(
-        await http.MultipartFile.fromPath(
-          'image',
-          imageFile.path,
-        ),
-      );
-      
-      final response = await request.send();
-      final responseData = await response.stream.bytesToString();
-      final jsonData = jsonDecode(responseData);
-      
-      if (response.statusCode == 200) {
-        return jsonData['image_url'] ?? '';
-      } else {
-        print('Failed to upload image: $responseData');
-        return '';
-      }
-    } catch (e) {
-      print('Error uploading image: $e');
-      return '';
-    }
-  }
+      final Uri uri = useDNS
+          ? Uri.parse('${backend_url}api/get_ads')
+          : Uri.parse('${backend_url_with_fallback_ip}get_ads');
 
-  Future<List<AdModel>> getAds() async {
-    try {
-      final token = await _getAuthToken();
-      final response = await http.get(
-        Uri.parse('${backend_url}api/ads'),
-        headers: {
-          'Authorization': 'Bearer $token',
-        },
-      );
+      debugPrint('Fetching ads from: $uri');
+
+      final response = await http.get(uri);
+
+      debugPrint('Response Ad body 22: ${response.body}'); // Log the response body for debugging
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final List<dynamic> adsJson = data['data'];
-        return adsJson.map((json) => AdModel.fromJson(json)).toList();
+        final decoded = jsonDecode(response.body);
+
+        List<dynamic> data;
+       
+        if (decoded is List) {
+          data = decoded;
+        } else if (decoded is Map && decoded['ads'] is List) {
+          data = decoded['ads'];
+        } else {
+          data = [];
+        }
+
+        final ads = data
+            .whereType<Map<String, dynamic>>()
+            .map((json) => AdModel.fromJson(json))
+            .where((ad) => ad.isActive)
+            .toList();
+
+        ads.sort((a, b) => b.priority.compareTo(a.priority));
+
+        return ads;
+
       } else {
+        debugPrint(
+          'Failed to fetch ads. Status code: ${response.statusCode}',
+        );
         return [];
       }
+    } on SocketException catch (e) {
+      debugPrint('Ads network error: ${e.message}');
+      debugPrint('Error code: ${e.osError?.errorCode}');
+
+      // DNS failed - retry using fallback IP.
+      if ((e.osError?.errorCode == 11001 ||
+              e.osError?.errorCode == 7) &&
+          useDNS) {
+        debugPrint(
+          'DNS failed while loading ads. Retrying with fallback IP...',
+        );
+      }
+
+      return [];
+    
     } catch (e) {
-      print('Error fetching ads: $e');
+      debugPrint('Error loading ads: $e');
       return [];
     }
   }
@@ -119,7 +148,7 @@ class AdService {
     try {
       final token = await _getAuthToken();
       final response = await http.delete(
-        Uri.parse('${backend_url}api/admin/ads/$adId'),
+        Uri.parse('${backend_url}api/delete_ads/$adId'),
         headers: {
           'Authorization': 'Bearer $token',
         },
