@@ -351,36 +351,36 @@ class _OrdersPageState extends State<OrdersPage> {
         ],
       ),
 
-      body: Stack(
-        children: [
+      body: RefreshIndicator( 
+        onRefresh: _fetchOrders,
+        color: Colors.teal,
+        backgroundColor: Colors.white,
+        child: Stack(
+          children: [
+            _buildBody(),
+          
+            if (_showDetails && _selectedOrder != null) ...[
+              
+              /// This disables background clicks
+              ModalBarrier(
+                dismissible: true,
+                onDismiss: () {
+                  setState(() {
+                    _showDetails = false;
+                    _selectedOrder = null;
+                  });
+                },
+                color: Colors.black.withOpacity(0.2),
+              ),
 
-          RefreshIndicator(
-            onRefresh: _fetchOrders,
-            color: Colors.teal,
-            child: _buildBody(),
-          ),
-
-          if (_showDetails && _selectedOrder != null) ...[
-            
-            /// This disables background clicks
-            ModalBarrier(
-              dismissible: true,
-              onDismiss: () {
-                setState(() {
-                  _showDetails = false;
-                  _selectedOrder = null;
-                });
-              },
-              color: Colors.black.withOpacity(0.2),
-            ),
-
-            /// Details panel
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: _buildDetailsPanel(),
-            ),
+              /// Details panel
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: _buildDetailsPanel(),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
 
       floatingActionButton: Column(

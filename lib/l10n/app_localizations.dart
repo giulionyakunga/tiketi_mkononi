@@ -323,7 +323,7 @@ abstract class AppLocalizations {
   /// No description provided for @yourName.
   ///
   /// In en, this message translates to:
-  /// **'Jina Lako'**
+  /// **'Your Name'**
   String get yourName;
 
   /// No description provided for @customerName.
@@ -335,7 +335,7 @@ abstract class AppLocalizations {
   /// No description provided for @yourPhoneNumber.
   ///
   /// In en, this message translates to:
-  /// **'Namba ya Simu'**
+  /// **'Phone Number'**
   String get yourPhoneNumber;
 
   /// No description provided for @customerPhoneNumber.
@@ -437,7 +437,7 @@ abstract class AppLocalizations {
   /// No description provided for @addItem.
   ///
   /// In en, this message translates to:
-  /// **'Ongeza Kitu'**
+  /// **'Add Item'**
   String get addItem;
 
   /// No description provided for @addParcelButton.
@@ -686,6 +686,12 @@ abstract class AppLocalizations {
   /// **'Item names should be different'**
   String get itemNamesShouldBeDifferent;
 
+  /// No description provided for @youHaveAlreadySelectedThisItem.
+  ///
+  /// In en, this message translates to:
+  /// **'You have already selected {itemName}'**
+  String youHaveAlreadySelectedThisItem(Object itemName);
+
   /// No description provided for @originDestinationSame.
   ///
   /// In en, this message translates to:
@@ -793,6 +799,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Pay Ads'**
   String get payAds;
+
+  /// No description provided for @myAds.
+  ///
+  /// In en, this message translates to:
+  /// **'My Ads'**
+  String get myAds;
+
+  /// No description provided for @allAds.
+  ///
+  /// In en, this message translates to:
+  /// **'All Ads'**
+  String get allAds;
 
   /// No description provided for @viewCards.
   ///

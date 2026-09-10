@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:tiketi_mkononi/l10n/app_localizations.dart';
-import 'package:tiketi_mkononi/models/ad_model.dart';
+import 'package:tiketi_mkononi/models/ad.dart';
 import 'package:tiketi_mkononi/screens/ad/ad_service.dart';
 import 'package:tiketi_mkononi/screens/events_page.dart';
 import 'package:tiketi_mkononi/services/storage_service.dart';
@@ -44,7 +44,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   String userName = "";
   String userPhoneNumber = "";
 
-  List<AdModel> ads = [];
+  List<Ad> ads = [];
   AdService adService = AdService();
 
   final TextEditingController _searchController = TextEditingController();
@@ -63,12 +63,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final prefs = await SharedPreferences.getInstance();
     useDNS_2 = await prefs.getBool('use_dns') ?? true;
 
+    _storageService = StorageService(prefs);
+    _loadUserProfile();
+
+    await _loadCachedAds();
     await _loadCachedEvents();
 
     await _fetchAds(); // Add this line
 
-    _storageService = StorageService(prefs);
-    _loadUserProfile();
   }
 
   Future<void> _fetchAds() async {
@@ -149,6 +151,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       List<dynamic> dataList = jsonDecode(cachedData);
       setState(() {
         eventsList = dataList.map((json) => Event.fromJson(json)).toList();
+      });
+    }
+  }
+
+  Future<void> _loadCachedAds() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? cachedData = prefs.getString('cached_ads');
+
+    if (cachedData != null) {
+      List<dynamic> dataList = jsonDecode(cachedData);
+      setState(() { 
+        ads = dataList.map((json) => Ad.fromJson(json)).toList();
       });
     }
   }
@@ -577,17 +591,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   // ==============================
                   // HOME PAGE ADS
                   // ==============================
-                  if (ads.isNotEmpty)
-                  HomeAds(
-                    userId: userId,
-                    useDNS: useDNS_2,
-                    ads: ads
-                  ),
+                  if (ads.isNotEmpty && _searchQuery.isEmpty) ...[
+                    HomeAds(
+                      userId: userId,
+                      role: role,
+                      useDNS: useDNS_2,
+                      ads: ads
+                    ),
 
-                  if (ads.isNotEmpty)
-                  const SizedBox(height: 10),
+                    const SizedBox(height: 10),
+                  ],
 
-                  if (ads.isEmpty)
+                  if (ads.isEmpty || _searchQuery.isNotEmpty)
                   // ==============================
                   // FEATURED EVENTS
                   // ==============================

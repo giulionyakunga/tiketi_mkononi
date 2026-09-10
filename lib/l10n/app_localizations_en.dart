@@ -122,13 +122,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get selectProduct => 'Select Product';
 
   @override
-  String get yourName => 'Jina Lako';
+  String get yourName => 'Your Name';
 
   @override
   String get customerName => 'Customer Name';
 
   @override
-  String get yourPhoneNumber => 'Namba ya Simu';
+  String get yourPhoneNumber => 'Phone Number';
 
   @override
   String get customerPhoneNumber => 'Customer Phone Number';
@@ -179,7 +179,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addItems => 'Add Items';
 
   @override
-  String get addItem => 'Ongeza Kitu';
+  String get addItem => 'Add Item';
 
   @override
   String get addParcelButton => 'Add Parcel';
@@ -313,6 +313,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get itemNamesShouldBeDifferent => 'Item names should be different';
 
   @override
+  String youHaveAlreadySelectedThisItem(Object itemName) {
+    return 'You have already selected $itemName';
+  }
+
+  @override
   String get originDestinationSame =>
       'Origin and destination cannot be the same location.';
 
@@ -374,6 +379,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get payAds => 'Pay Ads';
+
+  @override
+  String get myAds => 'My Ads';
+
+  @override
+  String get allAds => 'All Ads';
 
   @override
   String get viewCards => 'View Cards';

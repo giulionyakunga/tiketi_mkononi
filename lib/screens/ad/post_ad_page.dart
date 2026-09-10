@@ -9,16 +9,19 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:intl/intl.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:tiketi_mkononi/l10n/app_localizations.dart';
-import 'package:tiketi_mkononi/models/ad_model.dart';
+import 'package:tiketi_mkononi/models/ad.dart';
+import 'package:tiketi_mkononi/screens/ad/ads_page.dart';
+import 'package:tiketi_mkononi/screens/ad/all_ads_page.dart';
 import './ad_service.dart';
 import './color_picker_dialog.dart';
 import './image_picker_dialog.dart';
 
 class PostAdPage extends StatefulWidget {
   final int userId;
-  final AdModel? adToEdit;
+  final String role;
+  final Ad? adToEdit;
   
-  const PostAdPage({Key? key, this.adToEdit, required this.userId}) : super(key: key);
+  const PostAdPage({Key? key, this.adToEdit, required this.userId, required this.role}) : super(key: key);
 
   @override
   State<PostAdPage> createState() => _PostAdPageState();
@@ -40,6 +43,8 @@ class _PostAdPageState extends State<PostAdPage> {
   bool _isActive = true;
   DateTime? _startDate;
   DateTime? _endDate;
+  int _viewCount = 0;
+  int _clickCount = 0;
   bool _hasTargetAudience = false;
   List<int> _targetUserIds = [];
   List<String> _targetRoles = [];
@@ -80,6 +85,8 @@ class _PostAdPageState extends State<PostAdPage> {
     _backgroundColor = ad.backgroundColor;
     _accentColor = ad.accentColor;
     _isActive = ad.isActive;
+    _viewCount = ad.viewCount;
+    _clickCount = ad.clickCount;
     _startDate = ad.startDate;
     _endDate = ad.endDate;
     if (ad.targetAudience != null) {
@@ -526,9 +533,9 @@ class _PostAdPageState extends State<PostAdPage> {
         }
       }
 
-      final ad = AdModel(
-        userId: widget.userId,
+      final ad = Ad(
         id: widget.adToEdit?.id ?? 0,
+        userId: widget.userId,
         title: title,
         description: description,
         imageUrl: finalImageUrl,
@@ -541,23 +548,29 @@ class _PostAdPageState extends State<PostAdPage> {
         priority: priority,
         isActive: _isActive,
         startDate: _startDate,
+        clickCount: _clickCount, 
+        viewCount: _viewCount,
         endDate: _endDate,
         targetAudience: _hasTargetAudience
             ? {
                 'user_ids': _targetUserIds,
                 'roles': _targetRoles,
               }
-            : null,
+            : null, 
       );
 
       bool success;
       String message = '';
 
       if (widget.adToEdit != null) {
-        success = await _adService.updateAd(
-          widget.adToEdit!.id,
+        ad.id = widget.adToEdit!.id;
+        Map<String, dynamic> resp = await _adService.updateAd(
           ad,
+          _selectedImage != null ? fileType : '',
+          _selectedImage != null ? imageBase64 : '',
         );
+        success = resp['status'] == true;
+        message = resp['body'];
       } else {
         Map<String, dynamic> resp = await _adService.createAd(
           ad,
@@ -1032,6 +1045,20 @@ class _PostAdPageState extends State<PostAdPage> {
             if (value == 'pay_ads') {
               await getReceiptPackages();
               _payDialog();
+            } else if (value == 'my_ads') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AdsPage(userId: widget.userId, role: widget.role),
+                ),
+              );
+            } else if (value == 'all_ads') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AllAdsPage(userId: widget.userId, role: widget.role),
+                ),
+              );
             } else if (value == 'exit') {
               Navigator.pop(context);
             }
@@ -1041,6 +1068,18 @@ class _PostAdPageState extends State<PostAdPage> {
               icon: Icons.add_card,
               text: AppLocalizations.of(context)!.payAds,
               value: 'pay_ads',
+            ),
+
+            _buildMenuItem(
+              icon: Icons.campaign_rounded,
+              text: AppLocalizations.of(context)!.myAds,
+              value: 'my_ads',
+            ),
+            if(widget.role == "admin") 
+            _buildMenuItem(
+              icon: Icons.campaign_rounded,
+              text: AppLocalizations.of(context)!.allAds,
+              value: 'all_ads',
             ),
             const PopupMenuDivider(),
             _buildMenuItem(
@@ -1701,13 +1740,13 @@ class _PostAdPageState extends State<PostAdPage> {
             icon: Icons.calendar_today,
             title: 'Start Date',
             date: _startDate,
-            onTap: () => _selectDate(true),
+            onTap: widget.adToEdit != null ? () {} : () => _selectDate(true),
           ),
           _buildDateTile(
             icon: Icons.calendar_today,
             title: 'End Date',
             date: _endDate,
-            onTap: () => _selectDate(false),
+            onTap: widget.adToEdit != null ? () {} : () => _selectDate(true),
           ),
         ],
       ),

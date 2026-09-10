@@ -927,16 +927,30 @@ class _AddOrderPageState extends State<AddOrderPage> {
 
       onSelected: (Product selection) {
         debugPrint('Selected product name: ${selection.name}, price: ${selection.price}');
-        setState(() {
-          _orderItems[index].name = selection.name;
-          _orderItems[index].price = selection.price;
-          _priceControllers[index].text = selection.price.toStringAsFixed(0);
 
-          totalPrice = _orderItems.fold(
-            0,
-            (sum, item) => sum + (item.price * item.quantity),
-          );
-        });
+        bool itemExist = false;
+        for (var i = 0; i < _orderItems.length; i++) {
+          final orderItem = _orderItems[i];
+          if (orderItem.name.trim() == selection.name.trim()) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(AppLocalizations.of(context)!.youHaveAlreadySelectedThisItem(selection.name))),
+            );
+            itemExist = true;
+          }
+        }
+
+        if(!itemExist) {
+          setState(() {
+            _orderItems[index].name = selection.name;
+            _orderItems[index].price = selection.price;
+            _priceControllers[index].text = selection.price.toStringAsFixed(0);
+
+            totalPrice = _orderItems.fold(
+              0,
+              (sum, item) => sum + (item.price * item.quantity),
+            );
+          });
+        }
       },
 
       fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {

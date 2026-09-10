@@ -5,17 +5,20 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
+import 'package:tiketi_mkononi/screens/ad/post_ad_page.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:tiketi_mkononi/models/ad_model.dart';
+import 'package:tiketi_mkononi/models/ad.dart';
 
 class HomeAds extends StatefulWidget {
   final int userId;
-  final List<AdModel> ads;
+  final String role;
+  final List<Ad> ads;
   final bool useDNS;
 
   const HomeAds({
     super.key,
     required this.userId,
+    required this.role,
     required this.ads,
     required this.useDNS,
   });
@@ -89,7 +92,16 @@ class _HomeAdsState extends State<HomeAds> {
     }
   }
 
-  Future<void> _openAd(AdModel ad) async {
+   // Pause autoplay when an ad is clicked.
+  void _pauseAutoPlay() {
+    _autoPlayTimer?.cancel();
+    _autoPlayTimer = null;
+  }
+
+  Future<void> _openAd(Ad ad) async {
+    // Pause autoplay immediately when the ad is clicked.
+    _pauseAutoPlay();
+
     final link = ad.linkUrl;
 
     if (link == null || link.trim().isEmpty) {
@@ -112,6 +124,20 @@ class _HomeAdsState extends State<HomeAds> {
     } catch (e) {
       debugPrint('Could not open ad link: $e');
     }
+  }
+
+  Future<void> _editAd(Ad ad) async {
+    // Optional: also stop autoplay while editing.
+    _pauseAutoPlay();
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PostAdPage(userId: widget.userId, role: widget.role, adToEdit: ad),
+      ),
+    );
+    
+    _startAutoPlay();
   }
 
   Future<void> clickAd(int adId, {bool useDNS = true}) async {
@@ -176,7 +202,7 @@ class _HomeAdsState extends State<HomeAds> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Widget _buildAdCard(AdModel ad) {
+  Widget _buildAdCard(Ad ad) {
     final backgroundColor = _parseColor(ad.backgroundColor);
     final accentColor = _parseColor(ad.accentColor);
 
@@ -266,13 +292,13 @@ class _HomeAdsState extends State<HomeAds> {
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   color: accentColor,
-                                  fontSize: 22,
+                                  fontSize: 20,
                                   fontWeight: FontWeight.bold,
-                                  height: 1.1,
+                                  height: 1.0,
                                 ),
                               ),
 
-                              const SizedBox(height: 7),
+                              const SizedBox(height: 4),
 
                               if (ad.description.isNotEmpty)
                                 Text(
@@ -286,7 +312,51 @@ class _HomeAdsState extends State<HomeAds> {
                                   ),
                                 ),
 
-                              const SizedBox(height: 12),
+                              SizedBox(
+                                height: (ad.userId == widget.userId) ? 4 : 10
+                              ),
+
+                              if(ad.userId == widget.userId)
+                              // Views + Clicks
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.visibility_rounded,
+                                    size: 15,
+                                    color: accentColor.withOpacity(0.85),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${ad.viewCount}',
+                                    style: TextStyle(
+                                      color: accentColor.withOpacity(0.9),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+
+                                  const SizedBox(width: 12),
+
+                                  Icon(
+                                    Icons.ads_click_rounded,
+                                    size: 15,
+                                    color: accentColor.withOpacity(0.85),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${ad.clickCount}',
+                                    style: TextStyle(
+                                      color: accentColor.withOpacity(0.9),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+
+                              SizedBox(
+                                height: (ad.userId == widget.userId) ? 4 : 10
+                              ),
 
                               if (ad.buttonText.isNotEmpty)
                                 SizedBox(
@@ -302,7 +372,7 @@ class _HomeAdsState extends State<HomeAds> {
                                       disabledBackgroundColor:
                                           accentColor.withOpacity(0.7),
                                       padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
+                                        horizontal: 16, vertical: 2
                                       ),
                                       shape: RoundedRectangleBorder(
                                         borderRadius:
@@ -323,7 +393,9 @@ class _HomeAdsState extends State<HomeAds> {
                           ),
                         ),
 
-                        const SizedBox(width: 10),
+                        SizedBox(
+                          height: (ad.userId == widget.userId) ? 5 : 10
+                        ),
 
                         // Small decorative icon
                         if (ad.imageUrl.isEmpty)
@@ -340,27 +412,55 @@ class _HomeAdsState extends State<HomeAds> {
                   ),
                 ),
 
-                // Sponsored/Ad label
+                // Top-right controls
                 Positioned(
                   top: 10,
                   right: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 9,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.35),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Text(
-                      'AD',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Sponsored / AD label
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.35),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Text(
+                          'AD',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
-                    ),
+
+                      if (ad.userId == widget.userId) ...[
+                        const SizedBox(width: 6),
+
+                        // Edit button
+                        Material(
+                          color: Colors.black.withOpacity(0.35),
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: () => _editAd(ad),
+                            child: const Padding(
+                              padding: EdgeInsets.all(7),
+                              child: Icon(
+                                Icons.edit_rounded,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ]
+                    ],
                   ),
                 ),
               ],

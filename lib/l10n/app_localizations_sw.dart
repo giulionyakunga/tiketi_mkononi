@@ -321,6 +321,11 @@ class AppLocalizationsSw extends AppLocalizations {
       'Majina ya vitu yanapaswa kuwa tofauti';
 
   @override
+  String youHaveAlreadySelectedThisItem(Object itemName) {
+    return 'Tayari umeshachagua $itemName';
+  }
+
+  @override
   String get originDestinationSame =>
       'Chanzo na unakoenda haviwezi kuwa eneo moja.';
 
@@ -382,6 +387,12 @@ class AppLocalizationsSw extends AppLocalizations {
 
   @override
   String get payAds => 'Lipia Matangazo';
+
+  @override
+  String get myAds => 'Matangazo Yangu';
+
+  @override
+  String get allAds => 'Matangazo Yote';
 
   @override
   String get viewCards => 'Ongalia Kadi';

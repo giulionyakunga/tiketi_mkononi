@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:tiketi_mkononi/l10n/app_localizations.dart';
+import 'package:tiketi_mkononi/screens/ConsignmentInfo2.dart';
 import 'package:tiketi_mkononi/screens/ad/post_ad_page.dart';
 import 'package:tiketi_mkononi/screens/app_info_updates_page.dart';
 import 'package:tiketi_mkononi/screens/apply_to_be_cargo_transporter_page.dart';
@@ -711,7 +712,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => PostAdPage(userId: userId),
+              builder: (context) => PostAdPage(userId: userId, role: role),
             ),
           );
         },
@@ -1128,7 +1129,26 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => PostAdPage(userId: userId),
+                builder: (context) => PostAdPage(userId: userId, role: role),
+              ),
+            );
+          },
+        ),
+
+        if(role == "admin")
+        _buildActionTile(
+          context,
+          icon: Icons.local_shipping,
+          iconColor:Colors.teal[800]!,
+          title: 'Consignment Info',
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ConsignmentInfoPage(
+                  userId: userId,
+                ),
               ),
             );
           },

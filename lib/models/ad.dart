@@ -1,6 +1,6 @@
 // models/ad_model.dart
-class AdModel {
-  final int id;
+class Ad {
+  int id;
   final int userId;
   final String title;
   final String description;
@@ -11,11 +11,13 @@ class AdModel {
   final String accentColor;
   final int priority;
   final bool isActive;
+  final int clickCount;
+  final int viewCount;
   final DateTime? startDate;
   final DateTime? endDate;
   final Map<String, dynamic>? targetAudience;
 
-  AdModel({
+  Ad({
     required this.id,
     required this.userId,
     required this.title,
@@ -27,6 +29,8 @@ class AdModel {
     required this.accentColor,
     required this.priority,
     required this.isActive,
+    required this.clickCount,
+    required this.viewCount,
     this.startDate,
     this.endDate,
     this.targetAudience,
@@ -45,14 +49,16 @@ class AdModel {
       'accent_color': accentColor,
       'priority': priority,
       'is_active': isActive,
+      'click_count': clickCount,
+      'view_count': viewCount,
       'start_date': startDate?.toIso8601String(),
       'end_date': endDate?.toIso8601String(),
       'target_audience': targetAudience,
     };
   }
 
-  factory AdModel.fromJson(Map<String, dynamic> json) {
-    return AdModel(
+  factory Ad.fromJson(Map<String, dynamic> json) {
+    return Ad(
       id: json['id']?.toInt() ?? 0,
       userId: json['user_id']?.toInt() ?? 0,
       title: json['title'] ?? '',
@@ -64,6 +70,8 @@ class AdModel {
       accentColor: json['accent_color'] ?? '#FFFFFF',
       priority: json['priority'] ?? 0,
       isActive: json['is_active'] ?? true,
+      clickCount: json['click_count']?.toInt() ?? 0,
+      viewCount: json['view_count']?.toInt() ?? 0,
       startDate: json['start_date'] != null 
           ? DateTime.parse(json['start_date']) 
           : null,
