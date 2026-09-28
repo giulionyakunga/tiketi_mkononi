@@ -399,6 +399,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noPairedPrinterFound => 'No paired Bluetooth printer found';
 
   @override
+  String get bluetoothPrinterDiscoveryFailed =>
+      'Bluetooth printer discovery failed';
+
+  @override
+  String get bluetoothDisabled => 'Bluetooth disabled';
+
+  @override
   String foundPairedPrinters(Object count) {
     return 'Found $count paired Bluetooth printer';
   }

@@ -836,6 +836,18 @@ abstract class AppLocalizations {
   /// **'No paired Bluetooth printer found'**
   String get noPairedPrinterFound;
 
+  /// No description provided for @bluetoothPrinterDiscoveryFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Bluetooth printer discovery failed'**
+  String get bluetoothPrinterDiscoveryFailed;
+
+  /// No description provided for @bluetoothDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Bluetooth disabled'**
+  String get bluetoothDisabled;
+
   /// No description provided for @foundPairedPrinters.
   ///
   /// In en, this message translates to:

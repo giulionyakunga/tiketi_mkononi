@@ -21,6 +21,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   final _middleNameKey = GlobalKey();
   final _lastNameKey = GlobalKey();
   final _phoneNumberKey = GlobalKey();
+  final _tinKey = GlobalKey();
   final _emailKey = GlobalKey();
   final _passwordKey = GlobalKey();
   final _confirmPasswordKey = GlobalKey();
@@ -41,6 +42,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   final _lastNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneNumberController = TextEditingController();
+  final _tinNumberController = TextEditingController();
   final _passwordController = TextEditingController();  
   final _confirmPasswordController = TextEditingController();
   final _regionController = TextEditingController();
@@ -85,6 +87,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         _lastNameController.text = profile.lastName;
         _emailController.text = profile.email;
         _phoneNumberController.text = profile.phoneNumber;
+        _tinNumberController.text = profile.tin;
         _passwordController.text = "";
         _confirmPasswordController.text = "";
         _regionController.text = profile.region;
@@ -149,6 +152,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         lastName: _lastNameController.text.trim(),
         email: _emailController.text.trim(),
         phoneNumber: _phoneNumberController.text.trim(),
+        tin: _tinNumberController.text.trim(),
         password: '',
         role: role,
         region: _regionController.text.trim(),
@@ -237,6 +241,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     _middleNameController.dispose();
     _lastNameController.dispose();
     _phoneNumberController.dispose();
+    _tinNumberController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -476,6 +481,32 @@ class _EditProfilePageState extends State<EditProfilePage> {
           },
         ),
         _buildTextField(
+          key: _tinKey,
+          controller: _tinNumberController,
+          labelText: 'TIN Number',
+          icon: Icons.numbers,
+          colorScheme: colorScheme,
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) {
+              return null;
+            }
+
+            final tin = value.trim();
+
+            if (tin.length > 10) {
+              return 'TIN number cannot exceed 10 characters';
+            }
+
+            final regex = RegExp(r'^(\d{9}|255\d{9})$');
+
+            if (!regex.hasMatch(tin)) {
+              return 'Invalid number format. Use XXXXXXXXX';
+            }
+
+            return null;
+          },
+        ),
+        _buildTextField(
           key: _emailKey,
           controller: _emailController,
           labelText: 'Email',
@@ -690,6 +721,33 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
             if (!regex.hasMatch(phone)) {
               return 'Invalid number format. Use 0XXXXXXXXX or 255XXXXXXXXX';
+            }
+
+            return null;
+          },
+        ),
+        const SizedBox(height: 12),
+        _buildTextField(
+          key: _tinKey,
+          controller: _tinNumberController,
+          labelText: 'TIN Number',
+          icon: Icons.numbers,
+          colorScheme: colorScheme,
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) {
+              return null;
+            }
+
+            final tin = value.trim();
+
+            if (tin.length > 10) {
+              return 'TIN number cannot exceed 10 characters';
+            }
+
+            final regex = RegExp(r'^(\d{9}|255\d{9})$');
+
+            if (!regex.hasMatch(tin)) {
+              return 'Invalid number format. Use XXXXXXXXX';
             }
 
             return null;

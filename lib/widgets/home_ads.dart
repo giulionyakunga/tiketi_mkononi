@@ -8,6 +8,7 @@ import 'package:tiketi_mkononi/env.dart';
 import 'package:tiketi_mkononi/screens/ad/post_ad_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:tiketi_mkononi/models/ad.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class HomeAds extends StatefulWidget {
   final int userId;
@@ -230,24 +231,37 @@ class _HomeAdsState extends State<HomeAds> {
                 // Background image
                 if (ad.imageUrl.isNotEmpty)
                   Positioned.fill(
-                    child: Image.network(
-                      '${backend_url}api/image/${ad.imageUrl}',
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) {
-                        return const SizedBox.shrink();
-                      },
-                      loadingBuilder: (
-                        context,
-                        child,
-                        loadingProgress,
-                      ) {
-                        if (loadingProgress == null) {
-                          return child;
-                        }
+                    child: 
+                    // Image.network(
+                    //   '${backend_url}api/image/${ad.imageUrl}',
+                    //   fit: BoxFit.cover,
+                    //   errorBuilder: (_, __, ___) {
+                    //     return const SizedBox.shrink();
+                    //   },
+                    //   loadingBuilder: (
+                    //     context,
+                    //     child,
+                    //     loadingProgress,
+                    //   ) {
+                    //     if (loadingProgress == null) {
+                    //       return child;
+                    //     }
 
+                    //     return Container(
+                    //       color: backgroundColor,
+                    //     );
+                    //   },
+                    // ),
+                    CachedNetworkImage(
+                      imageUrl: '${backend_url}api/image/${ad.imageUrl}',
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) {
                         return Container(
                           color: backgroundColor,
                         );
+                      },
+                      errorWidget: (context, url, error) {
+                        return const SizedBox.shrink();
                       },
                     ),
                   ),

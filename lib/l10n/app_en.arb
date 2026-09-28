@@ -123,6 +123,8 @@
   "exit": "Exit",
   "selectPrinter": "Select Printer",
   "noPairedPrinterFound": "No paired Bluetooth printer found",
+  "bluetoothPrinterDiscoveryFailed": "Bluetooth printer discovery failed",
+  "bluetoothDisabled": "Bluetooth disabled",
   "foundPairedPrinters": "Found {count} paired Bluetooth printer",
   "printerNotConnected": "Printer not connected",
   "noPrintersFound": "No printers found.",

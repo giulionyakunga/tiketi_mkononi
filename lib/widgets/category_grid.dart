@@ -4,6 +4,7 @@ import 'package:tiketi_mkononi/models/category.dart';
 import 'package:tiketi_mkononi/screens/add_consignment_page.dart';
 import 'package:tiketi_mkononi/screens/add_order_page.dart';
 import 'package:tiketi_mkononi/screens/auth/login_screen.dart';
+import 'package:tiketi_mkononi/screens/bus_routes_page.dart';
 import 'package:tiketi_mkononi/screens/category_events_page.dart';
 import 'package:tiketi_mkononi/screens/find_bus_routes_page.dart';
 import 'package:tiketi_mkononi/screens/offices_page.dart';
@@ -19,9 +20,10 @@ class CategoryGrid extends StatelessWidget {
   final String companyName;
   final String userName;
   final String userPhoneNumber;
+  final String tin;
   final Function refreshMethod;
 
-  const CategoryGrid({super.key, required this.userId, required this.role, required this.companyId, this.shopId,  required this.officeId,  required this.companyName,  required this.shopName,  required this.userName, required this.userPhoneNumber, required this.refreshMethod});
+  const CategoryGrid({super.key, required this.userId, required this.role, required this.companyId, this.shopId,  required this.officeId,  required this.companyName,  required this.shopName,  required this.userName, required this.userPhoneNumber, required this.tin, required this.refreshMethod});
   
   @override
   Widget build(BuildContext context) {
@@ -66,14 +68,14 @@ class CategoryGrid extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => AddConsignmentPage(userId: userId, companyId: companyId, companyName: companyName, officeId: officeId, userName: userName, userPhoneNumber: userPhoneNumber, isReplacableScreen: false),
+                      builder: (context) => AddConsignmentPage(userId: userId, companyId: companyId, companyName: companyName, officeId: officeId, userName: userName, userPhoneNumber: userPhoneNumber, isReplacableScreen: false, tin: tin),
                     ),
                   );
                 } else if((role == 'transporter') || (role == 'cargo_transporter')){
                   await Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => OfficesPage(userId: userId, companyId: companyId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, role: role),
+                      builder: (context) => OfficesPage(userId: userId, companyId: companyId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, tin: tin, role: role),
                     ),
                   );
 
@@ -92,7 +94,8 @@ class CategoryGrid extends StatelessWidget {
                     await Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => OfficesPage(userId: userId, companyId: companyId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, role: role),
+                        // builder: (context) => OfficesPage(userId: userId, companyId: companyId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, tin: tin, role: role),
+                        builder: (context) => BusRoutesPage(userId: userId, officeId: 0, officeName: '', companyId: companyId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, role: role),
                       ),
                     );
 

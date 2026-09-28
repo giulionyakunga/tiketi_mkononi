@@ -62,6 +62,8 @@ class _OrdersPageState extends State<OrdersPage> {
   String selectedPaymentMethod = 'MIXX BY YAS';
   final List<String> paymentMethods = ['MIXX BY YAS', 'M-PESA', 'AIRTEL MONEY', 'HALOPESA', 'AZAMPESA'];
 
+  String _selectedFilter = 'All';
+
   int receiptsBalance = 0;
   List<dynamic> receiptPackages = [];
 
@@ -178,6 +180,10 @@ class _OrdersPageState extends State<OrdersPage> {
     });
   }
 
+  Future<void> _refreshRecords() async {
+    await _fetchOrders();
+  }
+
   Future<void> _fetchOrders({bool useDNS = true}) async {
     try {
       setState(() {
@@ -246,6 +252,73 @@ class _OrdersPageState extends State<OrdersPage> {
     }
   }
 
+  Future<void> _fetchRecords({int days=0, bool useDNS = true}) async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _error = null; 
+        _showDetails = false;
+        _selectedOrder = null;
+      });
+
+      final Uri uri = useDNS ? Uri.parse('${backend_url}api/order_records/${widget.userId}/${widget.shop.id}/${widget.role}/${DateFormat('d-M-yyyy').format(_selectedDate)}/$days')
+      : Uri.parse('${backend_url_with_fallback_ip}order_records/${widget.userId}/${widget.shop.id}/${widget.role}/${DateFormat('d-M-yyyy').format(_selectedDate)}/$days');
+
+      debugPrint('Fetching orders from: $uri');
+
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        debugPrint('Fetched orders: ${response.body}');
+
+        final dynamic responseData = jsonDecode(response.body);
+        final numberOfOrders = responseData['number_of_orders'];
+        final filteredOrders = responseData['filtered_orders'];
+        
+        // Handle different response structures
+        List<Order> ordersList = []; 
+        if (filteredOrders is List) {
+          ordersList = filteredOrders.map((e) => Order.fromJson(e)).toList();
+        } else if (filteredOrders is Map && filteredOrders.containsKey('data')) {
+          ordersList = (filteredOrders['data'] as List).map((e) => Order.fromJson(e)).toList();
+        }
+
+        double totalPrice = 0;
+
+        for (var order in ordersList) {
+          totalPrice += (order.totalPrice).toDouble();
+        }
+
+        setState(() {
+          totalSales = totalPrice;
+          _orders = ordersList;
+        });
+        
+        debugPrint('Loaded ${ordersList.length} orders');
+
+        debugPrint('numberOfOrders: ${numberOfOrders}');
+        debugPrint('number of filteredOrders: ${filteredOrders.length}');
+
+        if(numberOfOrders != filteredOrders.length) {
+          _showOrderPaymentDialog();
+        }
+      } else {
+        _error = 'Failed to load orders (${response.statusCode})';
+        debugPrint(_error);
+      }
+    } on SocketException catch (e) {
+      if ((e.osError?.errorCode == 7 || e.osError?.errorCode == 11001) && useDNS) {
+        await _fetchOrders(useDNS: false);
+        return;
+      }
+      _error = 'Network error. Please check your connection.';
+    } catch (e) {
+      _error = 'Unexpected error occurred: $e';
+      debugPrint('Error: $e');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
 
   String _getPaymentStatusText(bool? status) {
     if (status == null) return 'Unknown';
@@ -300,6 +373,85 @@ class _OrdersPageState extends State<OrdersPage> {
     }
   }
 
+  PopupMenuItem<String> _buildMenuItem({
+    required IconData icon,
+    required String text,
+    required String value,
+  }) {
+    return PopupMenuItem<String>(
+      value: value,
+      height: 44,
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 20,
+            color: Colors.grey.shade800,
+          ),
+          const SizedBox(width: 12),
+          Text(
+            text,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterOption(String option, int days) {
+    return ListTile(
+      title: Text(option),
+      leading: Radio<String>(
+        value: option,
+        groupValue: _selectedFilter,
+        onChanged: (value) {
+          setState(() {
+            _selectedFilter = value!;
+            _fetchRecords(days: days);
+          });
+          Navigator.pop(context);
+        },
+        activeColor: Colors.blue,
+      ),
+    );
+  }
+
+  void _showFilterDialog() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Filter by Date', 
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildFilterOption('Last 1 Week', 7),
+              _buildFilterOption('Last 1 Month', 30),
+              _buildFilterOption('Last 3 Months', 90),
+              _buildFilterOption('Last 6 Months', 180),
+              _buildFilterOption('This Year', 365),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -330,24 +482,51 @@ class _OrdersPageState extends State<OrdersPage> {
         foregroundColor: Colors.white,
         elevation: 3,
         actions: [
-          Padding(
+          Padding( 
             padding: const EdgeInsets.only(left: 4),
             child: _buildDatePicker(),
           ),
-          if (_selectedOrder != null)
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: () {
-                setState(() {
-                  _showDetails = false;
-                  _selectedOrder = null;
-                  _printBluetoothTestReceipt();
-                  if (Platform.isWindows) {
-                    _refreshCablePrinters();
-                  }
-                });
-              },
+          PopupMenuButton<String>(
+            padding: EdgeInsets.zero,
+            tooltip: 'More Options',
+            elevation: 8,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
             ),
+            icon: Icon(
+              Icons.more_vert,
+              color: Colors.black,
+              size: 22,
+            ),
+            onSelected: (value) {
+              if (value == 'refresh') {
+                _refreshRecords();
+              } else if (value == 'filter') {
+                _showFilterDialog();
+              } else if (value == 'exit') {
+                Navigator.pop(context);
+              }
+            },
+            itemBuilder: (context) => [
+              _buildMenuItem(
+                icon: Icons.refresh,
+                text: 'Refresh',
+                value: 'refresh',
+              ),
+              const PopupMenuDivider(),
+              _buildMenuItem(
+                icon: Icons.filter_list,
+                text: 'Filter',
+                value: 'filter',
+              ),
+              const PopupMenuDivider(),
+              _buildMenuItem(
+                icon: Icons.exit_to_app,
+                text: 'Exit',
+                value: 'exit',
+              ),
+            ],
+          ),
         ],
       ),
 

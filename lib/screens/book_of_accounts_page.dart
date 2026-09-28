@@ -184,7 +184,6 @@ class _BookOfAccountsPageState extends State<BookOfAccountsPage> {
     }
   }
 
-  
   PopupMenuItem<String> _buildMenuItem({
     required IconData icon,
     required String text,
@@ -230,7 +229,7 @@ class _BookOfAccountsPageState extends State<BookOfAccountsPage> {
         ),
         titleSpacing: 0,
         centerTitle: false,
-        actions: [
+        actions: [ 
           Padding(
             padding: const EdgeInsets.only(left: 4),
             child: _buildDatePicker(),

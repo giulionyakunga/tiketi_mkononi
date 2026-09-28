@@ -341,36 +341,38 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            _isLoading ? const Center(
+            if (_isLoading && _busRoutes.isEmpty)
+            const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16),
                   CircularProgressIndicator(),
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16),
                   Text('Loading routes...'),
                 ],
               ),
-            )
-            : _error != ''
-            ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.error_outline, size: 60, color: Colors.red.shade300),
-                    const SizedBox(height: 16),
-                    Text(_error!),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () {
-                        _fetchBusRoutes();
-                      },
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
-              )
-            : _buildRoutesList(),
+            ),
+
+            if(_error != '') 
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline, size: 60, color: Colors.red.shade300),
+                  const SizedBox(height: 16),
+                  Text(_error),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _fetchBusRoutes,
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+
+            if (_busRoutes.isNotEmpty)
+              _buildRoutesList(),
           ],
         ),
       ),

@@ -11,6 +11,7 @@ class UserProfile {
   final String lastName;
   final String email;
   final String phoneNumber;
+  final String tin;
   final String password;
   String role;
   final String region;
@@ -35,6 +36,7 @@ class UserProfile {
     required this.lastName,
     required this.email,
     required this.phoneNumber,
+    required this.tin,
     required this.password,
     required this.role,
     required this.region,
@@ -61,6 +63,7 @@ class UserProfile {
       'lastName': lastName,
       'email': email,
       'phoneNumber': phoneNumber,
+      'tin': tin,
       'password': password,
       'role': role,
       'region': region,
@@ -86,6 +89,7 @@ class UserProfile {
       lastName: json['lastName'] as String,
       email: json['email'] as String,
       phoneNumber: json['phoneNumber'] as String,
+      tin: json['tin'] ?? '',
       password: json['password'] ?? '',
       role: json['role'] as String,
       region: json['region'] as String,
@@ -113,6 +117,7 @@ class UserProfile {
       lastName: json['last_name'] as String,
       email: json['email'] as String,
       phoneNumber: json['phone_number'] as String,
+      tin: json['tin'] as String,
       password: json['password'] as String,
       role: json['role'] as String,
       region: json['region'] as String,

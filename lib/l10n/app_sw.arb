@@ -122,6 +122,8 @@
   "exit": "Ondoka",
   "selectPrinter": "Chagua Kichapishi",
   "noPairedPrinterFound": "Hakuna kichapishi cha Bluetooth kilichooanishwa",
+  "bluetoothPrinterDiscoveryFailed": "Utambuzi wa kichapishi cha Bluetooth umeshindikana",
+  "bluetoothDisabled": "Bluetooth imezimwa",
   "foundPairedPrinters": "Vimepatikana Vichapishi {count} vya Bluetooth kilichooanishwa",
   "printerNotConnected": "Kichapishi hakijaunganishwa",
   "noPrintersFound": "Hakuna vichapishi vilivyopatikana.",

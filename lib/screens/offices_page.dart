@@ -21,8 +21,9 @@ class OfficesPage extends StatefulWidget {
   final String userName;
   final String userPhoneNumber;
   final String role;
+  final String tin;
 
-  OfficesPage({super.key, required this.userId, required this.companyId, required this.companyName, required this.userName, required this.userPhoneNumber, required this.role});
+  OfficesPage({super.key, required this.userId, required this.companyId, required this.companyName, required this.userName, required this.userPhoneNumber, required this.role, required this.tin});
 
   @override
   State<OfficesPage> createState() => _OfficesPageState();
@@ -127,7 +128,7 @@ class _OfficesPageState extends State<OfficesPage> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => ConsignmentsPage(userId: widget.userId, officeId: 0, officeName: '', companyId: widget.companyId, companyName: widget.companyName, userName: widget.userName, userPhoneNumber: widget.userPhoneNumber, role: widget.role),
+                  builder: (context) => ConsignmentsPage(userId: widget.userId, officeId: 0, officeName: '', companyId: widget.companyId, companyName: widget.companyName, userName: widget.userName, userPhoneNumber: widget.userPhoneNumber, role: widget.role, tin: widget.tin),
                 ),
               );
             },
@@ -356,6 +357,7 @@ class _OfficesPageState extends State<OfficesPage> {
                       role: widget.role, 
                       userName: widget.userName, 
                       userPhoneNumber: widget.userPhoneNumber,
+                      tin: widget.tin
                     ),
                   ),
                 );
@@ -423,6 +425,7 @@ class _OfficesPageState extends State<OfficesPage> {
               role: widget.role,
               userName: widget.userName,
               userPhoneNumber: widget.userPhoneNumber,
+              tin: widget.tin
             ),
           ),
         );

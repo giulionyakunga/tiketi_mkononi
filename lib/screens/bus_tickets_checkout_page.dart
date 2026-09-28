@@ -219,7 +219,6 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
 
   Future<void> _payDialog() async {
     int? selectedPackage;
-    int? selectedReceiptPackages;
     int? selectedAmount;
     String? selectedPaymentMethod;
 
@@ -258,7 +257,6 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                         onChanged: (value) {
                           setState(() {
                             selectedPackage = value;
-                            selectedReceiptPackages = value;
                             selectedAmount = pkg["price"] as int;
                           });
                         },
@@ -315,12 +313,12 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: _isLoading ? null : () async {
-                          if(selectedReceiptPackages != null && selectedReceiptPackages! > 0) {
+                          if(selectedPackage != null && selectedPackage! > 0) {
                             setState(() => _isLoading = true);
 
                             await _sendPaymentRequest(
                               phoneController.text.trim(),
-                              selectedReceiptPackages,
+                              selectedPackage,
                               selectedAmount,
                             );
                           } else {
@@ -354,6 +352,8 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Phone number cannot be empty')),
       );
+      setState(() => _isLoading = true);
+
       return;
     }
 

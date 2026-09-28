@@ -33,8 +33,9 @@ class ConsignmentsPage extends StatefulWidget {
   final String userPhoneNumber;
   final int companyId;
   final String role;
+  final String tin;
 
-  const ConsignmentsPage({super.key, required this.userId, required this.officeId, required this.officeName, required this.companyId, required this.companyName, required this.userName, required this.userPhoneNumber, required this.role});
+  const ConsignmentsPage({super.key, required this.userId, required this.officeId, required this.officeName, required this.companyId, required this.companyName, required this.userName, required this.userPhoneNumber, required this.role, required this.tin});
 
   @override
   State<ConsignmentsPage> createState() => _ConsignmentsPageState();
@@ -378,6 +379,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                     officeId: widget.officeId,
                     userName: widget.userName,
                     userPhoneNumber: widget.userPhoneNumber,
+                    tin: widget.tin,
                     isReplacableScreen: true,
                   ),
                 ),
@@ -1508,6 +1510,7 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
     List<int> bytes = [];
 
+    /// COMPANY NAME
     bytes += generator.text(widget.companyName.toUpperCase(),
       styles: const PosStyles(
         align: PosAlign.center,
@@ -1515,6 +1518,19 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
         height: PosTextSize.size1,
       )
     );
+
+    /// OFFICE INFO
+    bytes += generator.text(
+      "PHONE: ${consignment['issuer_phone_number']}", 
+      styles: const PosStyles(align: PosAlign.center),
+    );
+
+    if(widget.tin.isNotEmpty && widget.tin.length > 8) {
+      bytes += generator.text(
+        "TIN: ${widget.tin}",
+        styles: const PosStyles(align: PosAlign.center),
+      );
+    }
 
     bytes += generator.text(
       consignment['is_parcel'] ? "PARCEL RECEIPT" : "CONSIGNMENT RECEIPT",
@@ -1923,6 +1939,18 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                     fontSize: 12,
                     fontWeight: pw.FontWeight.bold
                   ),
+                ),
+
+                /// OFFICE INFO
+                pw.Text(
+                  "PHONE: ${consignment['issuer_phone_number']}", 
+                  style: pw.TextStyle(font: customFont),
+                ),
+
+                if(widget.tin.isNotEmpty && widget.tin.length > 8)
+                pw.Text(
+                  "TIN: ${widget.tin}",
+                  style: pw.TextStyle(font: customFont),
                 ),
 
                 pw.Text(

@@ -43,6 +43,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   String shopName = "";
   String userName = "";
   String userPhoneNumber = "";
+  String tin = "";
 
   List<Ad> ads = [];
   AdService adService = AdService();
@@ -103,6 +104,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         shopName = profile.shopName;
         userName = profile.firstName;
         userPhoneNumber = profile.phoneNumber;
+        tin = profile.tin;
       });
       getUserRole();
       fetchEvents();
@@ -125,6 +127,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         shopName = profile.shopName;
         userName = profile.firstName;
         userPhoneNumber = profile.phoneNumber;
+        tin = profile.tin;
       });
     }
   }
@@ -187,6 +190,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           shopName = responseData['shop_name']  ?? '';
           userName = responseData['first_name'];
           userPhoneNumber = '${responseData['phone_number']}';
+          tin = '${responseData['tin']}';
         });
         var profile = _storageService.getUserProfile();
         profile!.role =  responseData['role'];
@@ -767,11 +771,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ),
         const SizedBox(height: 10),
         (!isWideScreen) ? CategoryGrid(
-          userId: userId, role: role, companyId: companyId, officeId: officeId, shopId: shopId, companyName: companyName, shopName: shopName, userName: userName, userPhoneNumber: userPhoneNumber, refreshMethod: _reloadUserProfile,
+          userId: userId, role: role, companyId: companyId, officeId: officeId, shopId: shopId, companyName: companyName, shopName: shopName, userName: userName, userPhoneNumber: userPhoneNumber, tin: tin, refreshMethod: _reloadUserProfile,
         ) :
         CategoryGrid2(
           events: filteredEvents,
-          userId: userId, role: role, companyId: companyId, officeId: officeId, shopId: shopId, companyName: companyName, shopName: shopName, userName: userName, userPhoneNumber: userPhoneNumber, refreshMethod: _reloadUserProfile,
+          userId: userId, role: role, companyId: companyId, officeId: officeId, shopId: shopId, companyName: companyName, shopName: shopName, userName: userName, userPhoneNumber: userPhoneNumber, tin: tin, refreshMethod: _reloadUserProfile,
           // isWideScreen: isWideScreen,
         ),
       ],

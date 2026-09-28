@@ -489,6 +489,34 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
       });
     }
 
+    String busRegistrationNumber = _busRegistrationNumberController.text.trim().toUpperCase();
+
+    // Remove all whitespace first to normalize input
+    final cleaned = busRegistrationNumber.replaceAll(RegExp(r'\s+'), '');
+
+    // Regex: T + 3 digits + 3 letters  (e.g. T256ETG)
+    final busRegRegex = RegExp(r'^T(\d{3})([A-Z]{3})$');
+
+    final match = busRegRegex.firstMatch(cleaned);
+
+    if (match != null) {
+      final digits = match.group(1); // e.g. "256"
+      final letters = match.group(2); // e.g. "ETG"
+      busRegistrationNumber = 'T $digits $letters'; // "T 256 ETG"
+      debugPrint('Normalized bus registration number: $busRegistrationNumber');
+    } else {
+      debugPrint('Invalid busRegistrationNumber: $busRegistrationNumber');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Invalid busRegistrationNumber: $busRegistrationNumber'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      
+      return;
+    }
+
     final Map<String, dynamic> requestBody = {
       'user_id': userId,
       'company_id': widget.companyId,
@@ -499,7 +527,7 @@ class _AddBusRoutePageState extends State<AddBusRoutePage> {
       'via': _viaController.text.trim().toUpperCase(),
       'ticket_price': _ticketPriceController.text.trim(),
       'bus_name': _busNameController.text.trim().toUpperCase(),
-      'bus_registration_number': _busRegistrationNumberController.text.trim().toUpperCase(),
+      'bus_registration_number': busRegistrationNumber,
       'number_of_seat_rows': int.tryParse(_numberOfSeatRowsController.text.trim()) ?? 0,
       'seats_per_row': int.tryParse(_seatsPerRowController.text.trim()) ?? 4,
       'is_three_seats_at_first_row': isThreeSeatsAtFistRow,

@@ -242,11 +242,10 @@ class _ConsignmentInfoPageState extends State<ConsignmentInfoPage>
                 child: TextField(
                   controller: _idController,
                   focusNode: _idFocusNode,
-                  keyboardType: TextInputType.number,
                   textInputAction: TextInputAction.search,
                   onSubmitted: (_) => _fetchConsignment(),
                   decoration: InputDecoration(
-                    hintText: 'e.g. 12345',
+                    hintText: 'e.g. DKJ345',
                     prefixIcon: const Icon(Icons.tag, color: Colors.teal),
                     filled: true,
                     fillColor: colorScheme.surface,

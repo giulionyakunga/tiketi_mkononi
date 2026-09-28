@@ -408,6 +408,13 @@ class AppLocalizationsSw extends AppLocalizations {
       'Hakuna kichapishi cha Bluetooth kilichooanishwa';
 
   @override
+  String get bluetoothPrinterDiscoveryFailed =>
+      'Utambuzi wa kichapishi cha Bluetooth umeshindikana';
+
+  @override
+  String get bluetoothDisabled => 'Bluetooth imezimwa';
+
+  @override
   String foundPairedPrinters(Object count) {
     return 'Vimepatikana Vichapishi $count vya Bluetooth kilichooanishwa';
   }

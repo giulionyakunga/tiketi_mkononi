@@ -441,7 +441,6 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       }).toList(),
       'issued_by': widget.userName,
       'issuer_phone_number': widget.userPhoneNumber,
-      'tin': widget.tin,
     };
 
     try {
@@ -494,15 +493,6 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
           if (Platform.isWindows) {
             _printCableReceipt(requestBody);
           } else {
-            final connected = await _connectBluetoothPrinter();
-
-            if (!connected) {
-              _showSnackBar(
-                AppLocalizations.of(context)!.printerNotConnected,
-              );
-              return;
-            }
-
             _printBluetoothReceipt(requestBody);
           }
 
@@ -510,15 +500,6 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
             if (Platform.isWindows) {
               _printCableReceipt(requestBody);
             } else {
-              final connected = await _connectBluetoothPrinter();
-
-              if (!connected) {
-                _showSnackBar(
-                  AppLocalizations.of(context)!.printerNotConnected,
-                );
-                return;
-              }
-
               _printBluetoothReceipt2(requestBody);
             }
           }
@@ -708,6 +689,8 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Phone number cannot be empty')),
       );
+      setState(() => _isLoading = true);
+      
       return;
     }
 
@@ -1226,32 +1209,10 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
             onSelected: (value) async {
               if (value == 'reprint_receipt') {
                 if (_addedConsignment != null) {
-                  final connected = await _connectBluetoothPrinter();
-
-                  if (!connected) {
-                    _showSnackBar(
-                      AppLocalizations.of(context)!.printerNotConnected,
-                    );
-                    return;
-                  }
-
-                  if (Platform.isWindows) {
-                    _printCableReceipt(_addedConsignment);
-                  } else {
-                    _printBluetoothReceipt(_addedConsignment);
-                  }
+                  _printBluetoothReceipt(_addedConsignment);
                 }
               } else if (value == 'my_receipt') {
                 if (_addedConsignment != null) {
-                  final connected = await _connectBluetoothPrinter();
-
-                  if (!connected) {
-                    _showSnackBar(
-                      AppLocalizations.of(context)!.printerNotConnected,
-                    );
-                    return;
-                  }
-
                   _printBluetoothReceipt2(_addedConsignment);
                 }
               } else if (value == 'refresh_printers') {
@@ -1815,46 +1776,24 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
   }
 
   Future<void> _refreshBluetoothPrinters() async {
-    debugPrint('Refreshing Bluetooth printers...');
+    debugPrint("Refreshing printers...");
+    devices = await PrintBluetoothThermal.pairedBluetooths;
 
-    try {
-      final bluetoothEnabled =
-          await PrintBluetoothThermal.bluetoothEnabled;
+    debugPrint("Refreshing printers...");
 
-      if (!bluetoothEnabled) {
-        _showSnackBar(
-          AppLocalizations.of(context)!.bluetoothDisabled,
-        );
-        return;
-      }
-
-      final printers =
-          await PrintBluetoothThermal.pairedBluetooths;
-
-      debugPrint('Found ${printers.length} Bluetooth devices');
-
-      setState(() {
-        devices = printers;
-      });
-
-      if (devices.isEmpty) {
-        _showSnackBar(
-          AppLocalizations.of(context)!.noPairedPrinterFound,
-        );
-        return;
-      }
-
-      await _selectPrinterDialog();
-    } catch (e, stackTrace) {
-      debugPrint('Bluetooth discovery error: $e');
-      debugPrint('$stackTrace');
-
-      _showSnackBar(
-        AppLocalizations.of(context)!.bluetoothPrinterDiscoveryFailed,
+    if (devices.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context)!.noPairedPrinterFound)),  
+      );
+      return;
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text( AppLocalizations.of(context)!.foundPairedPrinters(devices.length.toString()))),
       );
     }
-  }
 
+    await _selectPrinterDialog();
+  }
 
   Future<void> _printBluetoothTestReceipt() async {
     debugPrint("Printing via Bluetooth...");
@@ -1944,7 +1883,6 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
     List<int> bytes = [];
 
-    /// COMPANY NAME
     bytes += generator.text(widget.companyName.toUpperCase(),
       styles: const PosStyles(
         align: PosAlign.center,
@@ -1952,19 +1890,6 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
         height: PosTextSize.size1,
       )
     );
-
-    /// OFFICE INFO
-    bytes += generator.text(
-      "PHONE: ${consignment['issuer_phone_number']}", 
-      styles: const PosStyles(align: PosAlign.center),
-    );
-
-    if(consignment['tin'].isNotEmpty && consignment['tin'].length > 8) {
-      bytes += generator.text(
-        "TIN: ${consignment['tin']}",
-        styles: const PosStyles(align: PosAlign.center),
-      );
-    }
 
     bytes += generator.text(
       consignment['is_parcel'] ? "PARCEL RECEIPT" : "CONSIGNMENT RECEIPT",
@@ -2229,7 +2154,6 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
 
     List<int> bytes = [];
 
-    /// COMPANY NAME
     bytes += generator.text(widget.companyName.toUpperCase(),
       styles: const PosStyles(
         align: PosAlign.center,
@@ -2375,18 +2299,6 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
                   ),
                 ),
 
-                /// OFFICE INFO
-                pw.Text(
-                  "PHONE: ${consignment['issuer_phone_number']}", 
-                  style: pw.TextStyle(font: customFont),
-                ),
-
-                if(consignment['tin'].isNotEmpty && consignment['tin'].length > 8)
-                pw.Text(
-                  "TIN: ${consignment['tin']}",
-                  style: pw.TextStyle(font: customFont),
-                ),
- 
                 pw.Center(
                   child: pw.Text(
                     consignment['is_parcel']
@@ -2737,91 +2649,48 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
   }
 
   Future<void> requestPermissions() async {
-    if (Platform.isAndroid) {
-      await [
-        Permission.bluetooth,
-        Permission.bluetoothConnect,
-        Permission.bluetoothScan,
-        Permission.location,
-      ].request();
-    } else if (Platform.isIOS) {
-      await Permission.bluetooth.request();
-    }
+    await [
+      Permission.bluetooth,
+      Permission.bluetoothConnect,
+      Permission.bluetoothScan,
+      Permission.location,
+    ].request();
   }
 
   Future<void> loadAndMatchPrinter() async {
     await requestPermissions();
 
-    if (Platform.isIOS) {
-      await _refreshBluetoothPrinters();
-      return;
-    }
-
-    // Android logic
     final prefs = await SharedPreferences.getInstance();
 
+    print("******************************************************************************");
     final savedMac = prefs.getString('printer_mac');
-
     if (savedMac == null || savedMac.isEmpty) {
+      debugPrint("No saved printer");
       await _refreshBluetoothPrinters();
       return;
     }
 
-    final printers =
-        await PrintBluetoothThermal.pairedBluetooths;
+    debugPrint("Found saved printer");
 
-    final matched = printers.where(
-      (printer) => printer.macAdress == savedMac,
+    List<BluetoothInfo> devices = await PrintBluetoothThermal.pairedBluetooths;
+
+    final matched = devices.where(
+      (d) => d.macAdress == savedMac,
     ).toList();
 
     if (matched.isNotEmpty) {
       setState(() {
         selectedPrinter = matched.first;
       });
+
+      debugPrint("Printer restored: ${matched.first.name}");
     } else {
+      debugPrint("Saved printer not found");
+      setState(() {
+        selectedPrinter = null;
+      });
+
       await _refreshBluetoothPrinters();
-    }
-  }
-
-  Future<bool> _connectBluetoothPrinter() async {
-    if (selectedPrinter == null) {
-      debugPrint('No printer selected');
-      return false;
-    }
-
-    debugPrint('Printer name: ${selectedPrinter!.name}');
-    debugPrint('Printer identifier: ${selectedPrinter!.macAdress}');
-
-    try {
-      final enabled =
-          await PrintBluetoothThermal.bluetoothEnabled;
-
-      debugPrint('Bluetooth enabled: $enabled');
-
-      if (!enabled) {
-        return false;
-      }
-
-      final connected = await PrintBluetoothThermal.connect(
-        macPrinterAddress: selectedPrinter!.macAdress,
-      );
-
-      debugPrint('Printer connected: $connected');
-
-      if (!connected) {
-        return false;
-      }
-
-      final status =
-          await PrintBluetoothThermal.connectionStatus;
-
-      debugPrint('Connection status: $status');
-
-      return status;
-    } catch (e, stackTrace) {
-      debugPrint('Bluetooth connection error: $e');
-      debugPrint('$stackTrace');
-      return false;
     }
   }
 

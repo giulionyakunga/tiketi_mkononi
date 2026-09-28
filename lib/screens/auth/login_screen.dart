@@ -175,6 +175,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         lastName: responseData['last_name'],
         email: responseData['email'],
         phoneNumber: responseData['phone_number'],
+        tin: responseData['tin'],
         password: '',
         role: responseData['role'],
         region: responseData['region'],

@@ -7,6 +7,7 @@ import 'package:tiketi_mkononi/screens/add_order_page.dart';
 import 'package:tiketi_mkononi/screens/apply_to_be_cargo_transporter_page.dart';
 import 'package:tiketi_mkononi/screens/apply_to_be_transporter_page.dart';
 import 'package:tiketi_mkononi/screens/auth/login_screen.dart';
+import 'package:tiketi_mkononi/screens/bus_routes_page.dart';
 import 'package:tiketi_mkononi/screens/category_events_page.dart';
 import 'package:tiketi_mkononi/screens/find_bus_routes_page.dart';
 import 'package:tiketi_mkononi/screens/offices_page.dart';
@@ -23,9 +24,10 @@ class CategoryGrid2 extends StatelessWidget {
   final String shopName;
   final String userName;
   final String userPhoneNumber;
+  final String tin;
   final Function refreshMethod;
 
-  const CategoryGrid2({super.key, required this.events, required this.userId, required this.role, required this.companyId,  required this.officeId, this.shopId, required this.companyName, required this.shopName,  required this.userName, required this.userPhoneNumber, required this.refreshMethod});
+  const CategoryGrid2({super.key, required this.events, required this.userId, required this.role, required this.companyId,  required this.officeId, this.shopId, required this.companyName, required this.shopName,  required this.userName, required this.userPhoneNumber, required this.tin, required this.refreshMethod});
 
 
   void _showCargoDialog(BuildContext context) {
@@ -173,14 +175,14 @@ class CategoryGrid2 extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => AddConsignmentPage(userId: userId, companyId: companyId, companyName:companyName, officeId: officeId, userName: userName, userPhoneNumber: userPhoneNumber, isReplacableScreen: false),
+                          builder: (context) => AddConsignmentPage(userId: userId, companyId: companyId, companyName:companyName, officeId: officeId, userName: userName, userPhoneNumber: userPhoneNumber, isReplacableScreen: false, tin: tin),
                         ),
                       );
                     } else if((role == 'transporter') || (role == 'cargo_transporter')){
                       await Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => OfficesPage(userId: userId, companyId: companyId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, role: role),
+                          builder: (context) => OfficesPage(userId: userId, companyId: companyId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, role: role, tin: tin),
                         ),
                       );
 
@@ -199,7 +201,8 @@ class CategoryGrid2 extends StatelessWidget {
                         await Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => OfficesPage(userId: userId, companyId: companyId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, role: role),
+                            // builder: (context) => OfficesPage(userId: userId, companyId: companyId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, tin: tin, role: role),
+                            builder: (context) => BusRoutesPage(userId: userId, officeId: 0, officeName: '', companyId: companyId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, role: role),
                           ),
                         );
 

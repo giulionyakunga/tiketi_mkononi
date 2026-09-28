@@ -20,7 +20,7 @@ class ApiService {
         headers: <String, String>{
           'Content-Type': 'application/json; charset=UTF-8',
         },
-        body: '{"user_id": "${profile.id}", "first_name": "${profile.firstName}", "middle_name": "${profile.middleName}", "last_name": "${profile.lastName}", "email": "${profile.email}", "phone_number": "${profile.phoneNumber}", "password": "$password", "region": "${profile.region}", "district": "${profile.district}", "ward": "${profile.ward}", "street": "${profile.street}"}',
+        body: '{"user_id": "${profile.id}", "first_name": "${profile.firstName}", "middle_name": "${profile.middleName}", "last_name": "${profile.lastName}", "email": "${profile.email}", "phone_number": "${profile.phoneNumber}", "tin": "${profile.tin}", "password": "$password", "region": "${profile.region}", "district": "${profile.district}", "ward": "${profile.ward}", "street": "${profile.street}"}',
       );
 
       if (response.statusCode == 200) {

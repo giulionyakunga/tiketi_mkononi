@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketi_mkononi/env.dart';
 import 'package:tiketi_mkononi/l10n/app_localizations.dart';
-import 'package:tiketi_mkononi/screens/ConsignmentInfo2.dart';
+import 'package:tiketi_mkononi/screens/consignment_info.dart';
 import 'package:tiketi_mkononi/screens/ad/post_ad_page.dart';
 import 'package:tiketi_mkononi/screens/app_info_updates_page.dart';
 import 'package:tiketi_mkononi/screens/apply_to_be_cargo_transporter_page.dart';
@@ -54,6 +54,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
   String role = "user";
   String userName = "";
   String userPhoneNumber = "";
+  String tin = "";
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -97,7 +98,6 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
     _storageService.clearUserProfile();
   }
 
-   
   Future<void> getUserRole({bool useDNS = true}) async {
     final Uri uri = useDNS ? Uri.parse('${backend_url}api/get_user_role/$userId') // Original URL 
     : Uri.parse('${backend_url_with_fallback_ip}get_user_role/$useDNS'); // Use IP
@@ -117,6 +117,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
           shopName = responseData['shop_name'] ?? '';
           userName = responseData['first_name'];
           userPhoneNumber = '${responseData['phone_number']}';
+          tin = '${responseData['tin']}';
         });
         var profile = _storageService.getUserProfile();
         profile!.role =  responseData['role'];
@@ -780,7 +781,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
             await Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => AddConsignmentPage(userId: userId, companyId: companyId, companyName:companyName, officeId: officeId, userName: userName, userPhoneNumber: userPhoneNumber, isReplacableScreen: false),
+                builder: (context) => AddConsignmentPage(userId: userId, companyId: companyId, companyName:companyName, officeId: officeId, userName: userName, userPhoneNumber: userPhoneNumber, isReplacableScreen: false, tin: tin,),
               ),
             );
           } else {
@@ -800,7 +801,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
             await Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => OfficesPage(userId: userId, companyId: companyId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, role: role),
+                builder: (context) => OfficesPage(userId: userId, companyId: companyId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, role: role, tin: tin,),
               ),
             );
           } else if (role == 'transport_office_attendant') {
@@ -987,7 +988,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => OfficesPage(userId: userId, companyId: companyId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, role: role),
+                builder: (context) => OfficesPage(userId: userId, companyId: companyId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, role: role, tin: tin),
               ),
             );
           },
@@ -1004,7 +1005,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => AddConsignmentPage(userId: userId, companyId: companyId, companyName:companyName, officeId: officeId, userName: userName, userPhoneNumber: userPhoneNumber, isReplacableScreen: false),
+                builder: (context) => AddConsignmentPage(userId: userId, companyId: companyId, companyName:companyName, officeId: officeId, userName: userName, userPhoneNumber: userPhoneNumber, tin: tin, isReplacableScreen: false),
               ),
             );
           },
@@ -1024,7 +1025,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => OfficesPage(userId: userId, companyId: companyId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, role: role),
+                builder: (context) => OfficesPage(userId: userId, companyId: companyId, companyName: companyName, userName: userName, userPhoneNumber: userPhoneNumber, role: role, tin: tin,),
               ),
             );
           },
