@@ -446,7 +446,7 @@ class _EditTicketPageState extends State<EditTicketPage> {
                     onChanged: (String? value) {
                       setState(() {
                         _ticketType = value!;
-                        _maxScanTimesController.text = value.trim().toUpperCase() == 'DOUBLE' ? '2' : '1';
+                        _maxScanTimesController.text =  ((value.trim().toUpperCase() == 'DOUBLE') || (value.trim().toUpperCase() == 'KAMATI(D)')) ? '2' : '1';
                       });
                     },
                     validator: (value) =>

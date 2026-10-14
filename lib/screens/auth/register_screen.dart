@@ -99,10 +99,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
         body: '{"first_name": "${_firstNameController.text.trim()}", "middle_name": "${_middleNameController.text.trim()}", "last_name": "${_lastNameController.text.trim()}", "email": "${_emailController.text.trim()}", "phone_number": "${_phoneNumberController.text.trim()}", "role": "user", "password": "${_passwordController.text.trim()}", "region": "${_regionController.text.trim()}", "district": "${_districtController.text.trim()}", "ward": "${_wardController.text.trim()}", "street": "${_streetController.text.trim()}"}',
       );
 
-      setState(() {
-        _isLoading = false;
-      });
-
       if (response.statusCode == 201) {
         final responseData = jsonDecode(response.body);
 
@@ -158,6 +154,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       // ScaffoldMessenger.of(context).showSnackBar(
       //   SnackBar(content: Text('An error occurred: $e')),
       // );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('An error occurred')),
+      );
+    }  finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

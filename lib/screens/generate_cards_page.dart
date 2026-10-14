@@ -324,7 +324,7 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> with TickerProvid
     String phoneNumber = _phoneNumberController.text.trim();
     String maxScanTimes = _maxScanTimesController.text.trim();
     String extraInfo = _extraInfoController.text.trim();
-    if(_ticketType.trim().toUpperCase() == 'DOUBLE') {
+    if((_ticketType.trim().toUpperCase() == 'DOUBLE') || (_ticketType.trim().toUpperCase() == 'KAMATI(D)')) {
        maxScanTimes = '2';
     } else if(_ticketType.trim().toUpperCase() == 'SINGLE') {
        maxScanTimes = '1';

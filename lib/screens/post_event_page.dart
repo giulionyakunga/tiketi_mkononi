@@ -74,7 +74,7 @@ class _PostEventPageState extends State<PostEventPage> {
   late final StorageService _storageService;
 
   final List<TicketType> _ticketTypes = [];
-  final List<String> _predefinedTicketTypes = ['Regular', 'VIP', 'VVIP', 'Special', 'Single', 'Double'];
+  final List<String> _predefinedTicketTypes = ['Regular', 'VIP', 'VVIP', 'Special', 'Single', 'Double', 'Kamati(D)', 'Kamati(S)'];
   final List<String> _categories = [
     'Comedy',
     'Fun',

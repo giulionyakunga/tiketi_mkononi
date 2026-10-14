@@ -2225,8 +2225,11 @@ class ImageQrService {
         labelAsset = await rootBundle.load('assets/special.jpeg');
       } else if(ticket.ticketType.trim().toUpperCase() == "WAKWE") {
         labelAsset = await rootBundle.load('assets/wakwe.jpeg');
-      } 
-      else {
+      } else if(ticket.ticketType.trim().toUpperCase() == "KAMATI(S)") {
+        labelAsset = await rootBundle.load('assets/kamati-s.jpeg');
+      } else if(ticket.ticketType.trim().toUpperCase() == "KAMATI(D)") {
+        labelAsset = await rootBundle.load('assets/kamati-d.jpeg');
+      } else {
         labelAsset = await rootBundle.load('assets/other.jpeg');
       }
 
