@@ -87,11 +87,11 @@ class _EditTicketPageState extends State<EditTicketPage> {
     String fullName = _fullNameController.text.trim();
     String phoneNumber = _phoneNumberController.text.trim();
     String maxScanTimes = _maxScanTimesController.text.trim();
-    if(_ticketType.trim().toUpperCase() == 'DOUBLE') {
+    if((_ticketType.trim().toUpperCase() == 'DOUBLE') || (_ticketType.trim().toUpperCase() == 'KAMATI(D)')) {
        maxScanTimes = '2';
-    } else if(_ticketType.trim().toUpperCase() == 'SINGLE') {
+    } else if((_ticketType.trim().toUpperCase() == 'SINGLE') || (_ticketType.trim().toUpperCase() == 'KAMATI(S)')) {
        maxScanTimes = '1';
-    } 
+    }
 
     final Map<String, dynamic> requestBody = {
       'user_id': widget.userId,

@@ -77,9 +77,9 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> with TickerProvid
       setState(() {
         ticketTypePriceMap[ticketType.name] = ticketType.price;
       });
-      _ticketType = ticketTypePriceMap.keys.first;
+      _ticketType = ticketTypePriceMap.keys.first; 
 
-      _maxScanTimesController.text = ticketTypePriceMap.keys.first.trim().toUpperCase() == 'DOUBLE' ? '2' : '1';
+      _maxScanTimesController.text = ((ticketTypePriceMap.keys.first.trim().toUpperCase() == 'DOUBLE') || (ticketTypePriceMap.keys.first.trim().toUpperCase() == 'KAMATI(D)')) ? '2' : '1';
     });
   }
 
@@ -326,9 +326,9 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> with TickerProvid
     String extraInfo = _extraInfoController.text.trim();
     if((_ticketType.trim().toUpperCase() == 'DOUBLE') || (_ticketType.trim().toUpperCase() == 'KAMATI(D)')) {
        maxScanTimes = '2';
-    } else if(_ticketType.trim().toUpperCase() == 'SINGLE') {
+    } else if((_ticketType.trim().toUpperCase() == 'SINGLE') || (_ticketType.trim().toUpperCase() == 'KAMATI(S)')) {
        maxScanTimes = '1';
-    } 
+    }
 
     final Map<String, dynamic> requestBody = {
       'user_id': userId,
@@ -1031,7 +1031,7 @@ Widget _buildFeatureChip(IconData icon, String label) {
                   _ticketPrice = ticketTypePriceMap[value]!;
 
                   // Your existing logic
-                  _maxScanTimesController.text = value.trim().toUpperCase() == 'DOUBLE' ? '2' : '1';
+                  _maxScanTimesController.text = ((value.trim().toUpperCase() == 'DOUBLE') || (value.trim().toUpperCase() == 'KAMATI(D)')) ? '2' : '1';
                 });
               },
               validator: (value) =>
