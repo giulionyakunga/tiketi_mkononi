@@ -69,7 +69,7 @@ class _PostEventPageState extends State<PostEventPage> {
   bool _isLoading = false;
   bool _isPaidEvent = true;
   bool _isDailyEvent = false;
-  bool _isPublicEvent = true;
+  bool _isPublicEvent = true; 
   bool _isInSwahili = true;
   late final StorageService _storageService;
 
