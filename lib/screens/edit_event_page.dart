@@ -2106,7 +2106,7 @@ class _EditEventPageState extends State<EditEventPage> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _organizerPhoneNumberController,
-                maxLength: 15,
+                maxLength: 32,
                 decoration: InputDecoration(
                   labelText: 'Organizer\'s Phone Number',
                   labelStyle: TextStyle(
@@ -2152,8 +2152,8 @@ class _EditEventPageState extends State<EditEventPage> {
 
                   final phone = value.trim();
 
-                  if (phone.length > 15) {
-                    return 'Phone number cannot exceed 15 characters';
+                  if (phone.length > 32) {
+                    return 'Phone number cannot exceed 32 characters';
                   }
 
                   final regex = RegExp(r'^(0\d{9}|255\d{9})$');
