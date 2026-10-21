@@ -239,9 +239,12 @@ class BusTicketCard extends StatelessWidget {
   Future<void> _shareTicket(BusTicket ticket) async {
     final pdf = pw.Document();
 
-    final themeColor = PdfColor.fromHex('#0F4C81'); // Deep blue
-    final accentColor = PdfColor.fromHex('#F5A623'); // Amber accent
+    // final themeColor = PdfColor.fromHex('#0F4C81');  // Deep blue
+    final themeColor = PdfColor.fromHex('#008080');     // teal
+    // final accentColor = PdfColor.fromHex('#F5A623'); // Amber accent
+    final accentColor = PdfColor.fromHex('#E65100');
     final lightBg = PdfColor.fromHex('#F4F6F9');
+
 
     String formattedDate = DateFormat('EEE, d MMM y').format(ticket.createdAt);
     String formattedTime = DateFormat('hh:mm a').format(ticket.createdAt);
