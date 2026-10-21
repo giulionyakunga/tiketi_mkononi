@@ -19,7 +19,7 @@ class ApiService {
         uri,
         headers: {
           'Authorization': 'Bearer ${profile.token}',
-          'Content-Type': 'application/json; charset=UTF-8',
+          'Content-Type': 'application/json; charset=UTF-8', 
         },
 
         body: '{"user_id": "${profile.id}", "first_name": "${profile.firstName}", "middle_name": "${profile.middleName}", "last_name": "${profile.lastName}", "email": "${profile.email}", "phone_number": "${profile.phoneNumber}", "tin": "${profile.tin}", "password": "$password", "region": "${profile.region}", "district": "${profile.district}", "ward": "${profile.ward}", "street": "${profile.street}"}',

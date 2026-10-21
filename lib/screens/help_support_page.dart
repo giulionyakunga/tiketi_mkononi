@@ -84,9 +84,10 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
       String response = await _apiService.sendMessage(
         user_id, 
         _nameController.text.trim(), 
+        token,
         _phoneNumberController.text.trim(), 
         _emailController.text.trim(), 
-        _messageController.text.trim()
+        _messageController.text.trim() 
       );
 
       if (mounted) {
