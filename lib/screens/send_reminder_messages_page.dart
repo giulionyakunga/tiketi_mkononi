@@ -607,12 +607,12 @@ class _SendReminderMessagesPageState extends State<SendReminderMessagesPage> wit
             const SizedBox(height: 16),
             TextFormField(
               controller: _familyNameController,
-              maxLength: 50,
+              maxLength: 60,
               decoration: _buildInputDecoration('Family Name', prefixIcon: Icons.emoji_events),
               style: const TextStyle(fontSize: 16),
               validator: (value) {
                 if (value == null || value.isEmpty) return 'Please enter family name';
-                if (value.length > 50) return 'Family must be 50 characters or less';
+                if (value.length > 60) return 'Family must be 60 characters or less';
                 return null;
               },
             ),
@@ -947,7 +947,7 @@ class _SendReminderMessagesPageState extends State<SendReminderMessagesPage> wit
             const SizedBox(height: 16),              
             TextFormField(
               controller: _familyNameController,
-              maxLength: 50,
+              maxLength: 60,
               decoration: InputDecoration(
                 labelText: 'Family Name',
                 labelStyle: TextStyle(
@@ -993,8 +993,8 @@ class _SendReminderMessagesPageState extends State<SendReminderMessagesPage> wit
 
                 final familyName = value.trim();
 
-                if (familyName.length > 50) {
-                  return 'Family name can\'t exceed 50 characters';
+                if (familyName.length > 60) {
+                  return 'Family name can\'t exceed 60 characters';
                 }
 
                 return null;
