@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:tiketi_mkononi/env.dart';
+import 'package:tiketi_mkononi/env.dart'; 
 import 'package:tiketi_mkononi/models/user_profile.dart';
 
 
@@ -17,16 +17,18 @@ class ApiService {
         
       final response = await http.post(
         uri,
-        headers: <String, String>{
+        headers: {
+          'Authorization': 'Bearer ${profile.token}',
           'Content-Type': 'application/json; charset=UTF-8',
         },
+
         body: '{"user_id": "${profile.id}", "first_name": "${profile.firstName}", "middle_name": "${profile.middleName}", "last_name": "${profile.lastName}", "email": "${profile.email}", "phone_number": "${profile.phoneNumber}", "tin": "${profile.tin}", "password": "$password", "region": "${profile.region}", "district": "${profile.district}", "ward": "${profile.ward}", "street": "${profile.street}"}',
       );
 
       if (response.statusCode == 200) {
         return response.body;
       } else {
-        // throw Exception('Failed to update profile');
+        // throw Exception('Failed to update profile'); 
         return 'Failed to update profile';
       }
     } on SocketException catch (e) {    
@@ -53,7 +55,7 @@ class ApiService {
     }
   }
 
-  Future<String> deleteUserProfile(int user_id, {bool useDNS = true}) async {
+  Future<String> deleteUserProfile(int user_id, String token, {bool useDNS = true}) async {
     try {
 
       // If all validations pass, proceed with registration
@@ -63,6 +65,7 @@ class ApiService {
       final response = await http.post(
         uri,
         headers: <String, String>{
+          'Authorization': 'Bearer ${token}',
           'Content-Type': 'application/json; charset=UTF-8',
         },
         body: '{"user_id": $user_id}',
@@ -89,7 +92,7 @@ class ApiService {
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          response = await deleteUserProfile(user_id, useDNS: false); // Recursive retry
+          response = await deleteUserProfile(user_id, token, useDNS: false); // Recursive retry
         }
       }
       return response;
@@ -98,7 +101,7 @@ class ApiService {
     }
   }
 
-  Future<String> sendMessage(int user_id, String name, String phoneNumber, String email, String message, {bool useDNS = true}) async {
+  Future<String> sendMessage(int user_id, String name, String token, String phoneNumber, String email, String message, {bool useDNS = true}) async {
     try {
 
       // If all validations pass, proceed with registration
@@ -109,6 +112,7 @@ class ApiService {
         uri,
         headers: <String, String>{
           'Content-Type': 'application/json; charset=UTF-8',
+          'Authorization': 'Bearer ${token}',
         },
         body: '{"user_id": "$user_id", "name": "$name", "phone_number": "$phoneNumber", "email": "$email", "message": "$message" }',
       );
@@ -134,7 +138,7 @@ class ApiService {
         // Retry with IP if DNS fails (errno = 7) and not already retrying
         if ((e.osError!.errorCode == 11001 || e.osError!.errorCode == 7) && useDNS) {
           debugPrint('DNS failed! Retrying with IP: ${backend_url_with_fallback_ip}...');
-          response = await  sendMessage(user_id, name, phoneNumber, email, message, useDNS: false); // Recursive retry
+          response = await  sendMessage(user_id, name, token, phoneNumber, email, message, useDNS: false); // Recursive retry
         }
       }
       return response;

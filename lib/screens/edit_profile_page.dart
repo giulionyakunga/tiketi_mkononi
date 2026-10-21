@@ -166,9 +166,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
       );
 
       String password = _passwordController.text.trim();
+
+      debugPrint('Here 1');
  
       String response = await _apiService.updateUserProfile(profile, password, _selectedImage?.path);
+      debugPrint('Here 2');
       await _storageService.saveUserProfile(profile);
+      debugPrint('Here 3');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -205,7 +209,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     setState(() => _isLoading = true);
 
     try {
-      String response = await _apiService.deleteUserProfile(userId);
+      String response = await _apiService.deleteUserProfile(userId, token);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
