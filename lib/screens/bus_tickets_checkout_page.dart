@@ -900,7 +900,7 @@ class _BusTicketsCheckoutPageState extends State<BusTicketsCheckoutPage> with Wi
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => BusTicketsPage(userId: widget.userId, busRoute: widget.busRoute, printTickets: _printBluetoothReceipt),
+                    builder: (context) => BusTicketsPage(userId: widget.userId, busRoute: widget.busRoute, companyName: widget.companyName, printTickets: _printBluetoothReceipt),
                   ),
                 );
               } else if (value == 'reprint_receipt') {

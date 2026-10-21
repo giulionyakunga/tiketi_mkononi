@@ -161,6 +161,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _saveUserProfile(Map<String, dynamic> responseData) async {
+    debugPrint('Saving user profile with data: $responseData');
     try {
       final profile = UserProfile(
         id: responseData['id'],
@@ -175,7 +176,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         lastName: responseData['last_name'],
         email: responseData['email'],
         phoneNumber: responseData['phone_number'],
-        tin: responseData['tin'],
+        tin: responseData['tin'] ?? '',
         password: '',
         role: responseData['role'],
         region: responseData['region'],
@@ -183,12 +184,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ward: responseData['ward'],
         street: responseData['street'],
         token: responseData['token'],
-        imageUrl: responseData['email'],
+        imageUrl: responseData['image_url'],
         createdAt: DateTime.parse(responseData['createdAt']),
         updatedAt: DateTime.parse(responseData['updatedAt']),
       );
       await _storageService.saveUserProfile(profile);
     } catch (e) {
+      debugPrint('Failed to update profile, Error: $e');
       if (mounted) _showSnackBar('Failed to update profile');
     }
   }
@@ -196,6 +198,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   void _handleSocketException(SocketException e) {
     if (e.osError?.errorCode == 7 || e.osError?.errorCode == 101 || e.osError?.errorCode == 111) {
       showDialog(
+
+
+
+
+
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('Connection Error'),

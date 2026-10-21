@@ -494,14 +494,14 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
           if (Platform.isWindows) {
             _printCableReceipt(requestBody);
           } else {
-            final connected = await _connectBluetoothPrinter();
+            // final connected = await _connectBluetoothPrinter();
 
-            if (!connected) {
-              _showSnackBar(
-                AppLocalizations.of(context)!.printerNotConnected,
-              );
-              return;
-            }
+            // if (!connected) {
+            //   _showSnackBar(
+            //     AppLocalizations.of(context)!.printerNotConnected,
+            //   );
+            //   return;
+            // }
 
             _printBluetoothReceipt(requestBody);
           }
@@ -510,14 +510,17 @@ class _AddConsignmentPageState extends State<AddConsignmentPage> {
             if (Platform.isWindows) {
               _printCableReceipt(requestBody);
             } else {
-              final connected = await _connectBluetoothPrinter();
+              // final connected = await _connectBluetoothPrinter();
 
-              if (!connected) {
-                _showSnackBar(
-                  AppLocalizations.of(context)!.printerNotConnected,
-                );
-                return;
-              }
+              // if (!connected) {
+              //   _showSnackBar(
+              //     AppLocalizations.of(context)!.printerNotConnected,
+              //   );
+
+              //   debugPrint("herr 22");
+
+              //   // return;
+              // }
 
               _printBluetoothReceipt2(requestBody);
             }

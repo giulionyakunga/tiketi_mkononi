@@ -2348,169 +2348,424 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
 
   Future<void> _shareConsignment(dynamic consignment) async {
     final pdf = pw.Document();
+
+    // ── Shared theme (matches _shareTicket) ─────────────
+    // final themeColor = PdfColor.fromHex('#0F4C81');  // Deep blue
+    final themeColor = PdfColor.fromHex('#008080');     // teal
+    // final accentColor = PdfColor.fromHex('#F5A623'); // Amber accent
+    final accentColor = PdfColor.fromHex('#E65100'); 
+    final lightBg = PdfColor.fromHex('#F4F6F9');
+
     final items = consignment['consignment_items'] ?? [];
+    final isParcel = consignment['is_parcel'] == true;
 
-    DateTime consignmentDate = DateTime.parse(consignment['createdAt']);
-    String formattedDateTime = DateFormat('d/M/y H:m').format(consignmentDate);
+    // Safe date formatting
+    DateTime? consignmentDate =
+        DateTime.tryParse(consignment['createdAt']?.toString() ?? '');
+    final formattedDate = consignmentDate != null
+        ? DateFormat('EEE, d MMM y').format(consignmentDate)
+        : '-';
+    final formattedTime = consignmentDate != null
+        ? DateFormat('hh:mm a').format(consignmentDate)
+        : '-';
 
-    String data = SimpleCodec.encode(jsonEncode({
+    final String data = SimpleCodec.encode(jsonEncode({
       "cid": consignment['id'],
       "oid": consignment['office_id'],
     }));
 
+    // ── Reusable widgets (copied from _shareTicket) ─────
+    pw.Widget dashedDivider({
+      double dashWidth = 3,
+      double space = 3,
+      double thickness = 0.6,
+    }) {
+      return pw.LayoutBuilder(
+        builder: (context, constraints) {
+          final count = (constraints!.maxWidth / (dashWidth + space)).floor();
+          return pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: List.generate(
+              count,
+              (_) => pw.Container(
+                width: dashWidth,
+                height: thickness,
+                color: PdfColors.grey400,
+              ),
+            ),
+          );
+        },
+      );
+    }
+
+    pw.Widget sectionTitle(String text) {
+      return pw.Padding(
+        padding: const pw.EdgeInsets.only(top: 8, bottom: 4),
+        child: pw.Row(
+          children: [
+            pw.Container(width: 3, height: 10, color: themeColor),
+            pw.SizedBox(width: 5),
+            pw.Text(
+              text.toUpperCase(),
+              style: pw.TextStyle(
+                fontSize: 7.5,
+                fontWeight: pw.FontWeight.bold,
+                letterSpacing: 1.2,
+                color: themeColor,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    pw.Widget infoRow(String label, String value, {bool bold = false}) {
+      return pw.Padding(
+        padding: const pw.EdgeInsets.symmetric(vertical: 1.5),
+        child: pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.SizedBox(
+              width: 62,
+              child: pw.Text(
+                label,
+                style: pw.TextStyle(fontSize: 7, color: PdfColors.grey700),
+              ),
+            ),
+            pw.Expanded(
+              child: pw.Text(
+                value,
+                style: pw.TextStyle(
+                  fontSize: 7.5,
+                  fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+                  color: PdfColors.black,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat(58 * PdfPageFormat.mm, double.infinity),
+        margin: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         build: (context) {
           return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
+              // ── HEADER BAND ─────────────────────────────
+              pw.Container(
+                padding: const pw.EdgeInsets.symmetric(
+                    vertical: 8, horizontal: 6),
+                decoration: pw.BoxDecoration(
+                  color: themeColor,
+                  borderRadius: pw.BorderRadius.circular(4),
+                ),
+                child: pw.Column(
+                  children: [
+                    pw.Text(
+                      widget.companyName.toUpperCase(),
+                      textAlign: pw.TextAlign.center,
+                      style: pw.TextStyle(
+                        fontSize: 10,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.white,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                    pw.SizedBox(height: 2),
+                    pw.Container(
+                      padding: const pw.EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 1),
+                      decoration: pw.BoxDecoration(
+                        color: accentColor,
+                        borderRadius: pw.BorderRadius.circular(8),
+                      ),
+                      child: pw.Text(
+                        isParcel ? 'PARCEL RECEIPT' : 'CONSIGNMENT RECEIPT',
+                        style: pw.TextStyle(
+                          fontSize: 7,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.white,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              pw.SizedBox(height: 10),
+
+              // ── ROUTE HERO ──────────────────────────────
+              pw.Container(
+                padding: const pw.EdgeInsets.symmetric(
+                    vertical: 8, horizontal: 6),
+                decoration: pw.BoxDecoration(
+                  color: lightBg,
+                  borderRadius: pw.BorderRadius.circular(4),
+                  border: pw.Border.all(color: PdfColors.grey300, width: 0.5),
+                ),
+                child: pw.Column(
+                  children: [
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Expanded(
+                          child: pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              pw.Text('FROM',
+                                  style: pw.TextStyle(
+                                      fontSize: 6,
+                                      color: PdfColors.grey600,
+                                      letterSpacing: 0.8)),
+                              pw.SizedBox(height: 1),
+                              pw.Text(
+                                consignment['from']?.toString() ?? '-',
+                                style: pw.TextStyle(
+                                    fontSize: 8,
+                                    fontWeight: pw.FontWeight.bold),
+                                maxLines: 2,
+                              ),
+                            ],
+                          ),
+                        ),
+                        pw.Padding(
+                          padding:
+                              const pw.EdgeInsets.symmetric(horizontal: 4),
+                          child: pw.Text('->',
+                              style: pw.TextStyle(
+                                  fontSize: 11,
+                                  color: themeColor,
+                                  fontWeight: pw.FontWeight.bold)),
+                        ),
+                        pw.Expanded(
+                          child: pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.end,
+                            children: [
+                              pw.Text('TO',
+                                  style: pw.TextStyle(
+                                      fontSize: 6,
+                                      color: PdfColors.grey600,
+                                      letterSpacing: 0.8)),
+                              pw.SizedBox(height: 1),
+                              pw.Text(
+                                consignment['to']?.toString() ?? '-',
+                                style: pw.TextStyle(
+                                    fontSize: 8,
+                                    fontWeight: pw.FontWeight.bold),
+                                textAlign: pw.TextAlign.right,
+                                maxLines: 2,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    pw.SizedBox(height: 6),
+                    dashedDivider(),
+                    pw.SizedBox(height: 6),
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        _receiptChip('DATE', formattedDate, themeColor),
+                        _receiptChip('TIME', formattedTime, themeColor),
+                        _receiptChip('ITEMS', '${items.length}', accentColor),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
 
               pw.SizedBox(height: 8),
 
+              // ── PACKAGE NO (highlighted like ticket code) ──
+              pw.Container(
+                padding: const pw.EdgeInsets.symmetric(vertical: 6),
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(color: themeColor, width: 0.8),
+                  borderRadius: pw.BorderRadius.circular(3),
+                ),
+                child: pw.Column(
+                  children: [
+                    pw.Text('PACKAGE NO',
+                        style: pw.TextStyle(
+                            fontSize: 6,
+                            color: PdfColors.grey600,
+                            letterSpacing: 1.2)),
+                    pw.SizedBox(height: 2),
+                    pw.Text(
+                      '${consignment['package_id'] ?? '-'}',
+                      style: pw.TextStyle(
+                        fontSize: 12,
+                        fontWeight: pw.FontWeight.bold,
+                        color: themeColor,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              pw.SizedBox(height: 8),
+
+              // ── PACKAGE DETAILS ─────────────────────────
+              sectionTitle('Package'),
+              infoRow('Name',
+                  consignment['package_name']?.toString() ?? '-',
+                  bold: true),
+              infoRow(
+                'Value',
+                'TZS ${NumberFormat('#,##0').format(
+                  (consignment['package_value'] ?? 0).toInt(),
+                )}',
+              ),
+              infoRow(
+                'Paid',
+                'TZS ${NumberFormat('#,##0').format(
+                  (consignment['paid_amount'] ?? 0).toInt(),
+                )}',
+                bold: true,
+              ),
+
+              pw.SizedBox(height: 4),
+              dashedDivider(),
+              pw.SizedBox(height: 4),
+
+              // ── SENDER ──────────────────────────────────
+              sectionTitle('Sender'),
+              infoRow('Name', consignment['sender_name']?.toString() ?? '-',
+                  bold: true),
+              infoRow('Phone',
+                  consignment['sender_phone_number']?.toString() ?? '-'),
+
+              pw.SizedBox(height: 4),
+              dashedDivider(),
+              pw.SizedBox(height: 4),
+
+              // ── RECEIVER ────────────────────────────────
+              sectionTitle('Receiver'),
+              infoRow('Name', consignment['receiver_name']?.toString() ?? '-',
+                  bold: true),
+              infoRow('Phone',
+                  consignment['receiver_phone_number']?.toString() ?? '-'),
+
+              // ── ITEMS (only when > 1, as in original) ───
+              if (items.length > 1) ...[
+                pw.SizedBox(height: 4),
+                dashedDivider(),
+                pw.SizedBox(height: 4),
+                sectionTitle('Items'),
+                ...items.asMap().entries.map<pw.Widget>((entry) {
+                  final index = entry.key;
+                  final item = entry.value;
+                  final qty = (item['quantity'] ?? 1) as num;
+                  final unitValue = (item['value'] ?? 0) as num;
+                  final total = (unitValue * qty).toInt();
+
+                  return pw.Padding(
+                    padding: const pw.EdgeInsets.only(bottom: 4),
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          '${index + 1}. ${item['name'] ?? '-'}',
+                          style: pw.TextStyle(
+                            fontSize: 7.5,
+                            fontWeight: pw.FontWeight.bold,
+                            color: PdfColors.black,
+                          ),
+                        ),
+                        infoRow('Quantity', '$qty'),
+                        infoRow(
+                          'Total Value',
+                          'TZS ${NumberFormat('#,##0').format(total)}',
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+
+              pw.SizedBox(height: 4),
+              dashedDivider(),
+              pw.SizedBox(height: 4),
+
+              // ── ISSUED BY ───────────────────────────────
+              sectionTitle('Issued By'),
+              infoRow('Name', consignment['issued_by']?.toString() ?? '-'),
+              infoRow(
+                  'Phone', consignment['issuer_phone_number']?.toString() ?? '-'),
+              infoRow('Issued On', '$formattedDate · $formattedTime'),
+
+              pw.SizedBox(height: 8),
+
+              // ── QR ──────────────────────────────────────
+              pw.Center(
+                child: pw.Container(
+                  padding: const pw.EdgeInsets.all(6),
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border.all(color: PdfColors.grey300, width: 0.5),
+                    borderRadius: pw.BorderRadius.circular(4),
+                  ),
+                  child: pw.BarcodeWidget(
+                    barcode: pw.Barcode.qrCode(),
+                    data: data,
+                    width: 70,
+                    height: 70,
+                    color: PdfColors.black,
+                  ),
+                ),
+              ),
+
+              pw.SizedBox(height: 4),
+              pw.Center(
+                child: pw.Text(
+                  'Scan to verify receipt',
+                  style: pw.TextStyle(fontSize: 6.5, color: PdfColors.grey600),
+                ),
+              ),
+
+              pw.SizedBox(height: 8),
+              dashedDivider(),
+              pw.SizedBox(height: 8),
+
+              // ── FOOTER ──────────────────────────────────
+              pw.Center(
+                child: pw.Text(
+                  'Thank you for choosing',
+                  style: pw.TextStyle(fontSize: 7, color: PdfColors.grey700),
+                ),
+              ),
+              pw.SizedBox(height: 1),
               pw.Center(
                 child: pw.Text(
                   widget.companyName,
                   style: pw.TextStyle(
-                    fontSize: 10,
+                    fontSize: 9,
                     fontWeight: pw.FontWeight.bold,
+                    color: themeColor,
                   ),
                 ),
               ),
-
-              pw.SizedBox(height: 8),
-
-              pw.Center(
-                child: pw.Text(
-                  consignment['is_parcel'] ? 'PARCEL RECEIPT' : 'CONSIGNMENT RECEIPT',
-                  style: pw.TextStyle(
-                    fontSize: 8,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-              ),
-
-              pw.SizedBox(height: 5),
-
-              pw.Center(
-                child: pw.Text(
-                  "  Package No: ${consignment['package_id']}",
-                  style: pw.TextStyle(
-                    fontSize: 8,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-              ),
-
-              pw.SizedBox(height: 3),
-
-              _pdfRow('  Package Name', consignment['package_name']),
-
-              _pdfRow(
-                '  Package Value',
-                'TZS${NumberFormat('#,##0').format((consignment['package_value'] ?? 0).toInt())}',
-              ),
-
-              _pdfRow(
-                '  Paid Amount',
-                'TZS${NumberFormat('#,##0').format((consignment['paid_amount'] ?? 0).toInt())}',
-              ),
-
-              pw.Divider(),
-
-              pw.Text('  Route', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
-
-              _pdfRow('  From', consignment['from']),
-              _pdfRow('  To', consignment['to']),
-
-              pw.Divider(),
-
-              pw.Text('  Sender', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
-
-              _pdfRow('  Name', consignment['sender_name']),
-              _pdfRow('  Phone', consignment['sender_phone_number']),
-
-              pw.Divider(),
-
-              pw.Text('  Receiver', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
-
-              _pdfRow('  Name', consignment['receiver_name']),
-              _pdfRow('  Phone', consignment['receiver_phone_number']),
-
-              if (items.length > 1) ...[
-                pw.Divider(),
-                pw.Text('  Items', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
-                pw.SizedBox(height: 4),
-
-
-                ...items.asMap().entries.map<pw.Widget>((entry) {
-                  int index = entry.key;
-                  var item = entry.value;
-
-                  return pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Text(
-                        '  ${index + 1}. ${item['name']}',
-                        style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold),
-                      ),
-                      _pdfRow('    Quantity', '${item['quantity'] ?? 1}'),
-                      _pdfRow(
-                        '    Total Value',
-                        'TZS${NumberFormat('#,##0').format(((item['value'] ?? 0) * item['quantity']).toInt())}',
-                      ),
-                      pw.SizedBox(height: 4),
-                    ],
-                  );
-                }).toList(),
-              ],
-
-              pw.Divider(),
-
-              pw.Text('  Issued By', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
-
-              _pdfRow('  Name', consignment['issued_by']),
-              _pdfRow('  Phone', consignment['issuer_phone_number']),
-              _pdfRow('  Phone', consignment['issuer_phone_number']),
-
-              pw.Text(
-                "Date: ${formattedDateTime}", 
-                style: pw.TextStyle(fontSize: 8),
-              ),
-              
               pw.SizedBox(height: 6),
-
-              pw.Center( child: pw.BarcodeWidget( barcode: pw.Barcode.qrCode(), data: data, width: 60, height: 60, ),),
-
-              pw.SizedBox(height: 8),
-
-              pw.Center(
-                child: pw.Text(
-                  'Thank you',
-                  style: pw.TextStyle(fontSize: 10),
-                ),
-              ),
-
-              pw.SizedBox(height: 10),
-
               pw.Center(
                 child: pw.Text(
                   'Powered by Tiketi Mkononi',
-                  style: pw.TextStyle(fontSize: 8),
+                  style: pw.TextStyle(fontSize: 6.5, color: PdfColors.grey600),
                 ),
               ),
-                            
-              pw.SizedBox(height: 2),
-
+              pw.SizedBox(height: 1),
               pw.Center(
                 child: pw.Text(
-                  "Email:tiketimkononi@telabs.co.tz",
-                  style: pw.TextStyle(fontSize: 9),
+                  'tiketimkononi@telabs.co.tz',
+                  style: pw.TextStyle(fontSize: 6.5, color: PdfColors.grey600),
                 ),
               ),
-
               pw.SizedBox(height: 10),
-
             ],
           );
         },
@@ -2520,18 +2775,48 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
     // Save PDF
     final dir = await getTemporaryDirectory();
     final file = File(
-      consignment['is_parcel'] ? '${dir.path}/parcel_receipt.pdf' : '${dir.path}/consignment_receipt.pdf',
+      isParcel
+          ? '${dir.path}/parcel_${consignment['id']}.pdf'
+          : '${dir.path}/consignment_${consignment['id']}.pdf',
     );
-
     await file.writeAsBytes(await pdf.save());
 
     // Share PDF
     await Share.shareXFiles(
       [XFile(file.path)],
-      text: consignment['is_parcel'] ? 'Parcel Receipt' : 'Consignment Receipt',
+      text: isParcel
+          ? 'Parcel Receipt - ${consignment['package_id']}'
+          : 'Consignment Receipt - ${consignment['package_id']}',
     );
   }
-  
+
+  // ── Helper: route chip (same style as _shareTicket) ──
+  pw.Widget _receiptChip(String label, String value, PdfColor color) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+      decoration: pw.BoxDecoration(
+        color: PdfColors.white,
+        border: pw.Border.all(color: color, width: 0.6),
+        borderRadius: pw.BorderRadius.circular(3),
+      ),
+      child: pw.Column(
+        children: [
+          pw.Text(label,
+              style: pw.TextStyle(
+                  fontSize: 5.5,
+                  color: PdfColors.grey700,
+                  letterSpacing: 0.8)),
+          pw.SizedBox(height: 1),
+          pw.Text(value,
+              style: pw.TextStyle(
+                  fontSize: 7.5,
+                  fontWeight: pw.FontWeight.bold,
+                  color: color)),
+        ],
+      ),
+    );
+  }
+
   pw.Widget _pdfRow(String label, String? value) {
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(vertical: 1),
@@ -2559,6 +2844,15 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
   Widget _buildDetailsPanel() {
     final consignment = _selectedConsignment;
     if (consignment == null) return const SizedBox();
+
+    DateTime? consignmentDate =
+        DateTime.tryParse(consignment['createdAt']?.toString() ?? '');
+    final formattedDate = consignmentDate != null
+        ? DateFormat('EEE, d MMM y').format(consignmentDate)
+        : '-';
+    final formattedTime = consignmentDate != null
+        ? DateFormat('hh:mm a').format(consignmentDate)
+        : '-';
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.7,
@@ -2739,6 +3033,8 @@ class _ConsignmentsPageState extends State<ConsignmentsPage> {
                           _launchPhoneCall(consignment['issuer_phone_number']);
                         }
                       ),
+
+                      _buildDetailRow('Issued On', '$formattedDate · $formattedTime'),
                     ],
                   ),
                 ],

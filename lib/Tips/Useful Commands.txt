@@ -4,6 +4,9 @@
 *** APP LOCALIZATION GENERATE COMMANDS ***
 flutter gen-l10n
 
+*** ANDROID COMMANDS ***
+
+flutter build appbundle --release
 
 
 *** WEB COMMANDS ***

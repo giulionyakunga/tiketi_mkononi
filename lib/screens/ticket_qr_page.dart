@@ -464,6 +464,8 @@ class _TicketQRPageState extends ConsumerState<TicketQRPage>  with WidgetsBindin
     );
     _loadPrefs();
 
+    contactName = widget.ticket.userPhoneNumber;
+
     scanStatus2 = widget.ticket.scanStatus;
     scannedAt = widget.ticket.updatedAt;
     isWhatsappSent = widget.ticket.whatsappSent;

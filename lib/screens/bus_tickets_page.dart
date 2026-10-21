@@ -13,9 +13,10 @@ import 'package:tiketi_mkononi/widgets/bus_ticket_card.dart';
 class BusTicketsPage extends StatefulWidget {
   final int userId;
   final BusRoute busRoute;
+  final String companyName;
   final Function(BusTicket, {bool isDuplicate}) printTickets;
   
-  const BusTicketsPage({super.key, required this.userId, required this.busRoute, required this.printTickets});
+  const BusTicketsPage({super.key, required this.userId, required this.busRoute, required this.companyName, required this.printTickets});
 
   @override
   State<BusTicketsPage> createState() => _BusTicketsPageState();
@@ -301,6 +302,7 @@ class _BusTicketsPageState extends State<BusTicketsPage> with WidgetsBindingObse
             return BusTicketCard(
               ticket: tickets[index],
               busRoute: widget.busRoute,
+              companyName: widget.companyName,
               printTickets: widget.printTickets,
               isCancelled: isCancelled,
             );
@@ -318,6 +320,7 @@ class _BusTicketsPageState extends State<BusTicketsPage> with WidgetsBindingObse
             child: BusTicketCard(
               ticket: tickets[index],
               busRoute: widget.busRoute,
+              companyName: widget.companyName,
               printTickets: widget.printTickets,
               isCancelled: isCancelled,
             ),

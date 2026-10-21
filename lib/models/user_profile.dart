@@ -49,6 +49,21 @@ class UserProfile {
     required this.updatedAt,
   });
 
+  // ── Safe coercion helpers ─────────────────────────────
+  static String _s(dynamic v, [String fallback = '']) =>
+      v == null ? fallback : v.toString();
+
+  static int _i(dynamic v, [int fallback = 0]) {
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return int.tryParse(v?.toString() ?? '') ?? fallback;
+  }
+
+  static DateTime? _d(dynamic v) {
+    if (v == null) return null;
+    return DateTime.tryParse(v.toString());
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -72,62 +87,66 @@ class UserProfile {
       'street': street,
       'token': token,
       'imageUrl': imageUrl,
+      'createdAt': createdAt?.toIso8601String(),
+      'updatedAt': updatedAt?.toIso8601String(),
     };
   }
 
+  /// Handles the *camelCase* shape produced by [toJson] / local storage.
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
-      id: json['id'] as int,
-      companyId: (json['company_id'] ?? 0) as int,
-      companyName: (json['companyName'] ?? '') as String,
-      officeId: (json['office_id'] ?? 0) as int,
-      shopId: (json['shop_id'] ?? 0) as int,
-      shopName: (json['shop_name'] ?? '') as String,
-      paidSms: (json['paid_sms'] ?? 0) as int,
-      firstName: json['firstName'] as String,
-      middleName: json['middleName'] as String,
-      lastName: json['lastName'] as String,
-      email: json['email'] as String,
-      phoneNumber: json['phoneNumber'] as String,
-      tin: json['tin'] ?? '',
-      password: json['password'] ?? '',
-      role: json['role'] as String,
-      region: json['region'] as String,
-      district: json['district'] as String,
-      ward: json['ward'] as String,
-      street: json['street'] as String,
-      token: json['token'] ?? '',
-      imageUrl: json['imageUrl'] as String?,
-      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
-      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
+      id: _i(json['id']),
+      companyId: _i(json['company_id'] ?? json['companyId']),
+      companyName: _s(json['companyName'] ?? json['company_name']),
+      officeId: _i(json['office_id'] ?? json['officeId']),
+      shopId: _i(json['shop_id'] ?? json['shopId']),
+      shopName: _s(json['shop_name'] ?? json['shopName']),
+      paidSms: _i(json['paid_sms'] ?? json['paidSms']),
+      firstName: _s(json['firstName'] ?? json['first_name']),
+      middleName: _s(json['middleName'] ?? json['middle_name']),
+      lastName: _s(json['lastName'] ?? json['last_name']),
+      email: _s(json['email']),
+      phoneNumber: _s(json['phoneNumber'] ?? json['phone_number']),
+      tin: _s(json['tin']),
+      password: _s(json['password']),
+      role: _s(json['role']),
+      region: _s(json['region']),
+      district: _s(json['district']),
+      ward: _s(json['ward']),
+      street: _s(json['street']),
+      token: _s(json['token']),
+      imageUrl: json['imageUrl'] != null ? _s(json['imageUrl']) : null,
+      createdAt: _d(json['createdAt'] ?? json['created_at']),
+      updatedAt: _d(json['updatedAt'] ?? json['updated_at']),
     );
   }
 
+  /// Handles the *snake_case* shape returned by your API login/profile endpoint.
   factory UserProfile.fromJson2(Map<String, dynamic> json) {
     return UserProfile(
-      id: json['id'] as int,
-      companyId: (json['company_id'] ?? 0) as int,
-      companyName: (json['companyName'] ?? '') as String,
-      officeId: (json['office_id'] ?? 0) as int,
-      shopId: (json['shop_id'] ?? 0) as int,
-      shopName: (json['shop_ame'] ?? '') as String,
-      paidSms: (json['paid_sms'] ?? 0) as int,
-      firstName: json['first_name'] as String,
-      middleName: json['middle_name'] as String,
-      lastName: json['last_name'] as String,
-      email: json['email'] as String,
-      phoneNumber: json['phone_number'] as String,
-      tin: json['tin'] as String,
-      password: json['password'] as String,
-      role: json['role'] as String,
-      region: json['region'] as String,
-      district: json['district'] as String,
-      ward: json['ward'] as String,
-      street: json['street'] as String,
-      token: json['token'] ?? '',
-      imageUrl: json['imageUrl'] ?? '',
-      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
-      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
+      id: _i(json['id']),
+      companyId: _i(json['company_id']),
+      companyName: _s(json['company_name']),
+      officeId: _i(json['office_id']),
+      shopId: _i(json['shop_id']),
+      shopName: _s(json['shop_name']),
+      paidSms: _i(json['paid_sms']),
+      firstName: _s(json['first_name']),
+      middleName: _s(json['middle_name']),
+      lastName: _s(json['last_name']),
+      email: _s(json['email']),
+      phoneNumber: _s(json['phone_number']),
+      tin: _s(json['tin']),                        // ← null-safe now
+      password: _s(json['password']),
+      role: _s(json['role']),
+      region: _s(json['region']),
+      district: _s(json['district']),
+      ward: _s(json['ward']),
+      street: _s(json['street']),
+      token: _s(json['token']),
+      imageUrl: json['image_url'] != null ? _s(json['image_url']) : null,
+      createdAt: _d(json['createdAt'] ?? json['created_at']),
+      updatedAt: _d(json['updatedAt'] ?? json['updated_at']),
     );
   }
 }
