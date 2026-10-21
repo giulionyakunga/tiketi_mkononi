@@ -935,7 +935,7 @@ class _SendReminderMessagesPageState extends State<SendReminderMessagesPage> wit
                   return 'Recipient phone number can\'t exceed 15 characters';
                 }
 
-                final regex = RegExp(r'^(0\d{9}|255\d{9})$');
+                final regex = RegExp(r'^(0\d{9}|255\d{9}|075\d{7}|076\d{7})$');
 
                 if (!regex.hasMatch(phone)) {
                   return 'Invalid number format. Use 0XXXXXXXXX or 255XXXXXXXXX';

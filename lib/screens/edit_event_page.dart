@@ -2150,16 +2150,21 @@ class _EditEventPageState extends State<EditEventPage> {
                     return 'Please enter organizer\'s phone number';
                   }
 
-                  final phone = value.trim();
+                  final phoneNumbers = value
+                      .split('/')
+                      .map((phone) => phone.trim())
+                      .toList();
 
-                  if (phone.length > 32) {
+                  if (value.trim().length > 32) {
                     return 'Phone number cannot exceed 32 characters';
                   }
 
                   final regex = RegExp(r'^(0\d{9}|255\d{9})$');
 
-                  if (!regex.hasMatch(phone)) {
-                    return 'Invalid number format. Use 0XXXXXXXXX or 255XXXXXXXXX';
+                  for (final phone in phoneNumbers) {
+                    if (!regex.hasMatch(phone)) {
+                      return 'Invalid number format. Use 0XXXXXXXXX or 255XXXXXXXXX';
+                    }
                   }
 
                   return null;
