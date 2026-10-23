@@ -495,7 +495,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               return null;
             }
 
-            final tin = value.trim();
+            final tin = value.trim().replaceAll('-', '');
 
             if (tin.length > 10) {
               return 'TIN number cannot exceed 10 characters';
@@ -742,7 +742,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               return null;
             }
 
-            final tin = value.trim();
+            final tin = value.trim().replaceAll('-', '');
 
             if (tin.length > 10) {
               return 'TIN number cannot exceed 10 characters';
