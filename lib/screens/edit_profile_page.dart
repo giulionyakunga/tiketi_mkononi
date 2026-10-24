@@ -138,6 +138,23 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
     setState(() => _isLoading = true);
 
+    String tin = _tinNumberController.text.trim();
+
+    if (tin.trim().isNotEmpty) {
+      // Remove all hyphens and whitespace
+      tin = tin.replaceAll(RegExp(r'[-\s]'), '');
+
+      // Format a 9-digit TIN as 123-456-789
+      if (RegExp(r'^\d{9}$').hasMatch(tin)) {
+        tin = tin.replaceFirst(
+          RegExp(r'^(\d{3})(\d{3})(\d{3})$'),
+          r'$1-$2-$3',
+        );
+      }
+    }
+
+    debugPrint("Saving profile with TIN: $tin");
+
     try {
       final profile = UserProfile(
         id: userId,
@@ -152,7 +169,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         lastName: _lastNameController.text.trim(),
         email: _emailController.text.trim(),
         phoneNumber: _phoneNumberController.text.trim(),
-        tin: _tinNumberController.text.trim(),
+        tin: tin,
         password: '',
         role: role,
         region: _regionController.text.trim(),
